@@ -53,13 +53,42 @@ async function loadRoads(dist) {
   const key = roadKey(dist);
   if (D.roads.has(key)) return D.roads.get(key);
   const avail = D.county ? D.county.roads || [] : D.tw ? [] : D.meta.road_districts;
-  if (!avail.includes(dist)) { D.roads.set(key, null); return null; }
+  if (!avail.includes(dist)) {
+    // 全台版：這一區的道路還沒預先整理好（每次自動更新會補一些）→ 直接在這台裝置向 OpenStreetMap 查一次，存起來下次用
+    if (!D.county || !D.dmap[dist]) { D.roads.set(key, null); return null; }
+    const p = fetchRoadsOsm(D.county, dist).catch(e => { logError(`下載${dist}道路位置（OpenStreetMap）`, e, true); return null; });
+    D.roads.set(key, p);
+    const data = await p;
+    D.roads.set(key, data);
+    return data;
+  }
   const path = D.county ? `data/tw/${D.county.code}/roads/` : "data/roads/";
   const p = getJSON(path + encodeURIComponent(dist) + ".json").catch(() => null);
   D.roads.set(key, p);
   const data = await p;
   D.roads.set(key, data);
   return data;
+}
+async function fetchRoadsOsm(county, dist) {
+  const cacheKey = `https://cache.local/roads/${county.code}/${encodeURIComponent(dist)}.json`;
+  let cache = null;
+  try { cache = await caches.open("dth-roads-osm-v1"); const hit = await cache.match(cacheKey); if (hit) return await hit.json(); } catch { cache = null; }
+  toast(`第一次看${dist}：正在從 OpenStreetMap 下載道路位置（約 10～40 秒）…`, 8000);
+  const q = L.roadsQuery(county.name, dist);
+  let last = null;
+  for (const url of OVERPASS) {
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 70000);
+    try {
+      const r = await fetch(url, { method: "POST", body: "data=" + encodeURIComponent(q), signal: ctl.signal,
+                                   headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const data = L.reduceRoads(await r.json());
+      if (!Object.keys(data.roads).length) throw new Error("沒有抓到任何道路");
+      if (cache) cache.put(cacheKey, new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } })).catch(() => {});
+      return data;
+    } catch (e) { last = e; } finally { clearTimeout(timer); }
+  }
+  throw last || new Error("查詢失敗");
 }
 const roadsNow = dist => { const v = D.roads.get(roadKey(dist)); return v && !(v instanceof Promise) ? v : null; };
 const isNation = () => !!D.tw && !D.county;
@@ -69,6 +98,39 @@ function toast(msg, ms = 4200) {
   const t = $("#toast");
   t.textContent = msg; t.hidden = false;
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, ms);
+}
+
+// ------------------------------------------------------------------ 錯誤紀錄（存在這台裝置；「☰ → 問題回報」可以一鍵到 GitHub 回報）
+// 網站沒有自己的伺服器，不能偷偷把錯誤送到別處；改成記在手機上，使用者按一下就帶著內容開 GitHub Issue（需要登入 GitHub）
+const ERR_KEY = "dth_errors", APP_VER = "2026-10-03b";
+function loadErrors() { try { return JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); } catch { return []; } }
+function logError(where, err, quiet = false) {
+  const e = { t: new Date().toLocaleString("sv-SE").slice(0, 19), where, msg: String((err && err.message) || err || "").slice(0, 300),
+              stack: String((err && err.stack) || "").split("\n").slice(0, 4).join(" | ").slice(0, 400),
+              at: (D.county ? D.county.short : "") + (S.current || ""), ver: APP_VER };
+  try { const a = loadErrors(); a.push(e); localStorage.setItem(ERR_KEY, JSON.stringify(a.slice(-30))); } catch { /* 存不下就算了 */ }
+  if (!quiet && typeof document !== "undefined") { const b = $("#btn-menu"); if (b) b.classList.add("has-err"); }
+  console.warn("[錯誤紀錄]", where, e.msg);
+}
+window.addEventListener("error", ev => logError("頁面錯誤", ev.error || ev.message));
+window.addEventListener("unhandledrejection", ev => logError("非同步錯誤", ev.reason));
+function repoInfo() {
+  // 網址是 <帳號>.github.io/<專案>/ 就回報到那個專案；其他網址（本機測試）用預設
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/), path = location.pathname.split("/").filter(Boolean)[0];
+  return m && path ? `${m[1]}/${path}` : "bkhotey4/housepriceanalysis";
+}
+function errorReport() {
+  const errs = loadErrors().slice(-10), st = D.status;
+  return [`**網址**：${location.href}`, `**版本**：${APP_VER}　**瀏覽器**：${navigator.userAgent}`,
+    st ? `**資料更新**：${st.time}　${st.ok ? "成功" : "失敗：" + (st.failed || []).join("、")}` : "",
+    "", "**最近的錯誤**", "```", ...errs.map(e => `${e.t}｜${e.where}｜${e.at}｜${e.msg}${e.stack ? "｜" + e.stack : ""}`), "```",
+    "", "**我在做什麼時發生的（請補充）**：", ""].join("\n");
+}
+function reportOnGitHub() {
+  let body = errorReport();
+  if (body.length > 6000) body = body.slice(0, 6000) + "\n…（太長，已截斷）";
+  const url = `https://github.com/${repoInfo()}/issues/new?labels=${encodeURIComponent("使用者回報")}&title=${encodeURIComponent("問題回報：" + ((loadErrors().slice(-1)[0] || {}).where || "網頁"))}&body=${encodeURIComponent(body)}`;
+  window.open(url, "_blank", "noopener");
 }
 
 // ------------------------------------------------------------------ 地圖上的東西
@@ -130,9 +192,15 @@ function renderLegend() {
   el.innerHTML = html;
   el.hidden = false;
 }
+// 地圖上要畫哪些建設、地標：台南版只有台南；全台版進到縣市只畫那個縣市，全台首頁只畫最重要的
+const countyOf = it => it.county || "D";
+function inScope(it, important) {
+  if (!D.tw) return countyOf(it) === "D";
+  return D.county ? countyOf(it) === D.county.code : important;
+}
 function projectItems() {
   if (!S.settings.projects) return [];
-  return D.intel.filter(it => it.build && it.lat != null && (it.impact_level || 0) >= 3).map(it => {
+  return D.intel.filter(it => it.build && it.lat != null && (it.impact_level || 0) >= 3 && inScope(it, (it.impact_level || 0) >= 5)).map(it => {
     const b = it.build, state = L.buildState(b, S.year), short = it.name.split("（")[0].split("—")[0].slice(0, 14);
     const when = b.done && b.done > S.year && state !== "完工" ? `預計 ${b.done} 完工` : "";
     const lvl = it.impact_level || 2;
@@ -141,9 +209,9 @@ function projectItems() {
   });
 }
 function refreshModels() {
-  const lms = S.settings.landmarks ? D.landmarks.map(l => ({ ...l, label: l.name })) : [];
+  const lms = S.settings.landmarks ? D.landmarks.filter(l => inScope(l, l.rank === 1)).map(l => ({ ...l, label: l.name })) : [];
   view.models = lms.concat(projectItems());
-  view.markers = !S.settings.markers ? [] : D.intel.filter(it => it.lat != null && (it.impact_level || 0) >= 3 && !(it.build && S.settings.projects))
+  view.markers = !S.settings.markers ? [] : D.intel.filter(it => it.lat != null && (it.impact_level || 0) >= 3 && !(it.build && S.settings.projects) && inScope(it, false))
     .map(it => ({ id: it.id, lat: it.lat, lng: it.lng, color: MARKER_COLOR[it.type] || "#6b7178", level: it.impact_level || 2,
                   label: it.name.split("（")[0].split("—")[0].slice(0, 16) }));
   renderLegend();
@@ -337,7 +405,7 @@ async function showPoi(lat, lng, label) {
     S.poi.res = L.classifyPois(els, lat, lng); S.poi.status = "ok";
   } catch (e) {
     if (!S.poi || S.poi.lat !== lat) return;
-    S.poi.status = "error"; S.poi.err = e.message;
+    S.poi.status = "error"; S.poi.err = e.message; logError("周邊查詢（OpenStreetMap）", e, true);
   }
   refreshPois();
   if (S.tab === "poi") renderPanel();
@@ -373,7 +441,7 @@ function reportDialog() {
       q: S.addr && S.addr.district === S.current ? S.addr : null,
       point: S.pin ? [S.pin.lat, S.pin.lng] : [D.dmap[S.current].lat, D.dmap[S.current].lng],
       agent: { ...agent, client: f.get("client").trim(), note: f.get("note").trim() },
-      work: workPlace(), mode: S.settings.mode, poi: S.poi && S.poi.status === "ok" ? S.poi : null, meta: D.meta });
+      county: D.county ? D.county.code : "D", work: workPlace(), mode: S.settings.mode, poi: S.poi && S.poi.status === "ok" ? S.poi : null, meta: D.meta });
     const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
     const w = window.open(url, "_blank");
     if (!w) { const link = document.createElement("a"); link.href = url; link.download = `${where}_行情報告.html`; link.click(); toast("瀏覽器擋住新視窗，已改成下載報告檔。"); }
@@ -503,9 +571,19 @@ function tabOverview() {
   }
   return h;
 }
+// 上班地點選單：依縣市分組，目前看的縣市排最前面
+function workplaceOptions(sel) {
+  const groups = new Map();
+  for (const w of D.workplaces) { const c = countyOf(w); if (!groups.has(c)) groups.set(c, []); groups.get(c).push(w); }
+  const order = [...groups.keys()].sort((a, b) => (D.county && a === D.county.code ? -1 : 0) - (D.county && b === D.county.code ? -1 : 0)
+    || L.COUNTIES.findIndex(c => c.code === a) - L.COUNTIES.findIndex(c => c.code === b));
+  const opt = w => `<option${w.name === sel ? " selected" : ""}>${esc(w.name)}</option>`;
+  if (!D.tw) return (groups.get("D") || []).map(opt).join("");
+  return order.map(c => `<optgroup label="${esc((L.COUNTIES.find(x => x.code === c) || {}).short || c)}">${groups.get(c).map(opt).join("")}</optgroup>`).join("");
+}
 function tabCommute() {
   const s = S.settings, w = workPlace(), lim = commuteLimit() || 20;
-  const opts = D.workplaces.map(x => `<option${x.name === s.work ? " selected" : ""}>${esc(x.name)}</option>`).join("") +
+  const opts = workplaceOptions(s.work) +
     (s.workPt ? `<option value="__custom"${s.work === "__custom" ? " selected" : ""}>自訂地點</option>` : "");
   let h = `<div class="row"><span>上班地點 A</span><select data-set="work"><option value="">（請選擇）</option>${opts}</select></div>
     <div class="row"><button class="btn small" data-act="work-pick">在地圖上點選 A</button>
@@ -643,7 +721,7 @@ function tabTx() {
 }
 function stateClass(s) { return s === "完工" ? "done" : s === "施工中" ? "build" : "plan"; }
 function tabProjects() {
-  const items = D.intel.filter(it => it.build && it.lat != null && (S.current === L.CITY || (it.district || "").includes(S.current)));
+  const items = D.intel.filter(it => it.build && it.lat != null && inScope(it, true) && (S.current === L.CITY || (it.district || "").includes(S.current)));
   const yMin = new Date().getFullYear();
   let h = `<div class="year"><span>建設年份</span><input type="range" id="year" min="${yMin}" max="${yMin + 9}" value="${S.year}"><b id="year-v">${S.year} 年</b></div>`;
   h += `<p class="muted">拉到未來的年份，看那時候哪些建設完工。年份依報導與官方說法整理，常會延後。</p>`;
@@ -772,14 +850,28 @@ function renderMenu() {
     <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option></select></div>
     <h3>篩選</h3>
     <div class="row"><span>總價預算</span><input type="text" inputmode="decimal" data-set="budget" value="${esc(s.budget)}" placeholder="萬，例 1500"></div>
-    <div class="row"><span>上班地點</span><select data-set="work"><option value="">（不設定）</option>${D.workplaces.map(w => `<option${w.name === s.work ? " selected" : ""}>${esc(w.name)}</option>`).join("")}${s.workPt ? `<option value="__custom"${s.work === "__custom" ? " selected" : ""}>自訂地點</option>` : ""}</select></div>
+    <div class="row"><span>上班地點</span><select data-set="work"><option value="">（不設定）</option>${workplaceOptions(s.work)}${s.workPt ? `<option value="__custom"${s.work === "__custom" ? " selected" : ""}>自訂地點</option>` : ""}</select></div>
     <div class="row"><span>通勤上限</span><input type="text" inputmode="numeric" data-set="commuteMin" value="${esc(s.commuteMin)}"> <span>分鐘（${modeName()}）</span></div>
     <p class="muted">不符合預算或通勤範圍的行政區，柱子會縮成灰色小方塊。</p>
     <h3>資料</h3><p class="muted">${esc(D.meta.describe)}；成交 ${L.fmtNum(D.meta.tx_count)} 筆；整理於 ${esc(D.meta.built)}。<br>
     房價：內政部實價登錄開放資料。道路位置：© OpenStreetMap 貢獻者。影像與行政區界：內政部國土測繪中心。
     土壤液化：經濟部地質調查及礦業管理中心。重大建設整理自新聞與官方公告。統計值為中位數，僅供看屋參考，不構成投資或購屋建議。</p>
     <p class="muted">這個網頁的所有計算都在你的裝置上完成；設定與看屋清單只存在這台裝置的瀏覽器裡。<br>
-    手機瀏覽器選單裡的「加到主畫面」，之後可以像 App 一樣開啟。</p>`;
+    手機瀏覽器選單裡的「加到主畫面」，之後可以像 App 一樣開啟。</p>
+    ${problemSection()}`;
+  $("#btn-menu").classList.remove("has-err");
+}
+function problemSection() {
+  const errs = loadErrors(), st = D.status;
+  let h = `<h3 id="problems">問題回報</h3>`;
+  if (st) h += `<p class="muted">資料自動更新：${esc(st.time)}　${st.ok ? "✓ 正常" : `<b class="up">有步驟失敗：${esc((st.failed || []).join("、"))}</b>（已自動通知維護者）`}</p>`;
+  h += errs.length ? `<p class="muted">這台裝置記錄到 ${errs.length} 筆錯誤，最近的：</p>` +
+      errs.slice(-3).reverse().map(e => `<p class="muted">· ${esc(e.t.slice(5, 16))} ${esc(e.where)}：${esc(e.msg.slice(0, 80))}</p>`).join("")
+    : `<p class="muted">這台裝置沒有記錄到錯誤。</p>`;
+  h += `<div class="row"><button class="btn small primary" data-act="err-report">到 GitHub 回報</button><button class="btn small" data-act="err-copy">複製錯誤內容</button>` +
+    (errs.length ? `<button class="btn small" data-act="err-clear">清除紀錄</button>` : "") + `</div>` +
+    `<p class="muted">按「到 GitHub 回報」會開一張已經填好錯誤內容的回報單（要登入 GitHub 才能送出）；沒有帳號的話，按「複製錯誤內容」貼給維護者就好。</p>`;
+  return h;
 }
 function onSetting(el) {
   const k = el.dataset.set, v = el.type === "checkbox" ? el.checked : el.value;
@@ -865,7 +957,13 @@ function bindUI() {
   $("#btn-nation").addEventListener("click", () => enterNation());
   $("#search").addEventListener("submit", e => { e.preventDefault(); $("#q").blur(); search($("#q").value); });
   $("#btn-menu").addEventListener("click", () => { renderMenu(); $("#menu").hidden = !$("#menu").hidden; });
-  $("#menu").addEventListener("click", e => { if (e.target.closest("[data-close]")) $("#menu").hidden = true; });
+  $("#menu").addEventListener("click", e => {
+    if (e.target.closest("[data-close]")) { $("#menu").hidden = true; return; }
+    const act = e.target.closest("[data-act]")?.dataset.act;
+    if (act === "err-report") reportOnGitHub();
+    if (act === "err-copy") { (navigator.clipboard ? navigator.clipboard.writeText(errorReport()) : Promise.reject()).then(() => toast("已複製錯誤內容"), () => toast("這個瀏覽器不能自動複製，請改用「到 GitHub 回報」。")); }
+    if (act === "err-clear") { try { localStorage.removeItem(ERR_KEY); } catch { /* 無妨 */ } renderMenu(); }
+  });
   $("#menu").addEventListener("change", e => { if (e.target.dataset.set) onSetting(e.target); });
   $("#tabs").addEventListener("click", e => {
     const b = e.target.closest("button[data-tab]"); if (!b) return;
@@ -992,7 +1090,7 @@ async function enterCounty(code, fly = true) {
   const base = `data/tw/${code}/`;
   let book, dd;
   try { [book, dd] = await Promise.all([getJSON(base + "book.json"), getJSON(base + "districts.json")]); }
-  catch (e) { toast(`${c.short}的資料載入失敗，請檢查網路後再試。`); return false; }
+  catch (e) { logError(`載入${c.short}資料`, e); toast(`${c.short}的資料載入失敗，請檢查網路後再試。`); return false; }
   D.county = c;
   L.setCity(c.short, c.short);
   D.book = new L.Book(book);
@@ -1000,7 +1098,7 @@ async function enterCounty(code, fly = true) {
   D.meta = { ...D.tw, describe: D.tw.describe, tx_count: c.tx_count || 0, road_districts: c.roads || [] };
   D.txs = null;
   D.txPromise = getJSON(base + "tx.json").then(raw => { if (D.county === c) { D.txs = L.decodeTx(raw); refreshRoads(); renderPanel(); } })
-    .catch(() => toast("成交資料載入失敗，請檢查網路後重新整理。"));
+    .catch(e => { logError("載入成交資料", e); toast("成交資料載入失敗，請檢查網路後重新整理。"); });
   S.current = L.CITY; resetSelection();
   view.setExtent(extentOf(D.districts));
   S.settings.lastCounty = code; saveStore();
@@ -1048,10 +1146,11 @@ async function main() {
     refreshAll();
     // 逐筆成交比較大（壓縮後約 0.6MB），畫面先出來再載入
     D.txPromise = getJSON("data/tx.json").then(raw => { D.txs = L.decodeTx(raw); refreshRoads(); renderPanel(); })
-      .catch(() => toast("成交資料載入失敗，請檢查網路後重新整理。"));
+      .catch(e => { logError("載入成交資料", e); toast("成交資料載入失敗，請檢查網路後重新整理。"); });
   }
   if (params.get("q")) { $("#q").value = params.get("q"); const wait = () => (D.tw || D.txs) ? search(params.get("q")) : setTimeout(wait, 200); wait(); }
+  getJSON("data/status.json").then(st => { D.status = st; if (!st.ok) $("#btn-menu").classList.add("has-err"); }).catch(() => {});
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
-  window.__app = { S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation };   // 測試用
+  window.__app = { S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation, logError };   // 測試用
 }
-main().catch(err => { document.body.insertAdjacentHTML("beforeend", `<div class="note" style="position:fixed;top:60px;left:10px;right:10px;z-index:99">載入失敗：${esc(err.message)}</div>`); });
+main().catch(err => { logError("啟動", err); document.body.insertAdjacentHTML("beforeend", `<div class="note" style="position:fixed;top:60px;left:10px;right:10px;z-index:99">載入失敗：${esc(err.message)}</div>`); });

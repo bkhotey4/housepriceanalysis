@@ -99,7 +99,7 @@ def export_static():
                       "segments": [[c for p in s["points"] for c in p] for s in d["segments"]],
                       "stations": [list(s) for s in d["stations"]], "sources": d["sources"][:3]})
     _dump("mrt.json", {"as_of": AS_OF, "lines": lines})
-    _dump("landmarks.json", landmarks.load())
+    _dump("landmarks.json", landmarks.load(county=None))
     models = {}
     for name in landmarks.MODELS:
         models[name] = [[[round(c, 3) for p in pts for c in p], color, [round(v, 4) for v in n]]

@@ -127,3 +127,5 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
 #tab-body a { color: var(--accent-2); }
 .links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 10px; }
 .links .btn { text-decoration: none; color: var(--accent-2); }
+#btn-menu.has-err { position: relative; }
+#btn-menu.has-err::after { content: ""; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: #ff6b6b; }

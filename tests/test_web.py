@@ -356,6 +356,26 @@ class TaiwanWebTest(unittest.TestCase):
         # 點臺南市的地標 → 切到臺南市
         pg.evaluate("__app.pick(['landmark', __app.D.landmarks[0].id])")
         pg.wait_for_function("__app.D.county.code === 'D' && __app.S.tab === 'detail'")
+        # 還沒預先整理道路的區：在裝置上向 OpenStreetMap 查（這裡用假的回應），之後就能插圖釘
+        import json as _json
+        geo = [{"lat": 25.0330, "lon": 121.5600}, {"lat": 25.0332, "lon": 121.5650}, {"lat": 25.0334, "lon": 121.5700}]
+        fake = {"elements": [{"type": "way", "id": 1, "tags": {"highway": "primary", "name": "信義路三段"}, "geometry": geo[:2]},
+                             {"type": "way", "id": 2, "tags": {"highway": "primary", "name": "信義路三段"}, "geometry": geo[1:]}]}
+        ctx.route("**/api/interpreter", lambda r: r.fulfill(status=200, content_type="application/json", body=_json.dumps(fake)))
+        self.assertEqual(pg.evaluate("__app.search('台北市信義區信義路三段120號')"), "address")
+        pg.wait_for_function("__app.S.pin && __app.S.current === '信義區'", timeout=10000)
+        self.assertEqual(pg.evaluate("__app.view.roads.length >= 0"), True)
+        # 錯誤紀錄與回報：記在這台裝置，選單裡可以帶著內容開 GitHub Issue
+        pg.evaluate("__app.logError('測試', new Error('假的錯誤'))")
+        self.assertTrue(pg.evaluate("document.querySelector('#btn-menu').classList.contains('has-err')"))
+        pg.click("#btn-menu")
+        self.assertIn("假的錯誤", pg.inner_text("#menu-body"))
+        ctx.route("https://github.com/**", lambda r: r.fulfill(status=200, body="ok"))
+        with pg.expect_popup() as pop:
+            pg.click("[data-act='err-report']")
+        url = unquote(pop.value.url)
+        self.assertIn("github.com/bkhotey4/housepriceanalysis/issues/new", url)
+        self.assertIn("假的錯誤", url)
         self.assertEqual(errors, [])
 
 

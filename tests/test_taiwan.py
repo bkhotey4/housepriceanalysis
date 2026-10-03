@@ -120,5 +120,54 @@ class TownListTest(unittest.TestCase):
         self.assertTrue([t for t in out if t["name"] == "卑南鄉"][0]["approx"])
 
 
+
+class ErrorLogTest(unittest.TestCase):
+    def test_desktop_errlog(self):
+        from core import errlog
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        old = errlog.LOG_DIR, errlog.LOG_PATH
+        errlog.LOG_DIR, errlog.LOG_PATH = tmp, os.path.join(tmp, "app_errors.log")
+        try:
+            try:
+                1 / 0
+            except ZeroDivisionError:
+                errlog.write("測試")
+        finally:
+            path = errlog.LOG_PATH
+            errlog.LOG_DIR, errlog.LOG_PATH = old
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("測試", text)
+        self.assertIn("ZeroDivisionError", text)
+
+    def test_ci_report(self):
+        import subprocess
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        shutil.copytree(os.path.join(ROOT, "tools"), os.path.join(tmp, "tools"))
+        os.makedirs(os.path.join(tmp, "logs", "ci", "raw"))
+        with open(os.path.join(tmp, "logs", "ci", "steps.tsv"), "w", encoding="utf-8") as f:
+            f.write("plvr\t全台實價登錄\t1\t12\t0\ncheck\t資料檢查\t0\t1\t1\n")
+        with open(os.path.join(tmp, "logs", "ci", "raw", "plvr.log"), "w", encoding="utf-8") as f:
+            f.write("下載季檔…\nDownloadError: 找不到任何可下載的季檔\n")
+        env = dict(os.environ)
+        env.pop("GH_TOKEN", None)
+        r = subprocess.run([sys.executable, os.path.join(tmp, "tools", "ci_report.py"), "schedule"], capture_output=True, text=True, env=env)
+        self.assertEqual(r.returncode, 0)                 # 非必要步驟失敗：照樣部署
+        with open(os.path.join(tmp, "web", "data", "status.json"), encoding="utf-8") as f:
+            st = __import__("json").load(f)
+        self.assertFalse(st["ok"])
+        self.assertEqual(st["failed"], ["全台實價登錄"])
+        with open(os.path.join(tmp, "logs", "ci", "latest.md"), encoding="utf-8") as f:
+            md = f.read()
+        self.assertIn("找不到任何可下載的季檔", md)
+        # 必要步驟失敗：結束代碼 1（這次不部署）
+        with open(os.path.join(tmp, "logs", "ci", "steps.tsv"), "w", encoding="utf-8") as f:
+            f.write("check\t資料檢查\t1\t1\t1\n")
+        r = subprocess.run([sys.executable, os.path.join(tmp, "tools", "ci_report.py"), "push"], capture_output=True, text=True, env=env)
+        self.assertEqual(r.returncode, 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -30,3 +30,9 @@ web/data/tw/book.json
 web/data/tw/*/book.json
 web/data/tw/*/tx.json
 web/data/tw/*/districts.json
+
+# 錯誤紀錄：桌面版的留在本機；GitHub Actions 的執行紀錄只存 logs/ci/latest.md 與 history
+logs/app_errors.log*
+logs/ci/raw/
+logs/ci/steps.tsv
+web/data/status.json

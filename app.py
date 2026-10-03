@@ -20,7 +20,7 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, APP_DIR)
 sys.path.insert(0, os.path.join(APP_DIR, "data"))
 
-from core import geo, landmarks, prices, watchlist  # noqa: E402
+from core import errlog, geo, landmarks, prices, watchlist  # noqa: E402
 from ui import kit  # noqa: E402
 from ui.map_tab import MapTab  # noqa: E402
 from ui.mrt_tab import MrtTab  # noqa: E402
@@ -67,11 +67,12 @@ class App:
         self.mrt_as_of = MRT_AS_OF
         intel = geo.load_json("intel.json")
         self.intel_as_of = intel.get("as_of", "")
-        self.intel = intel["items"]
-        for i, it in enumerate(self.intel):
+        for i, it in enumerate(intel["items"]):
             it["id"] = i
+        # 桌面版目前只畫臺南市（全台版在網頁）；沒有標縣市的舊資料都是臺南市
+        self.intel = [it for it in intel["items"] if it.get("county", "D") == "D"]
         self.intel_by_id = {it["id"]: it for it in self.intel}
-        self.workplaces = geo.load_json("workplaces.json")["places"]
+        self.workplaces = [p for p in geo.load_json("workplaces.json")["places"] if p.get("county", "D") == "D"]
         self.landmarks = landmarks.load()
         self.watch = watchlist.Watchlist(watch_path).load(legacy=SHANHUA_PROPERTIES)
 
@@ -276,6 +277,7 @@ class App:
 
 def main():
     root = tk.Tk()
+    errlog.install(root)           # 出錯時寫進 logs/app_errors.log
     App(root)
     root.mainloop()
 

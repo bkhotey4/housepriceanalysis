@@ -6,7 +6,7 @@ import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from core import address, basemap, geo, landmarks as landmarks_mod, plvr, prices, report, roads
+from core import errlog, address, basemap, geo, landmarks as landmarks_mod, plvr, prices, report, roads
 from core.charts import TrendChart
 from core.view3d import View3D, mix
 from . import kit
@@ -1491,6 +1491,7 @@ class MapTab(tk.Frame):
             try:
                 q.put(("done", district, roads.download(district, progress=lambda t: q.put(("progress", district, t)))))
             except Exception as e:
+                errlog.write("下載%s道路位置" % district)
                 q.put(("error", district, "%s" % e))
 
         threading.Thread(target=work, daemon=True).start()
@@ -1905,6 +1906,7 @@ class MapTab(tk.Frame):
             except plvr.CertError as e:
                 q.put(("cert", str(e)))
             except Exception as e:
+                errlog.write("下載底圖")
                 q.put(("error", "%s" % e))
 
         threading.Thread(target=work, daemon=True).start()
@@ -2036,6 +2038,7 @@ class MapTab(tk.Frame):
             except plvr.CertError as e:
                 q.put(("cert", str(e)))
             except Exception as e:  # 顯示給使用者，不讓執行緒默默結束
+                errlog.write("更新實價登錄")
                 q.put(("error", "%s" % e))
 
         threading.Thread(target=work, daemon=True).start()

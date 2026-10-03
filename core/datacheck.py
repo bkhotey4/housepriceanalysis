@@ -7,8 +7,10 @@
 每個檢查函式回傳「問題清單」（字串），空清單代表格式正確。只檢查格式與合理範圍，
 不檢查內容是否屬實——內容的正確性要靠每一筆所附的來源連結。
 """
+import math
 import re
 
+from .taiwan import BY_CODE
 from . import geo
 
 INTEL_TYPES = ["商辦", "商場", "科學園區", "產業園區", "重劃區", "公共建設", "交通建設", "住宅開發",
@@ -26,6 +28,22 @@ def _is_num(v):
 
 def _in_tainan(lat, lng):
     return SOUTH <= lat <= NORTH and WEST <= lng <= EAST
+
+
+# 各縣市座標合理範圍：離縣市中心的公里數（離島、花東、南投範圍大）
+_COUNTY_KM = {"U": 120, "V": 130, "M": 75, "F": 60, "G": 55, "E": 75, "T": 95, "Q": 60, "B": 60, "J": 50, "K": 50,
+              "H": 45, "N": 45, "P": 50, "A": 18, "C": 15, "O": 15, "I": 10, "X": 50, "W": 25, "Z": 65}
+
+
+def _in_county(lat, lng, code):
+    if code == "D":
+        return _in_tainan(lat, lng)
+    c = BY_CODE.get(code)
+    if not c:
+        return False
+    dx = (lng - c["lng"]) * 111.32 * math.cos(math.radians(lat))
+    dy = (lat - c["lat"]) * 110.57
+    return math.hypot(dx, dy) <= _COUNTY_KM.get(code, 60)
 
 
 def _check_sources(sources, where, out, required=True):
@@ -68,16 +86,18 @@ def check_intel(d, min_items=40):
             out.append("%s：type「%s」不在允許的類型內" % (where, it.get("type")))
         if not isinstance(it.get("district"), str):
             out.append("%s：district 必須是字串（不確定時用空字串）" % where)
-        elif it["district"] and not any(n in it["district"] for n in districts) and "台南" not in it["district"] \
-                and "全市" not in it["district"] and "臺南" not in it["district"]:
+        elif it.get("county", "D") not in BY_CODE:
+            out.append("%s：county「%s」不是縣市代碼" % (where, it.get("county")))
+        elif it.get("county", "D") == "D" and it["district"] and not any(n in it["district"] for n in districts) \
+                and "台南" not in it["district"] and "全市" not in it["district"] and "臺南" not in it["district"]:
             out.append("%s：district「%s」不是台南的行政區" % (where, it["district"]))
         if not isinstance(it.get("status"), str) or not it["status"].strip():
             out.append("%s：缺少 status" % where)
         lat, lng = it.get("lat"), it.get("lng")
         if (lat is None) != (lng is None):
             out.append("%s：lat、lng 必須同時有值或同時為 null" % where)
-        elif lat is not None and not (_is_num(lat) and _is_num(lng) and _in_tainan(lat, lng)):
-            out.append("%s：座標 (%s, %s) 不在台南範圍內" % (where, lat, lng))
+        elif lat is not None and not (_is_num(lat) and _is_num(lng) and _in_county(lat, lng, it.get("county", "D"))):
+            out.append("%s：座標 (%s, %s) 不在%s範圍內" % (where, lat, lng, BY_CODE.get(it.get("county", "D"), {}).get("short", "台灣")))
         lvl = it.get("impact_level")
         if lvl is not None and not (isinstance(lvl, int) and not isinstance(lvl, bool) and 1 <= lvl <= 5):
             out.append("%s：impact_level 應為 1~5 的整數或 null" % where)
@@ -111,7 +131,7 @@ def _check_build(b, it, where, out):
         out.append("%s：build.phase 應為 完工／施工中／規劃中" % where)
     for key in ("start", "done"):
         v = b.get(key)
-        if v is not None and not (isinstance(v, int) and not isinstance(v, bool) and 1990 <= v <= 2060):
+        if v is not None and not (isinstance(v, int) and not isinstance(v, bool) and 1950 <= v <= 2060):
             out.append("%s：build.%s 應為西元年（整數）或 null" % (where, key))
     if b.get("start") and b.get("done") and b["start"] > b["done"]:
         out.append("%s：build.start 晚於 build.done" % where)

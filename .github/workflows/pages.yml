@@ -1,27 +1,25 @@
 # 網頁版（web/）部署到 GitHub Pages，並定期更新全台實價登錄資料。
 #
 # 第一次使用：到 GitHub 專案的 Settings → Pages，Source 選「GitHub Actions」。
-# 每次執行（push、每月 2/12/22 日排程、或在 Actions 頁面手動按 Run workflow）：
-#   1. 補齊全台鄉鎮市區清單（OpenStreetMap；已有的縣市不重抓）
-#   2. 整理情資、捷運、地標（data/ → web/data/）
-#   3. 下載全國實價登錄（下載過的季檔放在 Actions 快取，不重抓），整理成各縣市的檔案（web/data/tw/）
-#   4. 逐步補抓各區道路位置（OpenStreetMap；每次最多跑一段時間，抓不完下次續抓）
-#   5. 把鄉鎮清單、道路位置存回專案（房價統計每次重新產生，不存回專案，避免專案越來越大）
-#   6. 部署
-# 全台資料哪一步失敗，網站仍會部署（全台版沒有資料時自動退回台南版）。
+# 觸發：push 到 main、每月 2/12/22 日排程（內政部 1、11、21 日發布）、或在 Actions 頁面手動按 Run workflow。
+# 實際的資料更新步驟都在 tools/ci.sh（之後改流程只要改那個檔，不用動這個檔）：
+#   鄉鎮清單 → 情資 → 全台實價登錄 → 道路位置（逐步補抓）→ 資料檢查 → 整理紀錄
+# 紀錄：web/data/status.json（網站「☰ → 問題回報」看得到）、logs/ci/latest.md（存回專案，git pull 後本機也有）；
+# 有步驟失敗會自動在 GitHub 開 Issue（標籤「自動回報」），GitHub 會寄信通知。
 name: 網頁版部署與資料更新
 
 on:
   push:
     branches: [main]
   schedule:
-    - cron: "17 1 2,12,22 * *"     # UTC 01:17 = 台灣 09:17（內政部 1、11、21 日發布）
+    - cron: "17 1 2,12,22 * *"     # UTC 01:17 = 台灣 09:17
   workflow_dispatch:
 
 permissions:
   contents: write
   pages: write
   id-token: write
+  issues: write
 
 concurrency:
   group: pages
@@ -30,7 +28,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -43,30 +41,18 @@ jobs:
           path: data/cache/plvr_tw
           key: plvr-tw-${{ github.run_id }}
           restore-keys: plvr-tw-
-      - name: 全台鄉鎮市區清單
-        continue-on-error: true
-        run: python tools/build_towns.py
-      - name: 情資、捷運、地標（與台南版資料）
-        run: python tools/export_web.py --no-images
-      - name: 全台實價登錄
-        id: tw
-        continue-on-error: true
-        run: python tools/export_tw.py --update
-      - name: 各區道路位置（逐步補抓）
-        continue-on-error: true
-        run: |
-          if [ "${{ github.event_name }}" = "push" ]; then M=10; else M=30; fi
-          python tools/fetch_roads_tw.py --minutes $M
-          # 新抓到的道路也要寫進 index.json 的清單
-          if [ -f web/data/tw/index.json ]; then python tools/export_tw.py --refresh-roads; fi
-      - name: 資料檢查
-        run: python tools/check_data.py
-      - name: 把鄉鎮清單、道路位置存回專案
+      - name: 更新資料（tools/ci.sh）
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash tools/ci.sh "${{ github.event_name }}"
+      - name: 把鄉鎮清單、道路位置、執行紀錄存回專案
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
-          git add data/tw/towns.json web/data/tw/*/roads 2>/dev/null || true
-          git diff --cached --quiet || git commit -m "更新全台鄉鎮與道路位置（$(date +%Y-%m-%d)）"
+          git add data/tw/towns.json web/data/tw/*/roads logs/ci/latest.md logs/ci/history 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "資料更新紀錄與道路位置（$(date +%Y-%m-%d)）"
+          git pull --rebase --autostash || true
           git push || echo "存回專案失敗（可能同時有人 push），下次再存"
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -80,3 +66,17 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+  report:
+    # 建置或部署失敗（例如 ci.sh 以外的步驟出錯）時也開 Issue 通知
+    needs: [build, deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh label create 自動回報 --color d93f0b --description "GitHub Actions 自動回報的錯誤" --force || true
+          MSG="建置或部署失敗（$(date +%Y-%m-%d)），執行紀錄：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          N=$(gh issue list --label 自動回報 --state open --json number --jq '.[0].number')
+          if [ -n "$N" ]; then gh issue comment "$N" --body "$MSG"; else gh issue create --label 自動回報 --title "自動回報：部署失敗" --body "$MSG"; fi

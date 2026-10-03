@@ -70,7 +70,7 @@ export function buildReport(ctx) {
   }
   const [lat, lng] = point || [null, null];
   const near = (intel || []).filter(it => it.build && it.lat != null).map(it => ({ it, d: lat != null ? L.distKm(lat, lng, it.lat, it.lng) : null }))
-    .filter(r => (r.d != null && r.d <= NEAR_KM) || (r.it.district || "").includes(district))
+    .filter(r => (r.d != null && r.d <= NEAR_KM) || ((r.it.county || "D") === (ctx.county || "D") && (r.it.district || "").includes(district)))
     .sort((a, b) => (a.d ?? 1e9) - (b.d ?? 1e9)).slice(0, 12);
   p.push("<h2>附近的重大建設</h2>");
   if (near.length) {

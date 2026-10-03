@@ -515,3 +515,56 @@ export function classifyPois(elements, lat, lng) {
   }
   return { items, byCat };
 }
+
+// ------------------------------------------------------------------ 道路位置（還沒預先整理好的區：在使用者裝置上向 OpenStreetMap 查，和 core/roads.py 同樣的條件）
+const SKIP_HIGHWAY = new Set(["motorway", "motorway_link", "cycleway", "footway", "path", "steps", "pedestrian", "track",
+  "construction", "proposed", "bridleway", "corridor", "platform"]);
+export function roadsQuery(county, town) {
+  return `[out:json][timeout:60];area["name"="${county}"]["admin_level"="4"]->.c;` +
+    `rel(area.c)["boundary"="administrative"]["name"="${town}"];map_to_area->.a;` +
+    `(way["highway"]["name"](area.a);node["place"]["name"](area.a););out tags geom qt;`;
+}
+function mergeChains(segs) {
+  // 頭尾相接（而且那一點只有這兩段）的折線接成一條
+  segs = segs.filter(s => s.length >= 2).map(s => s.slice());
+  const key = p => p[0] + "," + p[1];
+  let changed = true;
+  while (changed && segs.length > 1) {
+    changed = false;
+    const ends = new Map();
+    segs.forEach((s, i) => { for (const p of [s[0], s[s.length - 1]]) { const k = key(p); if (!ends.has(k)) ends.set(k, new Set()); ends.get(k).add(i); } });
+    const used = new Set(), out = [];
+    for (const [k, set] of ends) {
+      if (set.size !== 2) continue;
+      const [i, j] = [...set];
+      if (used.has(i) || used.has(j)) continue;
+      let a = segs[i], b = segs[j];
+      if (key(a[a.length - 1]) !== k) a = a.slice().reverse();
+      if (key(b[0]) !== k) b = b.slice().reverse();
+      if (key(a[a.length - 1]) !== k || key(b[0]) !== k) continue;
+      used.add(i); used.add(j); out.push(a.concat(b.slice(1))); changed = true;
+    }
+    segs = segs.filter((_, i) => !used.has(i)).concat(out);
+  }
+  return segs;
+}
+export function reduceRoads(raw) {
+  const roads = {}, places = {};
+  for (const e of raw.elements || []) {
+    const t = e.tags || {}, name = (t.name || "").trim();
+    if (!name) continue;
+    if (e.type === "way") {
+      const hw = t.highway;
+      if (SKIP_HIGHWAY.has(hw)) continue;
+      if (hw === "service" && !ROADLIKE.test(name) && name.length > 6) continue;
+      const pts = (e.geometry || []).filter(p => p && p.lat != null).map(p => [Math.round(p.lat * 1e5) / 1e5, Math.round(p.lon * 1e5) / 1e5]);
+      if (pts.length >= 2) (roads[name] = roads[name] || []).push(pts);
+    } else if (e.type === "node" && e.lat != null) {
+      const rank = { village: 0, hamlet: 1, neighbourhood: 2, quarter: 2, locality: 3 }[t.place] ?? 9;
+      if (rank < 9 && (!places[name] || rank < places[name][2])) places[name] = [Math.round(e.lat * 1e5) / 1e5, Math.round(e.lon * 1e5) / 1e5, rank];
+    }
+  }
+  const out = {};
+  for (const [n, segs] of Object.entries(roads)) out[n] = mergeChains(segs).map(ch => ch.flat());
+  return { roads: out, places: Object.fromEntries(Object.entries(places).map(([k, v]) => [k, v.slice(0, 2)])), fetched: new Date().toISOString().slice(0, 10) };
+}

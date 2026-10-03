@@ -476,9 +476,10 @@ def brightness(normal):
     return max(0.7, min(1.0, 0.80 + 0.2 * max(0.0, nz) + 0.14 * side))
 
 
-def load():
-    """讀取 data/landmarks.json，回傳地標清單。"""
+def load(county="D"):
+    """讀取 data/landmarks.json，回傳地標清單。county=None 回傳全台；預設只回傳臺南市（桌面版目前只畫台南）。"""
     items = load_json("landmarks.json")["items"]
     for i, it in enumerate(items):
         it.setdefault("id", "lm%d" % i)
-    return items
+        it.setdefault("county", "D")
+    return [it for it in items if county is None or it["county"] == county]
