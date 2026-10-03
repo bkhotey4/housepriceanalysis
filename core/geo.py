@@ -6,10 +6,17 @@ import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
-# 投影原點（台南市範圍中心）
+# 投影原點：目前選的縣市範圍中心（預設臺南市）。切換縣市時由 core/region.py 呼叫 set_origin() 改變；
+# 其他模組請用 geo.LAT0 這種寫法讀取（不要 from geo import LAT0，否則切換後還是舊值）。
 LAT0, LNG0 = 23.145, 120.34
 KM_PER_DEG_LAT = 110.57
 KM_PER_DEG_LNG = 111.32 * math.cos(math.radians(LAT0))
+
+
+def set_origin(lat, lng):
+    global LAT0, LNG0, KM_PER_DEG_LNG
+    LAT0, LNG0 = lat, lng
+    KM_PER_DEG_LNG = 111.32 * math.cos(math.radians(LAT0))
 
 
 def to_xy(lat, lng):
@@ -29,7 +36,7 @@ def load_json(name):
 
 
 class Terrain:
-    """台南地形高程格網（公尺）。rows[j][i]，j=0 為最北列，i=0 為最西行；-1 代表海面。"""
+    """地形高程格網（公尺；目前只有臺南市的資料，其他縣市用 flat_terrain() 的平面）。rows[j][i]，j=0 為最北列，i=0 為最西行；-1 代表海面。"""
 
     def __init__(self, data=None):
         d = data or load_json("terrain_tainan.json")
@@ -73,6 +80,13 @@ class Terrain:
         i = min(max(int(round(fx)), 0), self.nx - 1)
         j = min(max(int(round(fy)), 0), self.ny - 1)
         return self.rows[j][i] < 0
+
+
+def flat_terrain(west, east, north, south, source="此縣市沒有地形高程資料，地面以平面顯示"):
+    """沒有高程資料的縣市：整片高度 0 的平面（3D 圖仍可旋轉、看房價柱，只是沒有山）。"""
+    n = 9
+    return Terrain({"west": west, "east": east, "north": north, "south": south, "nx": n, "ny": n,
+                    "rows": [[0] * n for _ in range(n)], "source": source})
 
 
 def load_districts():

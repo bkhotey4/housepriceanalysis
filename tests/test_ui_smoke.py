@@ -3,6 +3,7 @@
 需要有螢幕（Windows / Pydroid 3 直接執行即可；Linux 無螢幕時會自動略過）。
 """
 import gc
+import json
 import os
 import shutil
 import sys
@@ -63,7 +64,7 @@ class UiSmokeTest(unittest.TestCase):
             raise plvr.DownloadError("測試不連網")
         plvr.fetch = no_network
         cls.watch_path = os.path.join(cls.tmp_dir, "watchlist.json")
-        cls.app = appmod.App(cls.root, auto_download=False, watch_path=cls.watch_path)
+        cls.app = appmod.App(cls.root, auto_download=False, watch_path=cls.watch_path, county="D")
         cls.root.geometry("1280x800+0+0")
         cls.pump(10)
 
@@ -1549,6 +1550,64 @@ class UiSmokeTest(unittest.TestCase):
         a.watch.remove(a.watch.items[0]["id"]); t.refresh(); self.pump()
         self.assertTrue(t.banner_box.winfo_ismapped())
         self.assertIn("清單是空的", t.banner.cget("text"))
+
+    def test_30_switch_county(self):
+        """電腦版選縣市：切到台北市（假的全國快取），行政區、房價柱、情資、地標都換成台北；再切回台南一切照舊。"""
+        from core import plvr_tw, region, taiwan
+        a = self.app
+        saved = (plvr_tw.CACHE, region.COUNTY_CACHE, taiwan.TOWNS_PATH, region.WEB_TW)
+        cache = os.path.join(self.tmp_dir, "plvr_tw")
+        os.makedirs(os.path.join(cache, "cur"))
+        with open(os.path.join(ROOT, "tests", "fixture_d_lvr_land_a.csv"), encoding="utf-8-sig") as f:
+            text = f.read()
+        text = text.replace("臺南市", "臺北市")
+        for old, new in [("安平區", "大安區"), ("仁德區", "信義區"), ("新營區", "士林區"), ("中西區", "中正區"),
+                         ("歸仁區", "內湖區"), ("白河區", "北投區"), ("南區", "萬華區"), ("北區", "中山區")]:
+            text = text.replace(old, new)
+        with open(os.path.join(cache, "cur", "a_lvr_land_a.csv"), "w", encoding="utf-8") as f:
+            f.write(text)
+        with open(os.path.join(cache, "cur", "_done"), "w", encoding="utf-8") as f:
+            f.write("2026-10-01")
+        towns = {"towns": {"A": [{"name": "大安區", "lat": 25.026, "lng": 121.543}, {"name": "信義區", "lat": 25.033, "lng": 121.567},
+                                 {"name": "士林區", "lat": 25.093, "lng": 121.525}, {"name": "北投區", "lat": 25.132, "lng": 121.501}]}}
+        tp = os.path.join(self.tmp_dir, "towns.json")
+        with open(tp, "w", encoding="utf-8") as f:
+            json.dump(towns, f, ensure_ascii=False)
+        plvr_tw.CACHE, region.COUNTY_CACHE, taiwan.TOWNS_PATH = cache, os.path.join(self.tmp_dir, "county"), tp
+        region.WEB_TW = os.path.join(self.tmp_dir, "web_tw")
+        try:
+            b = a.switch_county("A"); self.pump(10)
+            self.assertEqual(b.county, "A")
+            self.assertIn("台北市", self.root.title())
+            self.assertEqual(b.book.source, "live")
+            self.assertIn("大安區", b.dmap)
+            self.assertIn("中正區", b.dmap)                                   # 交易裡有、位置清單沒有：約略位置
+            self.assertEqual(b.dmap["中正區"]["zone"], "位置約略")
+            self.assertTrue(b.book.best("大安區", "apt")["n"] >= 1 or b.book.best("大安區", "house")["n"] >= 1)
+            self.assertTrue(all(it.get("county") == "A" for it in b.intel))
+            self.assertTrue(b.landmarks and all(lm["county"] == "A" for lm in b.landmarks))
+            self.assertEqual(b.map_mrt, {})
+            self.assertTrue(b.map_tab.view.bars)                              # 房價柱畫出來了
+            from core import geo, prices, roads
+            self.assertAlmostEqual(geo.LAT0, 25.03, delta=0.1)
+            self.assertEqual(prices.CITY, "台北市")
+            self.assertEqual(roads.COUNTY, "臺北市")
+            b.map_tab.select_district("大安區"); self.pump()
+            self.assertEqual(b.map_tab.current, "大安區")
+            b.map_tab.select_district(prices.CITY); self.pump()
+            from ui import watch_tab
+            self.assertIn("%E5%8F%B0%E5%8C%97", watch_tab.platform_search_url("sale.591.com.tw", "大安區"))   # 「台北」
+            # 再切回台南
+            c = b.switch_county("D"); self.pump(10)
+            type(self).app = c
+            self.assertEqual(prices.CITY, "台南市")
+            self.assertAlmostEqual(geo.LAT0, 23.145)
+            self.assertEqual(roads.ROAD_DIR, os.path.join(self.tmp_dir, "roads"))   # 切回來還原測試設定的道路快取
+            self.assertIn("永康區", c.dmap)
+            self.assertTrue(c.map_mrt)
+        finally:
+            plvr_tw.CACHE, region.COUNTY_CACHE, taiwan.TOWNS_PATH, region.WEB_TW = saved
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

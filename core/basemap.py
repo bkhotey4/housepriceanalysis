@@ -22,8 +22,8 @@ import threading
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 
-from . import plvr
-from .geo import DATA_DIR, KM_PER_DEG_LAT, KM_PER_DEG_LNG, LAT0, LNG0
+from . import geo, plvr
+from .geo import DATA_DIR
 
 try:
     from PIL import Image
@@ -59,6 +59,26 @@ TILE_DIR = os.path.join(DATA_DIR, "cache", "tiles")
 TILE = 256
 # 涵蓋範圍（與地形格網相同）
 WEST, EAST, NORTH, SOUTH = 120.02, 120.66, 23.42, 22.87
+TAINAN_BOUNDS = (WEST, EAST, NORTH, SOUTH)
+TAINAN_CACHE = CACHE_DIR
+
+
+def set_region(bounds, cache_dir):
+    """切換縣市：之後下載、讀取的全區拼圖都用這個範圍與快取資料夾（圖磚快取 tiles/ 全台共用）。"""
+    global WEST, EAST, NORTH, SOUTH, CACHE_DIR
+    WEST, EAST, NORTH, SOUTH = bounds
+    CACHE_DIR = cache_dir
+
+
+def base_zoom(max_tiles=320, top=13):
+    """全區拼圖用的縮放層級：大縣市（花蓮、台東）圖磚太多就降一兩級，避免拼出太大的圖吃光記憶體。"""
+    z = top
+    while z > 9:
+        x0, x1, y0, y1 = tile_range(z)
+        if (x1 - x0 + 1) * (y1 - y0 + 1) <= max_tiles:
+            break
+        z -= 1
+    return z
 EARTH_KM = 40075.017
 
 
@@ -81,14 +101,17 @@ def y_to_lat(y, z):
     return math.degrees(math.atan(math.sinh(n)))
 
 
-def tile_range(z, west=WEST, east=EAST, north=NORTH, south=SOUTH):
-    """回傳涵蓋範圍所需的圖磚 (x0, x1, y0, y1)，兩端皆含。"""
+def tile_range(z, west=None, east=None, north=None, south=None):
+    """回傳涵蓋範圍所需的圖磚 (x0, x1, y0, y1)，兩端皆含；沒給範圍就用目前縣市的範圍。"""
+    west, east = WEST if west is None else west, EAST if east is None else east
+    north, south = NORTH if north is None else north, SOUTH if south is None else south
     return (int(math.floor(lng_to_x(west, z))), int(math.floor(lng_to_x(east, z))),
             int(math.floor(lat_to_y(north, z))), int(math.floor(lat_to_y(south, z))))
 
 
-def px_per_km(z, lat=LAT0):
+def px_per_km(z, lat=None):
     """該縮放層級的圖磚在地面上每公里有幾個像素。"""
+    lat = geo.LAT0 if lat is None else lat
     return TILE * (2 ** z) / (EARTH_KM * math.cos(math.radians(lat)))
 
 
@@ -114,8 +137,8 @@ class Basemap:
         self.rgba = image.mode == "RGBA"
         self.width, self.height = image.size
         # 每公里幾個影像像素（x、y 方向）
-        self.px_per_km_x = self.width / ((east - west) * KM_PER_DEG_LNG)
-        self.px_per_km_y = self.height / ((north - south) * KM_PER_DEG_LAT)
+        self.px_per_km_x = self.width / ((east - west) * geo.KM_PER_DEG_LNG)
+        self.px_per_km_y = self.height / ((north - south) * geo.KM_PER_DEG_LAT)
         self.levels = [(1.0, image)]
         s, im = 1.0, image
         while pyramid and min(im.size) > 600:
@@ -144,8 +167,8 @@ class Basemap:
         """
         sp = max(sp, 1e-3)
         ax, ay = self.px_per_km_x, self.px_per_km_y
-        bx = (LNG0 - self.west) / (self.east - self.west) * self.width
-        by = (self.north - LAT0) / (self.north - self.south) * self.height
+        bx = (geo.LNG0 - self.west) / (self.east - self.west) * self.width
+        by = (self.north - geo.LAT0) / (self.north - self.south) * self.height
         a = ax * ca / zoom
         b = -ax * sa / (zoom * sp)
         c = ax * (tx - w2 * ca / zoom + h2 * sa / (zoom * sp)) + bx

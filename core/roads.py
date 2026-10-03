@@ -20,6 +20,16 @@ from .geo import DATA_DIR
 from .prices import in_cat, median, road_of
 
 ROAD_DIR = os.path.join(DATA_DIR, "cache", "roads")
+TAINAN_DIR = ROAD_DIR
+COUNTY = "臺南市"          # 目前縣市（core/region.py 切換縣市時一起改 ROAD_DIR；各縣市的道路快取分開放，避免「東區」撞名）
+
+
+WEB_DIR = None             # 網頁版已經抓好的道路位置（web/data/tw/<代碼>/roads；git pull 就有），本機沒下載過時拿來用
+
+
+def set_region(county_name, road_dir, web_dir=None):
+    global COUNTY, ROAD_DIR, WEB_DIR
+    COUNTY, ROAD_DIR, WEB_DIR = county_name, road_dir, web_dir
 ATTRIBUTION = "道路位置：© OpenStreetMap 貢獻者"
 # 公開的 Overpass 伺服器要求程式說明自己是誰；沒有像樣的 User-Agent 會被直接拒絕
 AGENT = "deep_tainan_house/1.0 (desktop app for personal Tainan house-price study)"
@@ -38,8 +48,9 @@ _LANE = re.compile(r"^\d+巷(\d+弄)?$|^.{1,6}巷(\d+弄)?$")
 _VARIANTS = str.maketrans({"仔": "子", "臺": "台", "庄": "莊", "廍": "部", "份": "分", "磘": "窯", "衚": "衛"})
 
 
-def query(district, county="臺南市", timeout=25):
+def query(district, county=None, timeout=25):
     """Overpass QL：某縣市某行政區內所有有名稱的道路，以及聚落地點。"""
+    county = county or COUNTY
     return ('[out:json][timeout:%d];area["name"="%s"]["admin_level"="4"]->.c;'
             'rel(area.c)["boundary"="administrative"]["name"="%s"];map_to_area->.a;'
             '(way["highway"]["name"](area.a);node["place"]["name"](area.a););out tags geom qt;' % (timeout, county, district))
@@ -73,20 +84,36 @@ def _path(district):
     return os.path.join(ROAD_DIR, "%s.json" % district)
 
 
+def _web_path(district):
+    return os.path.join(WEB_DIR, "%s.json" % district) if WEB_DIR else None
+
+
 def cached(district):
     """這一區的道路位置是否已經下載過（只看檔案在不在，不讀內容）。"""
-    return os.path.isfile(_path(district))
+    w = _web_path(district)
+    return os.path.isfile(_path(district)) or bool(w and os.path.isfile(w))
+
+
+def from_web(d):
+    """網頁版格式（每條路是攤平的 [lat, lng, lat, lng, …] 串列）轉回本程式的 [[lat, lng], …]。"""
+    out = {}
+    for name, chains in (d.get("roads") or {}).items():
+        out[name] = [[[c[i], c[i + 1]] for i in range(0, len(c) - 1, 2)] for c in chains if len(c) >= 4]
+    return {"roads": out, "places": d.get("places") or {}, "fetched": d.get("fetched", "")}
 
 
 def load(district):
     """讀取快取的道路位置；沒有就回傳 None。"""
-    try:
-        with open(_path(district), encoding="utf-8") as f:
-            d = json.load(f)
-        if isinstance(d.get("roads"), dict):
-            return d
-    except (OSError, ValueError):
-        pass
+    for path, web in ((_path(district), False), (_web_path(district), True)):
+        if not path:
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                d = json.load(f)
+            if isinstance(d.get("roads"), dict):
+                return from_web(d) if web else d
+        except (OSError, ValueError):
+            pass
     return None
 
 

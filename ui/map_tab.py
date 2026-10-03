@@ -6,7 +6,7 @@ import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from core import errlog, address, basemap, geo, landmarks as landmarks_mod, plvr, prices, report, roads
+from core import errlog, address, basemap, geo, landmarks as landmarks_mod, plvr, prices, region, report, roads
 from core.charts import TrendChart
 from core.view3d import View3D, mix
 from . import kit
@@ -280,6 +280,11 @@ class MapTab(tk.Frame):
         self.view = View3D(left, self.app.terrain, font_family=f.family, font_size=f.size,
                            quality=self.app.settings.get("quality", 2 if kit.IS_ANDROID else 1))
         self.view.pack(fill="both", expand=True)
+        if self.app.county != "D":
+            # 其他縣市：總覽中心放在縣市範圍正中央（原點），範圍依縣市大小
+            t = self.app.terrain
+            self.view.set_home(0.0, 0.0, (t.east - t.west) * geo.KM_PER_DEG_LNG * 1.0,
+                               (t.north - t.south) * geo.KM_PER_DEG_LAT * 1.0)
         self.view.on_pick = self.on_pick
         self.view.on_status = lambda text: self.lbl_source.config(text=text)
         self.view.show["legend"] = self.show_legend.get()
@@ -806,7 +811,7 @@ class MapTab(tk.Frame):
 
     def refresh_lines(self):
         lines = []
-        for name, d in self.app.mrt_lines.items():
+        for name, d in self.app.map_mrt.items():
             if not d["segments"]:
                 continue
             lines.append({"id": name, "name": name, "color": d["color"],
@@ -1244,7 +1249,7 @@ class MapTab(tk.Frame):
 
     def _nearby_transit(self, d):
         out = []
-        for lname, ln in self.app.mrt_lines.items():
+        for lname, ln in self.app.map_mrt.items():
             best = None
             for sname, lat, lng in ln["stations"]:
                 km = geo.dist_km(d["lat"], d["lng"], lat, lng)
@@ -1277,7 +1282,7 @@ class MapTab(tk.Frame):
                 t.line(" | 最近站 %s，約 %.1f 公里" % (sname.split("（")[0][:18], km))
                 t.line("   %s" % ln["status"][:70], "muted")
             rails = []
-            for p in app.rail_projects:
+            for p in app.map_rail:
                 for st in p.get("new_stations") or []:
                     if st.get("lat") is not None and geo.dist_km(d["lat"], d["lng"], st["lat"], st["lng"]) <= NEAR_KM:
                         rails.append(p)
@@ -1596,7 +1601,7 @@ class MapTab(tk.Frame):
         self._tx_rows = [x for _level, x in ranked[:300]]
         for i, (level, x) in enumerate(ranked[:300]):
             age = "" if not x.get("built") else str(max(0, int(x["date"][:4]) - x["built"]))
-            where = x["addr"].replace("臺南市", "")
+            where = region.strip_city(x["addr"])
             if x.get("proj"):
                 where = "%s（%s）" % (x["proj"], where[:14])
             self.tx.insert("", "end", iid=str(i), tags=("exact",) if level == 3 else (("lane",) if level == 2 else ()),
@@ -1668,7 +1673,7 @@ class MapTab(tk.Frame):
             t.line(lm.get("district") or "", "muted")
             t.line(lm.get("note") or "")
             t.line()
-            t.link("在 Google 地圖查看", geo.google_search_url("台南 " + lm["name"]))
+            t.link("在 Google 地圖查看", geo.google_search_url(self.app.cinfo["short"][:2] + " " + lm["name"]))
             t.line()
             for dn in [d["name"] for d in app.districts if d["name"] in (lm.get("district") or "")]:
                 b = app.book.best(dn, self.cat.get(), "u")
@@ -1775,9 +1780,13 @@ class MapTab(tk.Frame):
         if kind:
             self.view.select(kind, ident)
 
+    def busy(self):
+        """有下載正在進行（實價登錄、底圖、道路）。切換縣市前要先等它做完。"""
+        return self._queue is not None or self._bm_queue is not None
+
     def _google(self, kind):
         if self.current == prices.CITY:
-            lat, lng, zoom = 23.06, 120.27, 11
+            lat, lng, zoom = (23.06, 120.27, 11) if self.app.county == "D" else (geo.LAT0, geo.LNG0, 10)
         else:
             d = self.app.dmap[self.current]
             lat, lng, zoom = d["lat"], d["lng"], 14
@@ -1896,7 +1905,8 @@ class MapTab(tk.Frame):
             self.progress.config(mode="determinate", value=0, maximum=100)
         label = "衛星底圖" if layer == "photo" else basemap.LAYERS[layer]["name"]
         self.lbl_source.config(text="準備下載%s（只有第一次需要）…" % label)
-        z = self.view.basemap.z if (layer != "photo" and self.view.basemap is not None) else (12 if kit.IS_ANDROID else 13)
+        z = self.view.basemap.z if (layer != "photo" and self.view.basemap is not None) else \
+            basemap.base_zoom(top=12 if kit.IS_ANDROID else 13)
 
         def work():
             try:
@@ -1985,9 +1995,12 @@ class MapTab(tk.Frame):
             return
         ok = messagebox.askyesno(
             "更新實價登錄",
-            "將從內政部「不動產成交案件實際資訊資料供應系統」下載臺南市買賣與預售屋資料並重新統計。\n\n"
-            "第一次約需下載 100~150MB（最近幾期是全國壓縮檔，每期約 15MB），"
-            "之後只會補抓新的部分。建議在 Wi-Fi 下進行。\n\n要開始嗎？", parent=self)
+            ("將從內政部「不動產成交案件實際資訊資料供應系統」下載臺南市買賣與預售屋資料並重新統計。\n\n"
+             "第一次約需下載 100~150MB（最近幾期是全國壓縮檔，每期約 15MB），"
+             "之後只會補抓新的部分。建議在 Wi-Fi 下進行。\n\n要開始嗎？") if self.app.county == "D" else
+            ("將從內政部「不動產成交案件實際資訊資料供應系統」下載全國買賣與預售屋資料，再統計%s。\n\n"
+             "第一次約需下載 150~250MB，下載一次全台 22 縣市都能用（切換縣市不用重新下載），"
+             "之後只會補抓新的部分。建議在 Wi-Fi 下進行。\n\n要開始嗎？" % self.app.cinfo["short"]), parent=self)
         if ok:
             self._run_update(insecure=False)
 
@@ -2012,12 +2025,12 @@ class MapTab(tk.Frame):
         today = today or datetime.date.today()
         if self.app.settings.get("auto_update_failed") == today.isoformat():
             return False                                # 今天已經失敗過一次：明天再試，不一直打擾伺服器
-        if not plvr.has_live_cache():
+        if not region.has_live_cache():
             if self.lbl_source.cget("text") == self.app.book.describe_source():
                 self.lbl_source.config(text="%s（按右邊「更新實價登錄」下載一次逐筆資料後，之後每期都會自動更新）" %
                                        self.app.book.describe_source())
             return False
-        if not plvr.needs_update(today):
+        if not region.needs_update(today):
             return False
         self._run_update(insecure=bool(self.app.settings.get("plvr_insecure")), quiet=True)
         return True
@@ -2033,7 +2046,7 @@ class MapTab(tk.Frame):
 
         def work():
             try:
-                book, n = plvr.update(progress=lambda d, tot, msg: q.put(("progress", d, tot, msg)), insecure=insecure)
+                book, n = region.update(progress=lambda d, tot, msg: q.put(("progress", d, tot, msg)), insecure=insecure)
                 q.put(("done", book, n))
             except plvr.CertError as e:
                 q.put(("cert", str(e)))

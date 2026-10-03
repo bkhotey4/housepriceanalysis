@@ -27,7 +27,7 @@ const S = {
   cat: "all", metric: "u", current: L.CITY, tab: "overview", year: new Date().getFullYear(),
   addr: null, pin: null, roadFilter: null, picked: null, pickMode: null, roadKw: "", bldgKw: "", bldg: null, poi: null,
   settings: { town: true, liq: false, fault: false, hires: true, lines: true, markers: true, landmarks: true, projects: true,
-              roads: true, labels: true, color: "price", work: "", workKm: 5, budget: "", mode: "car", commuteMin: 20, workPt: null },
+              roads: true, labels: true, color: "price", work: "", workKm: 5, budget: "", mode: "car", commuteMin: 20, workPt: null, autoReport: true },
   watch: [],
 };
 function loadStore() {
@@ -101,8 +101,8 @@ function toast(msg, ms = 4200) {
 }
 
 // ------------------------------------------------------------------ 錯誤紀錄（存在這台裝置；「☰ → 問題回報」可以一鍵到 GitHub 回報）
-// 網站沒有自己的伺服器，不能偷偷把錯誤送到別處；改成記在手機上，使用者按一下就帶著內容開 GitHub Issue（需要登入 GitHub）
-const ERR_KEY = "dth_errors", APP_VER = "2026-10-03b";
+// 記在手機上，並匿名送到維護者的 Google 表單（可在設定關閉）；也可以按一下帶著內容開 GitHub Issue（需要登入 GitHub）
+const ERR_KEY = "dth_errors", APP_VER = "2026-10-03d";
 function loadErrors() { try { return JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); } catch { return []; } }
 function logError(where, err, quiet = false) {
   const e = { t: new Date().toLocaleString("sv-SE").slice(0, 19), where, msg: String((err && err.message) || err || "").slice(0, 300),
@@ -111,7 +111,44 @@ function logError(where, err, quiet = false) {
   try { const a = loadErrors(); a.push(e); localStorage.setItem(ERR_KEY, JSON.stringify(a.slice(-30))); } catch { /* 存不下就算了 */ }
   if (!quiet && typeof document !== "undefined") { const b = $("#btn-menu"); if (b) b.classList.add("has-err"); }
   console.warn("[錯誤紀錄]", where, e.msg);
+  queueAutoReport(e);
 }
+// 匿名自動回報：送到維護者的 Google 表單（只送錯誤內容、版本、瀏覽器、所在縣市區，不含任何個人資料；設定裡可關閉）
+// 同一個錯誤一天只送一次、每次開網頁最多送 5 筆；離線時先存著，連上網路再送。只在正式網站（github.io）送，本機測試不送。
+const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSe2B0IbU8MyMpVBlmn0AH34r5D6lWCwNVcXVNE4DDU4wTZHJw/formResponse",
+      FORM_FIELD = "entry.1816938753", SENT_KEY = "dth_err_sent", PEND_KEY = "dth_err_pending";
+let autoSent = 0, autoTimer = null;
+function autoReportOn() {
+  return /\.github\.io$/.test(location.hostname) && !(S.settings && S.settings.autoReport === false);
+}
+function queueAutoReport(e) {
+  if (!autoReportOn()) return;
+  try {
+    const day = e.t.slice(0, 10), key = day + "|" + e.where + "|" + e.msg.slice(0, 120);
+    const sent = JSON.parse(localStorage.getItem(SENT_KEY) || "{}");
+    if (sent[key]) return;
+    for (const k of Object.keys(sent)) if (!k.startsWith(day)) delete sent[k];
+    sent[key] = 1; localStorage.setItem(SENT_KEY, JSON.stringify(sent));
+    const pend = JSON.parse(localStorage.getItem(PEND_KEY) || "[]"); pend.push(e);
+    localStorage.setItem(PEND_KEY, JSON.stringify(pend.slice(-10)));
+  } catch { return; }
+  clearTimeout(autoTimer); autoTimer = setTimeout(flushAutoReport, 3000);
+}
+async function flushAutoReport() {
+  if (!autoReportOn() || !navigator.onLine) return;
+  let pend; try { pend = JSON.parse(localStorage.getItem(PEND_KEY) || "[]"); } catch { return; }
+  while (pend.length && autoSent < 5) {
+    const e = pend[0];
+    const text = [`${e.t}｜${e.where}｜${e.at || "-"}｜${e.msg}`, e.stack ? "堆疊：" + e.stack : "",
+      `版本：${e.ver}｜網址：${location.pathname}${location.search}`, `瀏覽器：${navigator.userAgent}`].filter(Boolean).join("\n");
+    try {
+      await fetch(FORM_URL, { method: "POST", mode: "no-cors", body: new URLSearchParams({ [FORM_FIELD]: text }) });
+    } catch { break; }   // 網路斷了：留著下次再送
+    pend.shift(); autoSent++;
+    try { localStorage.setItem(PEND_KEY, JSON.stringify(pend)); } catch { /* 無妨 */ }
+  }
+}
+window.addEventListener("online", () => setTimeout(flushAutoReport, 2000));
 window.addEventListener("error", ev => logError("頁面錯誤", ev.error || ev.message));
 window.addEventListener("unhandledrejection", ev => logError("非同步錯誤", ev.reason));
 function repoInfo() {
@@ -870,7 +907,8 @@ function problemSection() {
     : `<p class="muted">這台裝置沒有記錄到錯誤。</p>`;
   h += `<div class="row"><button class="btn small primary" data-act="err-report">到 GitHub 回報</button><button class="btn small" data-act="err-copy">複製錯誤內容</button>` +
     (errs.length ? `<button class="btn small" data-act="err-clear">清除紀錄</button>` : "") + `</div>` +
-    `<p class="muted">按「到 GitHub 回報」會開一張已經填好錯誤內容的回報單（要登入 GitHub 才能送出）；沒有帳號的話，按「複製錯誤內容」貼給維護者就好。</p>`;
+    `<label class="chk"><input type="checkbox" data-set="autoReport"${S.settings.autoReport !== false ? " checked" : ""}> 自動匿名回報錯誤（只送錯誤內容與瀏覽器版本，不含個人資料）</label>` +
+    `<p class="muted">錯誤會自動匿名送給維護者（不需要帳號）。想補充說明的話，按「到 GitHub 回報」會開一張已經填好錯誤內容的回報單（要登入 GitHub 才能送出）；沒有帳號的話，按「複製錯誤內容」貼給維護者就好。</p>`;
   return h;
 }
 function onSetting(el) {
@@ -1111,6 +1149,7 @@ async function enterCounty(code, fly = true) {
 // ------------------------------------------------------------------ 啟動
 async function main() {
   loadStore();
+  setTimeout(flushAutoReport, 5000);   // 上次離線時沒送出的錯誤回報
   const params = new URLSearchParams(location.search);
   const tw = params.get("tw") === "0" ? null : await getJSON("data/tw/index.json").catch(() => null);    // ?tw=0：強制台南版（測試用）
   const shared = ["intel", "mrt", "landmarks", "models", "workplaces"];

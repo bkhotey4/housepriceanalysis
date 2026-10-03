@@ -386,7 +386,9 @@ export class View3D {
         poly.push(u, v); depth += (px * sa + py * ca) * cp - pz * spp;
         x0 = Math.min(x0, u); y0 = Math.min(y0, v); x1 = Math.max(x1, u); y1 = Math.max(y1, v);
       }
-      polys.push({ depth: depth / (pts.length / 3), poly, fill: shade(color, brightness(n)), edge: shade(color, 0.72) });
+      let ground = n[2] > 0.99;                          // 貼地的面（湖面、草地、海面）一律最先畫
+      for (let i = 2; i < pts.length && ground; i += 3) if (pts[i] > 0.06) ground = false;
+      polys.push({ depth: ground ? 1e9 : depth / (pts.length / 3), poly, fill: shade(color, brightness(n)), edge: shade(color, 0.72) });
     }
     if (!polys.length) return null;
     polys.sort((A, B) => B.depth - A.depth);

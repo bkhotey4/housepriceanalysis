@@ -304,7 +304,7 @@
   },
   {
    "name": "台北101",
-   "model": "tower",
+   "model": "taipei101",
    "county": "A",
    "district": "信義區",
    "lat": 25.03397,
@@ -315,7 +315,7 @@
   },
   {
    "name": "國立故宮博物院",
-   "model": "museum",
+   "model": "palace",
    "county": "A",
    "district": "士林區",
    "lat": 25.10236,
@@ -326,7 +326,7 @@
   },
   {
    "name": "中正紀念堂",
-   "model": "pavilion",
+   "model": "memorial",
    "county": "A",
    "district": "中正區",
    "lat": 25.0346,
@@ -535,7 +535,7 @@
   },
   {
    "name": "桃園國際機場",
-   "model": "station",
+   "model": "airport",
    "county": "H",
    "district": "大園區",
    "lat": 25.07639,
@@ -623,7 +623,7 @@
   },
   {
    "name": "新竹東門城（迎曦門）",
-   "model": "fort",
+   "model": "citygate",
    "county": "O",
    "district": "東區",
    "lat": 24.8042,
@@ -678,7 +678,7 @@
   },
   {
    "name": "六福村主題遊樂園",
-   "model": "pavilion",
+   "model": "themepark",
    "county": "J",
    "district": "關西鎮",
    "lat": 24.82111,
@@ -711,7 +711,7 @@
   },
   {
    "name": "苗栗客家圓樓",
-   "model": "museum",
+   "model": "tulou",
    "county": "K",
    "district": "後龍鎮",
    "lat": 24.60353,
@@ -722,7 +722,7 @@
   },
   {
    "name": "龍騰斷橋",
-   "model": "pavilion",
+   "model": "bridge",
    "county": "K",
    "district": "三義鄉",
    "lat": 24.35844,
@@ -810,7 +810,7 @@
   },
   {
    "name": "臺中國家歌劇院",
-   "model": "artmuseum",
+   "model": "opera",
    "county": "B",
    "district": "西屯區",
    "lat": 24.1629,
@@ -865,7 +865,7 @@
   },
   {
    "name": "東海大學路思義教堂",
-   "model": "campus",
+   "model": "chapel",
    "county": "B",
    "district": "西屯區",
    "lat": 24.1791,
@@ -887,7 +887,7 @@
   },
   {
    "name": "八卦山大佛",
-   "model": "temple",
+   "model": "buddha",
    "county": "N",
    "district": "彰化市",
    "lat": 24.0791,
@@ -920,7 +920,7 @@
   },
   {
    "name": "彰化扇形車庫",
-   "model": "station",
+   "model": "roundhouse",
    "county": "N",
    "district": "彰化市",
    "lat": 24.0831,
@@ -953,7 +953,7 @@
   },
   {
    "name": "日月潭",
-   "model": "lake",
+   "model": "lakepagoda",
    "county": "M",
    "district": "魚池鄉",
    "lat": 23.857,
@@ -975,7 +975,7 @@
   },
   {
    "name": "清境農場",
-   "model": "pavilion",
+   "model": "farm",
    "county": "M",
    "district": "仁愛鄉",
    "lat": 24.058,
@@ -986,7 +986,7 @@
   },
   {
    "name": "溪頭自然教育園區",
-   "model": "pavilion",
+   "model": "forest",
    "county": "M",
    "district": "鹿谷鄉",
    "lat": 23.674,
@@ -1052,7 +1052,7 @@
   },
   {
    "name": "西螺大橋",
-   "model": "pavilion",
+   "model": "trussbridge",
    "county": "P",
    "district": "西螺鎮",
    "lat": 23.807,
@@ -1063,7 +1063,7 @@
   },
   {
    "name": "劍湖山世界",
-   "model": "pavilion",
+   "model": "themepark",
    "county": "P",
    "district": "古坑鄉",
    "lat": 23.621,
@@ -1085,7 +1085,7 @@
   },
   {
    "name": "高雄85大樓",
-   "model": "tower",
+   "model": "tower85",
    "county": "E",
    "district": "苓雅區",
    "lat": 22.6116,
@@ -1096,7 +1096,7 @@
   },
   {
    "name": "衛武營國家藝術文化中心",
-   "model": "museum",
+   "model": "waveroof",
    "county": "E",
    "district": "鳳山區",
    "lat": 22.6245,
@@ -1129,7 +1129,7 @@
   },
   {
    "name": "蓮池潭龍虎塔",
-   "model": "temple",
+   "model": "twinpagoda",
    "county": "E",
    "district": "左營區",
    "lat": 22.681,
@@ -1140,7 +1140,7 @@
   },
   {
    "name": "佛光山佛陀紀念館",
-   "model": "temple",
+   "model": "buddha",
    "county": "E",
    "district": "大樹區",
    "lat": 22.7565,
@@ -1173,7 +1173,7 @@
   },
   {
    "name": "檜意森活村",
-   "model": "pavilion",
+   "model": "woodhouses",
    "county": "I",
    "district": "東區",
    "lat": 23.4859,
@@ -1228,7 +1228,7 @@
   },
   {
    "name": "阿里山車站",
-   "model": "station",
+   "model": "mtntrain",
    "county": "Q",
    "district": "阿里山鄉",
    "lat": 23.5106,
@@ -1305,7 +1305,7 @@
   },
   {
    "name": "屏東勝利星村",
-   "model": "pavilion",
+   "model": "woodhouses",
    "county": "T",
    "district": "屏東市",
    "lat": 22.6728,
@@ -1349,7 +1349,7 @@
   },
   {
    "name": "太魯閣國家公園（太魯閣牌樓）",
-   "model": "pavilion",
+   "model": "archgate",
    "county": "U",
    "district": "秀林鄉",
    "lat": 24.1586,
@@ -1404,7 +1404,7 @@
   },
   {
    "name": "三仙台",
-   "model": "pavilion",
+   "model": "bridge",
    "county": "V",
    "district": "成功鎮",
    "lat": 23.1236,
@@ -1448,7 +1448,7 @@
   },
   {
    "name": "伯朗大道",
-   "model": "pavilion",
+   "model": "ricefield",
    "county": "V",
    "district": "池上鄉",
    "lat": 23.1023,
@@ -1459,7 +1459,7 @@
   },
   {
    "name": "澎湖跨海大橋",
-   "model": "pavilion",
+   "model": "bridge",
    "county": "X",
    "district": "白沙鄉、西嶼鄉",
    "lat": 23.6325,
@@ -1481,7 +1481,7 @@
   },
   {
    "name": "七美雙心石滬",
-   "model": "pavilion",
+   "model": "heartweir",
    "county": "X",
    "district": "七美鄉",
    "lat": 23.2133,
@@ -1536,7 +1536,7 @@
   },
   {
    "name": "金門大橋",
-   "model": "pavilion",
+   "model": "bridge",
    "county": "W",
    "district": "金寧鄉、烈嶼鄉",
    "lat": 24.431,
@@ -1569,7 +1569,7 @@
   },
   {
    "name": "芹壁聚落",
-   "model": "pavilion",
+   "model": "stonevillage",
    "county": "Z",
    "district": "北竿鄉",
    "lat": 26.2321,

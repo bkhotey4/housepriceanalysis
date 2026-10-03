@@ -280,6 +280,324 @@ def badlands():
     return f
 
 
+# ------------------------------------------------------------------ 全台各縣市的招牌地標（和臺南的鹽山、稜堡一樣，一眼認得出是哪裡）
+def _arc_xz(cx, cy, r, z0, k0, k1, n, half_w, thick, color, depth=0.06):
+    """在 xz 平面上，用 n 段小方塊拼一道半圓拱（k0~k1 是角度範圍，弧度）。"""
+    f = []
+    for k in range(n):
+        a = k0 + (k1 - k0) * (k + 0.5) / n
+        x, z = cx + r * math.cos(a), z0 + r * math.sin(a)
+        f += box(x - half_w, cy - depth, z - thick, x + half_w, cy + depth, z + thick, color)
+    return f
+
+
+def _fit_height(f, top=2.35):
+    """摩天大樓整體等比例壓到模型高度上限（2.4）以內。"""
+    k = top / max(p[2] for pts, _c in f for p in pts)
+    return [([(x, y, z * k) for x, y, z in pts], c) for pts, c in f]
+
+
+def taipei101():
+    """台北101：裙樓上 8 節往上張開的「竹節」與尖塔。"""
+    f = box(-0.8, -0.65, 0, 0.8, 0.65, 0.3, "#9fb4c3", top="#8aa0af")
+    f += prism(0, 0, 0.42, 0.3, 0.32, 0.9, 4, "#5f8fa8", phase=math.pi / 4)
+    z = 0.9
+    for _ in range(8):
+        f += prism(0, 0, 0.26, z, 0.36, z + 0.22, 4, "#6f9fb8", top="#4f7f98", phase=math.pi / 4)
+        z += 0.22
+    f += prism(0, 0, 0.2, z, 0.14, z + 0.22, 4, "#4f7f98", phase=math.pi / 4)
+    f += prism(0, 0, 0.04, z + 0.22, 0.0, z + 0.62, 4, "#d9e1e6")
+    return _fit_height(f)
+
+
+def tower85():
+    """高雄 85 大樓：兩支塔腳在半空會合成「高」字形，中央往上一座塔樓與天線。"""
+    c, top = "#8faac0", "#6f8aa0"
+    f = box(-1.0, -0.4, 0, -0.35, 0.4, 1.35, c, top=top)
+    f += box(0.35, -0.4, 0, 1.0, 0.4, 1.35, c, top=top)
+    f += box(-1.0, -0.4, 1.35, 1.0, 0.4, 1.7, c, top=top)
+    f += box(-0.42, -0.34, 1.7, 0.42, 0.34, 2.75, "#9fbad0", top=top)
+    f += box(-0.25, -0.22, 2.75, 0.25, 0.22, 2.95, top)
+    f += prism(0, 0, 0.04, 2.95, 0.0, 3.4, 4, "#d9e1e6")
+    return _fit_height(f)
+
+
+def memorial():
+    """中正紀念堂：三層白色臺基、白牆、寶藍色八角屋頂。"""
+    blue = "#2f5fa8"
+    f = box(-1.1, -1.1, 0, 1.1, 1.1, 0.18, WHITE, top="#e9e6dd")
+    f += box(-0.9, -0.9, 0.18, 0.9, 0.9, 0.36, WHITE, top="#e9e6dd")
+    f += box(-0.6, -0.6, 0.36, 0.6, 0.6, 1.05, WHITE)
+    f += prism(0, 0, 0.92, 1.05, 0.55, 1.3, 8, blue, phase=math.pi / 8)
+    f += prism(0, 0, 0.55, 1.3, 0.55, 1.45, 8, WHITE, phase=math.pi / 8)
+    f += prism(0, 0, 0.72, 1.45, 0.0, 1.95, 8, blue, phase=math.pi / 8)
+    f += box(-0.5, -1.35, 0, 0.5, -1.1, 0.06, "#e9e6dd")          # 正面大階梯
+    return f
+
+
+def bridge():
+    """跨海大橋：海面上一長段橋面、橋墩與一道道拱。"""
+    f = flat([(-1.5, -0.45), (1.5, -0.45), (1.5, 0.45), (-1.5, 0.45)], 0.01, WATER)
+    f += box(-1.5, -0.12, 0.42, 1.5, 0.12, 0.5, "#d7d9dc", top="#9aa0a7")
+    for x in (-1.1, -0.37, 0.37, 1.1):
+        f += box(x - 0.06, -0.1, 0.01, x + 0.06, 0.1, 0.42, "#c9cdd2")
+    for x in (-0.73, 0.0, 0.73):
+        f += _arc_xz(x, -0.13, 0.34, 0.08, 0.0, math.pi, 12, 0.05, 0.035, WHITE, depth=0.05)
+        f += _arc_xz(x, 0.13, 0.34, 0.08, 0.0, math.pi, 12, 0.05, 0.035, WHITE, depth=0.05)
+    return f
+
+
+def trussbridge():
+    """西螺大橋：紅色鋼桁架長橋。"""
+    red = "#c8352c"
+    f = flat([(-1.5, -0.4), (1.5, -0.4), (1.5, 0.4), (-1.5, 0.4)], 0.01, "#9cb7a0")
+    f += box(-1.5, -0.2, 0.2, 1.5, 0.2, 0.26, "#8b9097")
+    for y in (-0.2, 0.2):
+        f += box(-1.5, y - 0.03, 0.62, 1.5, y + 0.03, 0.68, red)
+        for k in range(7):
+            x = -1.5 + k * 0.5
+            f += box(x - 0.03, y - 0.03, 0.26, x + 0.03, y + 0.03, 0.62, red)
+            if k < 6:          # 斜桿：用一串小方塊拼成
+                for t in range(4):
+                    xx, zz = x + 0.07 + t * 0.12, 0.3 + t * 0.1
+                    f += box(xx - 0.04, y - 0.025, zz, xx + 0.04, y + 0.025, zz + 0.07, red)
+    for x in (-1.0, 0.0, 1.0):
+        f += box(x - 0.08, -0.18, 0.01, x + 0.08, 0.18, 0.2, "#c9cdd2")
+    return f
+
+
+def archgate():
+    """牌樓：兩根柱子撐起的門楣與屋頂（太魯閣口的牌樓），後面是山。"""
+    f = prism(-0.2, 0.55, 0.8, 0, 0.0, 1.35, 6, "#5f8f5a")
+    f += prism(0.7, 0.75, 0.6, 0, 0.0, 1.0, 6, "#6c9c64")
+    for x in (-0.75, 0.75):
+        f += box(x - 0.1, -0.1, 0, x + 0.1, 0.1, 0.95, "#c8473a")
+    f += box(-0.95, -0.12, 0.95, 0.95, 0.12, 1.15, "#c8473a")
+    f += roof(-1.15, -0.32, 1.15, 0.32, 1.15, -0.7, 0.0, 0.7, 0.0, 1.45, TILE_YELLOW)
+    return f
+
+
+def buddha():
+    """大佛：蓮花座上的坐佛。"""
+    gold, base = "#c9a24a", "#b6ad9d"
+    f = box(-1.0, -1.0, 0, 1.0, 1.0, 0.18, base, top="#cfc7b8")
+    f += prism(0, 0, 0.85, 0.18, 0.95, 0.42, 12, "#d98aa8")                 # 蓮花座
+    f += prism(0, 0, 0.82, 0.42, 0.55, 0.85, 10, gold, squash=0.8)          # 盤坐的腿
+    f += prism(0, 0.05, 0.52, 0.85, 0.46, 1.45, 10, gold, squash=0.75)      # 身體
+    f += prism(0, 0.05, 0.46, 1.45, 0.14, 1.6, 10, gold, squash=0.75)       # 肩
+    f += prism(0, 0.05, 0.14, 1.6, 0.25, 1.78, 10, gold)                    # 頭
+    f += prism(0, 0.05, 0.25, 1.78, 0.17, 1.98, 10, gold)
+    f += prism(0, 0.05, 0.12, 1.98, 0.0, 2.15, 10, "#a8853a")               # 肉髻
+    return f
+
+
+def _pagoda(cx, cy, levels, color, roof_color):
+    f = []
+    z, r = 0.05, 0.3
+    for i in range(levels):
+        f += prism(cx, cy, r * 0.75, z, r * 0.72, z + 0.18, 8, color, phase=math.pi / 8)
+        f += prism(cx, cy, r * 1.05, z + 0.18, r * 0.7, z + 0.26, 8, roof_color, phase=math.pi / 8)
+        z += 0.26
+        r *= 0.92
+    f += prism(cx, cy, 0.08, z, 0.0, z + 0.25, 8, "#c9a24a")
+    return f
+
+
+def twinpagoda():
+    """蓮池潭龍虎塔：湖上兩座七層塔與九曲橋。"""
+    f = disc(0, 0, 1.2, 0.02, 12, WATER, squash=0.7)
+    f += _pagoda(-0.42, 0.1, 7, "#f2d45c", "#c8473a")
+    f += _pagoda(0.42, 0.1, 7, "#f2d45c", "#c8473a")
+    for k in range(5):
+        x0 = -0.6 + k * 0.24
+        y0 = -0.75 if k % 2 == 0 else -0.6
+        f += box(x0, y0, 0.02, x0 + 0.24, y0 + 0.12, 0.08, "#e4c56a")
+    return f
+
+
+def opera():
+    """台中國家歌劇院：白色方正量體上一個個像洞穴的弧形開口。"""
+    f = box(-1.0, -0.65, 0, 1.0, 0.65, 1.05, "#f3f3ef", top="#e6e6e0")
+    for x in (-0.6, 0.0, 0.6):
+        f += prism(x, -0.66, 0.24, 0.12, 0.24, 0.85, 10, "#5b6b7a", squash=0.08)
+    for x in (-0.3, 0.3):
+        f += prism(x, -0.66, 0.18, 0.55, 0.18, 0.98, 10, "#7f8d99", squash=0.08)
+    for y, z0, z1 in ((-0.35, 0.12, 0.8), (0.3, 0.12, 0.8), (0.0, 0.55, 0.98)):   # 側面也有開口
+        f += box(1.0, y - 0.18, z0, 1.02, y + 0.18, z1, "#5b6b7a")
+        f += box(-1.02, y - 0.18, z0, -1.0, y + 0.18, z1, "#5b6b7a")
+    return f
+
+
+def mtntrain():
+    """阿里山森林鐵路：山坡上的紅色小火車與月台。"""
+    f = prism(0.1, 0.45, 0.9, 0, 0.0, 1.2, 7, "#3f8048")
+    f += prism(-0.75, 0.75, 0.55, 0, 0.0, 0.8, 7, "#4f9a5c")
+    f += flat([(-1.3, -0.5), (1.3, -0.5), (1.3, -0.32), (-1.3, -0.32)], 0.02, "#6d6a66")
+    for k in range(3):
+        x0 = -1.0 + k * 0.62
+        f += box(x0, -0.52, 0.04, x0 + 0.55, -0.3, 0.32, "#b8322a", top="#e8e2d4")
+    f += box(0.95, -0.25, 0, 1.3, 0.05, 0.4, "#c9a27a", top="#8a5a36")
+    return f
+
+
+def tulou():
+    """客家圓樓：圓形的環狀樓房圍出中庭。"""
+    f = []
+    n = 16
+    for k in range(n):
+        a = 2 * math.pi * k / n
+        x, y = 0.82 * math.cos(a), 0.82 * math.sin(a)
+        f += box(x - 0.2, y - 0.2, 0, x + 0.2, y + 0.2, 0.55, "#d8c3a0", top="#7d5a3c")
+    f += disc(0, 0, 0.6, 0.02, 12, "#b9a98c")
+    f += box(-0.15, -0.15, 0.02, 0.15, 0.15, 0.3, "#c8473a")
+    return f
+
+
+def chapel():
+    """路思義教堂：兩片像帳篷一樣彎曲的黃色琉璃瓦屋面，頂上留一道天窗。"""
+    yel = "#e0b23c"
+    f = box(-0.7, -0.9, 0, 0.7, 0.9, 0.06, "#c9c3b5")
+    f += roof(-0.75, -0.9, -0.05, 0.9, 0.06, -0.12, -0.55, -0.05, 0.55, 1.8, yel)
+    f += roof(0.05, -0.9, 0.75, 0.9, 0.06, 0.05, -0.55, 0.12, 0.55, 1.8, "#d4a530")
+    return f
+
+
+def roundhouse():
+    """彰化扇形車庫：扇形排開的車庫與中央轉車台。"""
+    f = disc(0, -0.55, 0.42, 0.02, 12, "#8b9097")
+    for k in range(7):
+        a = math.pi * (0.12 + 0.76 * k / 6)
+        x, y = 0.95 * math.cos(a), -0.55 + 0.95 * math.sin(a)
+        f += prism(x, y, 0.2, 0, 0.2, 0.42, 4, "#d9c9a5", top="#6f757b", phase=a + math.pi / 4)
+    f += box(-0.32, -0.6, 0.02, 0.32, -0.5, 0.1, "#2b2f33")
+    return f
+
+
+def heartweir():
+    """七美雙心石滬：海邊兩顆疊在一起的愛心形石牆。"""
+    f = flat([(-1.4, -1.0), (1.4, -1.0), (1.4, 1.0), (-1.4, 1.0)], 0.01, WATER)
+    stone = "#9b9284"
+    for cx, sc in ((-0.25, 1.0), (0.6, 0.6)):
+        for k in range(32):
+            t = 2 * math.pi * k / 32
+            x = 16 * math.sin(t) ** 3
+            y = 13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)
+            px, py = cx + x * 0.05 * sc, 0.1 + y * 0.05 * sc
+            f += box(px - 0.04, py - 0.04, 0.01, px + 0.04, py + 0.04, 0.14, stone, top="#b8ae9e")
+    return f
+
+
+def stonevillage():
+    """馬祖芹壁：山坡上的閩東石頭屋聚落。"""
+    f = prism(0.0, 0.4, 1.0, 0, 0.0, 0.9, 7, "#6c9c64")
+    for x, y, z in ((-0.7, -0.4, 0), (-0.15, -0.5, 0), (0.45, -0.35, 0), (-0.4, 0.1, 0.25), (0.2, 0.15, 0.3)):
+        f += box(x - 0.2, y - 0.16, z, x + 0.2, y + 0.16, z + 0.32, "#a59a88", top="#7c7468")
+        f += roof(x - 0.22, y - 0.18, x + 0.22, y + 0.18, z + 0.32, x - 0.22, y, x + 0.22, y, z + 0.45, "#7c6f63")
+    return f
+
+
+def airport():
+    """國際機場：長形航廈、塔台與停在旁邊的飛機。"""
+    f = box(-1.2, -0.3, 0, 0.6, 0.3, 0.38, GLASS, top="#9fb0bd")
+    f += roof(-1.25, -0.35, 0.65, 0.35, 0.38, -1.25, -0.1, 0.65, -0.1, 0.5, "#b9c6d0")
+    f += prism(0.95, 0.35, 0.08, 0, 0.08, 1.1, 6, "#d9dde1")
+    f += prism(0.95, 0.35, 0.2, 1.1, 0.2, 1.3, 8, "#4f7f98")
+    f += box(-0.4, -1.0, 0.1, 0.6, -0.88, 0.22, WHITE)                    # 機身
+    f += box(0.0, -1.35, 0.15, 0.2, -0.53, 0.19, WHITE)                    # 機翼
+    f += box(-0.4, -0.97, 0.22, -0.3, -0.91, 0.42, "#c8473a")             # 尾翼
+    return f
+
+
+def lakepagoda():
+    """日月潭：山間湖面、湖中小島，岸邊山頭上的寶塔。"""
+    f = disc(0, -0.1, 1.15, 0.02, 12, "#3f8fc8", squash=0.7)
+    f += disc(0.15, -0.15, 0.16, 0.05, 8, GREEN)
+    f += prism(-0.75, 0.75, 0.55, 0, 0.0, 0.85, 7, "#3f8048")
+    f += prism(0.8, 0.7, 0.5, 0, 0.0, 0.7, 7, "#4f9a5c")
+    z = 0.6
+    for i in range(5):                  # 山頂的慈恩塔
+        f += prism(-0.75, 0.62, 0.1 - i * 0.012, z, 0.09 - i * 0.012, z + 0.12, 8, "#f2e6c9")
+        f += prism(-0.75, 0.62, 0.15 - i * 0.015, z + 0.12, 0.08 - i * 0.012, z + 0.17, 8, "#c8473a")
+        z += 0.17
+    return f
+
+
+def palace():
+    """宮殿式建築（故宮、莒光樓）：白色臺基、長形主殿與黃綠色屋頂。"""
+    f = box(-1.2, -0.75, 0, 1.2, 0.75, 0.2, WHITE, top="#e9e6dd")
+    f += box(-0.95, -0.45, 0.2, 0.95, 0.45, 0.75, "#efe9dc")
+    f += roof(-1.12, -0.6, 1.12, 0.6, 0.75, -0.7, 0.0, 0.7, 0.0, 1.15, "#d9b23c")
+    f += box(-0.35, -0.3, 0.75, 0.35, 0.3, 1.1, "#efe9dc")
+    f += roof(-0.5, -0.42, 0.5, 0.42, 1.1, -0.2, 0.0, 0.2, 0.0, 1.45, "#3f8f6a")
+    f += box(-0.4, -1.1, 0, 0.4, -0.75, 0.08, "#e9e6dd")
+    return f
+
+
+def citygate():
+    """古城門：磚石城臺、拱門洞與上面的城樓。"""
+    f = box(-1.0, -0.5, 0, 1.0, 0.5, 0.7, "#a8a091", top="#8f877a")
+    f += box(-0.22, -0.52, 0, 0.22, -0.49, 0.45, "#3b3a37")
+    f += box(-0.6, -0.3, 0.7, 0.6, 0.3, 1.05, "#c8473a")
+    f += roof(-0.8, -0.48, 0.8, 0.48, 1.05, -0.45, 0.0, 0.45, 0.0, 1.4, TILE_GRAY)
+    return f
+
+
+def themepark():
+    """主題樂園：摩天輪與城堡尖塔。"""
+    f = disc(0, 0, 1.1, 0.02, 10, "#8cc276", squash=0.75)
+    f += box(-0.95, -0.08, 0, -0.85, 0.08, 0.95, "#c9cdd2")
+    f += box(-0.15, -0.08, 0, -0.05, 0.08, 0.95, "#c9cdd2")
+    f += _arc_xz(-0.5, 0.0, 0.7, 1.0, 0.0, 2 * math.pi, 16, 0.05, 0.05, "#e05a8a")
+    for k in range(8):
+        a = 2 * math.pi * k / 8
+        x, z = -0.5 + 0.7 * math.cos(a), 1.0 + 0.7 * math.sin(a)
+        f += box(x - 0.08, -0.08, z - 0.12, x + 0.08, 0.08, z, "#f2c14e")
+    f += prism(0.65, 0.1, 0.22, 0, 0.22, 0.75, 8, "#e9e1f2")
+    f += prism(0.65, 0.1, 0.28, 0.75, 0.0, 1.25, 8, "#5b6fc4")
+    return f
+
+
+def forest():
+    """森林遊樂區：高聳的柳杉林與空中步道。"""
+    f = disc(0, 0, 1.1, 0.02, 10, "#6f9a5a", squash=0.8)
+    for x, y, h in ((-0.7, 0.3, 1.5), (-0.25, 0.55, 1.75), (0.3, 0.4, 1.6), (0.75, 0.1, 1.4), (-0.5, -0.35, 1.3), (0.25, -0.3, 1.55)):
+        f += prism(x, y, 0.05, 0.02, 0.05, 0.4, 5, "#6a4a30")
+        f += prism(x, y, 0.24, 0.4, 0.0, h, 7, DARK_GREEN)
+    f += box(-1.0, -0.06, 0.75, 1.0, 0.06, 0.8, "#a07a52")
+    return f
+
+
+def ricefield():
+    """稻田大道：一望無際的稻田、筆直的小路與一棵大樹。"""
+    f = flat([(-1.3, -0.9), (1.3, -0.9), (1.3, 0.9), (-1.3, 0.9)], 0.02, "#b9cf5a")
+    for k in range(5):
+        y0 = -0.85 + k * 0.36
+        f += flat([(-1.25, y0), (-0.12, y0), (-0.12, y0 + 0.3), (-1.25, y0 + 0.3)], 0.03, "#a3c24a" if k % 2 else "#c7d96a")
+    f += flat([(-0.08, -0.9), (0.08, -0.9), (0.08, 0.9), (-0.08, 0.9)], 0.035, "#d9cfb0")
+    f += prism(0.55, 0.2, 0.05, 0.03, 0.05, 0.55, 5, "#6a4a30")
+    f += prism(0.55, 0.2, 0.45, 0.45, 0.2, 0.95, 8, GREEN, top="#74b06a")
+    return f
+
+
+def woodhouses():
+    """日式木造宿舍群（檜意森活村、勝利星村）：深色木屋與黑瓦。"""
+    f = disc(0, 0, 1.1, 0.02, 10, "#8cc276", squash=0.75)
+    for x, y in ((-0.55, -0.3), (0.35, -0.35), (-0.25, 0.4), (0.6, 0.35)):
+        f += box(x - 0.28, y - 0.2, 0.02, x + 0.28, y + 0.2, 0.32, "#8a6a4a")
+        f += roof(x - 0.34, y - 0.26, x + 0.34, y + 0.26, 0.32, x - 0.15, y, x + 0.15, y, 0.55, "#3b3f45")
+    return f
+
+
+def waveroof():
+    """衛武營：起伏如浪的大屋頂（仿榕樹林）覆蓋整片場館。"""
+    f = box(-1.1, -0.7, 0, 1.1, 0.7, 0.35, "#e8e6e0", top="#d5d2ca")
+    for k in range(6):
+        x0 = -1.1 + k * 0.3667
+        h = 0.65 + 0.25 * math.sin(k * 1.3)
+        f += roof(x0, -0.8, x0 + 0.3667, 0.8, 0.35, x0 + 0.08, -0.6, x0 + 0.29, 0.6, 0.35 + h, "#c9cdd2", top="#e2e4e6")
+    return f
+
+
 # ------------------------------------------------------------------ 重大建設（開發案）的示意圖案
 def tower():
     """商辦／旅館大樓：玻璃塔樓加裙樓。"""
@@ -435,6 +753,12 @@ MODELS = {
     "cityhall": cityhall, "fab": fab, "saltfield": saltfield, "farm": farm, "lotus": lotus, "badlands": badlands,
     "tower": tower, "dome": dome, "blocks": blocks, "sheds": sheds, "interchange": interchange, "rail": rail,
     "metro": metro, "housing": housing, "crane": crane,
+    # 全台各縣市的招牌地標
+    "taipei101": taipei101, "tower85": tower85, "memorial": memorial, "bridge": bridge, "trussbridge": trussbridge,
+    "archgate": archgate, "buddha": buddha, "twinpagoda": twinpagoda, "opera": opera, "mtntrain": mtntrain,
+    "tulou": tulou, "chapel": chapel, "roundhouse": roundhouse, "heartweir": heartweir, "stonevillage": stonevillage,
+    "airport": airport, "lakepagoda": lakepagoda, "palace": palace, "citygate": citygate, "themepark": themepark,
+    "forest": forest, "ricefield": ricefield, "woodhouses": woodhouses, "waveroof": waveroof,
 }
 _CACHE = {}
 

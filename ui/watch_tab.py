@@ -5,7 +5,7 @@ from tkinter import messagebox, ttk
 
 from urllib.parse import quote
 
-from core import geo, prices, watchlist
+from core import geo, prices, region, watchlist
 from . import kit
 from .dialogs import WatchDialog
 
@@ -16,8 +16,13 @@ PLATFORMS = [("591 房屋交易", "sale.591.com.tw"), ("樂屋網", "rakuya.com.
              ("信義房屋", "sinyi.com.tw"), ("住商不動產", "hbhousing.com.tw"), ("台灣房屋", "twhg.com.tw")]
 
 
+def _city():
+    """目前縣市的簡稱（台南、台北…），搜尋用。"""
+    return region.info()["short"][:2]
+
+
 def platform_search_url(site, district, kind=""):
-    q = "site:%s 台南 %s %s 買房" % (site, district if district != ALL_DIST else "", kind)
+    q = "site:%s %s %s %s 買房" % (site, _city(), district if district != ALL_DIST else "", kind)
     return "https://www.google.com/search?q=" + quote(" ".join(q.split()))
 
 
@@ -189,14 +194,14 @@ class WatchTab(tk.Frame):
         m = self.menu_search
         m.delete(0, "end")
         dist = self.selected_district()
-        where = "台南全市" if dist == ALL_DIST else dist
+        where = _city() + "全市" if dist == ALL_DIST else dist
         for name, site in PLATFORMS:
             m.add_command(label="%s：%s" % (name, where), command=lambda s=site: kit.open_url(platform_search_url(s, dist)))
         m.add_separator()
         for kind in ("透天", "大樓", "預售屋"):
             m.add_command(label="所有平台：%s %s" % (where, kind),
                           command=lambda k=kind: kit.open_url(
-                              "https://www.google.com/search?q=" + quote("台南 %s %s 買房" % ("" if dist == ALL_DIST else dist, k))))
+                              "https://www.google.com/search?q=" + quote("%s %s %s 買房" % (_city(), "" if dist == ALL_DIST else dist, k))))
 
     def _on_select(self, _e):
         sel = self.tree.selection()
@@ -326,4 +331,4 @@ class WatchTab(tk.Frame):
         if it.get("lat") is not None:
             kit.open_url(geo.google_satellite_url(it["lat"], it["lng"], 18))
         else:
-            kit.open_url(geo.google_search_url("台南市%s%s" % (it.get("district") or "", it.get("address") or "")))
+            kit.open_url(geo.google_search_url("%s%s%s" % (region.info()["short"], it.get("district") or "", it.get("address") or "")))

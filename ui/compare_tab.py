@@ -74,7 +74,7 @@ class CompareTab(tk.Frame):
 
     def _nearest_station(self, d):
         best = None
-        for lname, ln in self.app.mrt_lines.items():
+        for lname, ln in self.app.map_mrt.items():
             for sname, lat, lng in ln["stations"]:
                 km = geo.dist_km(d["lat"], d["lng"], lat, lng)
                 if best is None or km < best[0]:

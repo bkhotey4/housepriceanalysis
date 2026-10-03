@@ -13,7 +13,8 @@ import tkinter.font as tkfont
 
 from . import basemap as basemap_mod
 from . import landmarks as landmarks_mod
-from .geo import KM_PER_DEG_LAT, KM_PER_DEG_LNG, LAT0, LNG0, to_xy
+from . import geo
+from .geo import to_xy
 
 SEA = "#cfdfea"
 BG = "#eef1f4"
@@ -68,6 +69,7 @@ class View3D(tk.Canvas):
     BAR_HALF_KM = 0.62    # 房價柱半寬
     animate = True        # 點選後滑過去、滾輪縮放的過場動畫（測試時關掉，結果才是立即的）
     FLY_MS = 420          # 「拉到那個點」的動畫長度（毫秒）
+    MIN_ZOOM = 3.0        # 最小縮放（每公里幾像素）；大縣市會用 set_home 調小
 
     def __init__(self, master, terrain, font_family="TkDefaultFont", font_size=10, quality=1, **kw):
         kw.setdefault("bg", BG)
@@ -82,6 +84,8 @@ class View3D(tk.Canvas):
         self.pitch = self.DEFAULT["pitch"]
         self.zoom = 10.0
         self._auto_zoom = True
+        self.DEFAULT = dict(self.DEFAULT)      # 每個縣市的總覽中心不同（set_home），不要改到類別共用的那份
+        self.home_span = (62.0, 45.0)          # 全區總覽要塞進畫面的寬、高（公里）；臺南是 62×45
         self.tx, self.ty = self.DEFAULT["tx"], self.DEFAULT["ty"]
         self.drag_mode = "pan"          # 左鍵拖曳：pan 平移（預設）| rotate 旋轉；右鍵拖曳是另一種
         self.show = {"lines": True, "markers": True, "labels": True, "legend": True, "roads": True, "landmarks": True}
@@ -313,7 +317,7 @@ class View3D(tk.Canvas):
         self.request_redraw()
 
     def _zoom_limit(self, z):
-        return max(3.0, min(1500.0 if self.flat else 260.0, z))
+        return max(self.MIN_ZOOM, min(1500.0 if self.flat else 260.0, z))
 
     def _stop_motion(self):
         """使用者自己動手（拖曳、按按鈕）時，停掉進行中的動畫。"""
@@ -339,11 +343,19 @@ class View3D(tk.Canvas):
         x, y = to_xy(lat, lng)
         self._fly_xy(x, y, zoom, ms)
 
+    def set_home(self, tx, ty, span_x, span_y):
+        """設定「全區總覽」的中心（公里座標）與要塞進畫面的範圍；換縣市時由地圖分頁呼叫。"""
+        self.DEFAULT["tx"], self.DEFAULT["ty"] = tx, ty
+        self.home_span = (max(8.0, span_x), max(6.0, span_y))
+        self.MIN_ZOOM = min(3.0, 3.0 * 62.0 / max(62.0, span_x, span_y * 1.4))
+        self.tx, self.ty = tx, ty
+
     def fly_home(self, ms=None):
         """滑回全市總覽的位置與大小（不改變旋轉角度）。"""
         self._stop_motion()
         w, h = self.winfo_width(), self.winfo_height()
-        zoom = max(3.0, min((w - self._legend_inset()) / 62.0, h / 45.0)) if w > 50 and h > 50 else None
+        sx, sy = self.home_span
+        zoom = max(self.MIN_ZOOM, min((w - self._legend_inset()) / sx, h / sy)) if w > 50 and h > 50 else None
         self._fly_xy(self.DEFAULT["tx"], self.DEFAULT["ty"], zoom, ms, auto=True)
 
     def _fly_xy(self, x, y, zoom, ms, auto=False):
@@ -487,7 +499,7 @@ class View3D(tk.Canvas):
         yr = (h2 - sy) / (self.zoom * sp)
         x = self.tx + xr * ca + yr * sa
         y = self.ty - xr * sa + yr * ca
-        return y / KM_PER_DEG_LAT + LAT0, x / KM_PER_DEG_LNG + LNG0
+        return y / geo.KM_PER_DEG_LAT + geo.LAT0, x / geo.KM_PER_DEG_LNG + geo.LNG0
 
     def view_box(self):
         """目前畫面涵蓋的地面範圍 (west, east, north, south)。"""
@@ -504,7 +516,8 @@ class View3D(tk.Canvas):
     def _fit_zoom(self):
         w, h = self.winfo_width(), self.winfo_height()
         if w > 50 and h > 50:
-            self.zoom = max(3.0, min((w - self._legend_inset()) / 62.0, h / 45.0))
+            sx, sy = self.home_span
+            self.zoom = max(self.MIN_ZOOM, min((w - self._legend_inset()) / sx, h / sy))
 
     # ------------------------------------------------------------------ 重繪排程
     def request_redraw(self, fast=False):
@@ -799,6 +812,8 @@ class View3D(tk.Canvas):
                 xs.append(sx)
                 ys.append(sy)
                 depth += yr * cp - (z0 + pz * s) * sp
+            if n[2] > 0.99 and max(p[2] for p in pts) <= 0.06:
+                depth = 1e9 * len(pts)                      # 貼地的面（湖面、草地、海面）一律最先畫，不會蓋住上面的東西
             out.append((depth / len(pts), poly, shade(color, landmarks_mod.brightness(n))))
         out.sort(key=lambda f: -f[0])
         cx, cy, d = self.project(x, y, z0)
@@ -842,6 +857,8 @@ class View3D(tk.Canvas):
                 us.append(u)
                 vs.append(v)
                 depth += (px * sa + py * ca) * cp - pz * sp
+            if n[2] > 0.99 and max(q[2] for q in pts) <= 0.06:
+                depth = 1e9 * len(pts)                      # 貼地的面一律最先畫
             faces.append((depth / len(pts), poly, shade(color, landmarks_mod.brightness(n)), shade(color, 0.72)))
         if not faces:
             return None
