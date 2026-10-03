@@ -23,6 +23,11 @@ export class View3D {
     this.ctx = canvas.getContext("2d");
     this.az = -24; this.pitch = 40; this.zoom = 10; this.tx = -6; this.ty = -3;
     this.autoZoom = true;
+    // 「全部」的範圍（公里座標）：台南版是台南市；全台版依目前看的是全台或某縣市改變（setExtent）
+    this.extent = { cx: -6, cy: -3, w: 62, wp: 50, h: 45 };
+    this.bounds = { x0: -45, x1: 45, y0: -40, y1: 40 };
+    this.minZoom = MIN_ZOOM;
+    this.tileLayers = null;          // 全台版：{ photo: {tiles, max_z}, town: …, liq: …, fault: {wms} }
     this.inset = { left: 0, bottom: 0, top: 0, right: 0 };    // 被面板蓋住的區域（像素）
     this.bars = []; this.lines = []; this.markers = []; this.models = []; this.roads = []; this.pins = []; this.rings = []; this.pois = [];
     this.layers = {}; this.layerOn = { town: true }; this.layerOpacity = { liq: 0.55, fault: 1, town: 1 };
@@ -54,7 +59,13 @@ export class View3D {
   get h2() { const top = this.inset.top, bot = this.H - this.inset.bottom; return top + (bot - top) * 0.54; }
   fitZoom() {
     const w = this.W - this.inset.left - this.inset.right, h = this.H - this.inset.top - this.inset.bottom;
-    if (w > 50 && h > 50) this.zoom = Math.max(MIN_ZOOM, Math.min(w / (w < 600 ? 50 : 62), h / 45));
+    const e = this.extent;
+    if (w > 50 && h > 50) this.zoom = Math.max(this.minZoom, Math.min(w / (w < 600 ? e.wp : e.w), h / e.h));
+  }
+  setExtent(ext, bounds, minZoom) {
+    this.extent = Object.assign({}, ext, { wp: ext.wp || ext.w * 50 / 62 });
+    if (bounds) this.bounds = bounds;
+    if (minZoom) this.minZoom = minZoom;
   }
   setup() {
     const a = this.az * Math.PI / 180, p = this.pitch * Math.PI / 180;
@@ -87,17 +98,17 @@ export class View3D {
   flyHome() {
     this.stop();
     const save = this.zoom; this.fitZoom(); const z = this.zoom; this.zoom = save;
-    this.anim = { t0: performance.now(), ms: 450, from: [this.tx, this.ty, this.zoom], to: [-6, -3, z], auto: true };
+    this.anim = { t0: performance.now(), ms: 450, from: [this.tx, this.ty, this.zoom], to: [this.extent.cx, this.extent.cy, z], auto: true };
     this._tick();
   }
-  reset() { this.stop(); this.az = -24; this.pitch = 40; this.tx = -6; this.ty = -3; this.autoZoom = true; this.fitZoom(); this.request(); }
+  reset() { this.stop(); this.az = -24; this.pitch = 40; this.tx = this.extent.cx; this.ty = this.extent.cy; this.autoZoom = true; this.fitZoom(); this.request(); }
   topView() { this.az = 0; this.pitch = 89; this.request(); }
   rotate(dAz = 0, dPitch = 0) {
     this.az = ((this.az + dAz + 180) % 360 + 360) % 360 - 180;
     this.pitch = Math.max(12, Math.min(89, this.pitch + dPitch));
     this.request(true);
   }
-  clampZoom(z) { return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z)); }
+  clampZoom(z) { return Math.max(this.minZoom, Math.min(MAX_ZOOM, z)); }
   zoomAt(factor, sx, sy) {
     this.autoZoom = false; this.stop();
     const z = this.clampZoom(this.zoom * factor);
@@ -110,7 +121,7 @@ export class View3D {
     this.clampCenter();
     this.request(true);
   }
-  clampCenter() { this.tx = Math.max(-45, Math.min(45, this.tx)); this.ty = Math.max(-40, Math.min(40, this.ty)); }
+  clampCenter() { const b = this.bounds; this.tx = Math.max(b.x0, Math.min(b.x1, this.tx)); this.ty = Math.max(b.y0, Math.min(b.y1, this.ty)); }
   _tick() {
     const a = this.anim;
     if (!a) return;
@@ -166,29 +177,59 @@ export class View3D {
     c.restore();
     return true;
   }
-  _drawTiles() {
-    // 高解析衛星圖磚（國土測繪中心 WMTS）：畫面每個像素小於底圖解析度時才載入
-    if (!this.show.hires || this.zoom < 70) return;
-    const z = Math.max(14, Math.min(18, Math.round(Math.log2(this.zoom * this.dpr * 40075 * Math.cos(LAT0 * Math.PI / 180) / 256 / 1.15))));
-    const n = 2 ** z, lat2y = lat => (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
-    const y2lat = y => Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
+  _drawTiles(id = "photo", load = true) {
+    // 國土測繪中心 WMTS 圖磚。台南版只在放大後補高解析衛星圖；全台版所有底圖、圖層都用圖磚
+    const cfg = this.tileLayers ? this.tileLayers[id] : (id === "photo" ? { tiles: TILE_URL, max_z: 18 } : null);
+    if (!cfg) return;
+    if (!this.tileLayers && (!this.show.hires || this.zoom < 70)) return;
+    const ideal = Math.round(Math.log2(this.zoom * this.dpr * 40075 * Math.cos(LAT0 * Math.PI / 180) / 256 / 1.15));
+    let z = Math.max(this.tileLayers ? 6 : 14, Math.min(cfg.max_z || 18, ideal));
+    const lat2y = (lat, n) => (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
+    const y2lat = (y, n) => Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
     const corners = [[0, this.inset.top], [this.W, this.inset.top], [this.W, this.H], [0, this.H]].map(([x, y]) => this.screenToLatLng(x, y));
-    const lats = corners.map(c => c[0]), lngs = corners.map(c => c[1]);
-    const x0 = Math.floor((Math.min(...lngs) + 180) / 360 * n), x1 = Math.floor((Math.max(...lngs) + 180) / 360 * n);
-    const y0 = Math.floor(lat2y(Math.max(...lats))), y1 = Math.floor(lat2y(Math.min(...lats)));
-    if ((x1 - x0 + 1) * (y1 - y0 + 1) > 90) return;     // 太多張（俯角太低看得很遠）就不抓
+    const lats = corners.map(c => Math.max(-80, Math.min(80, c[0]))), lngs = corners.map(c => c[1]);
+    let n, x0, x1, y0, y1;
+    for (;;) {
+      n = 2 ** z;
+      x0 = Math.floor((Math.min(...lngs) + 180) / 360 * n); x1 = Math.floor((Math.max(...lngs) + 180) / 360 * n);
+      y0 = Math.floor(lat2y(Math.max(...lats), n)); y1 = Math.floor(lat2y(Math.min(...lats), n));
+      if ((x1 - x0 + 1) * (y1 - y0 + 1) <= 90) break;
+      if (!this.tileLayers || z <= 5) return;          // 太多張（俯角太低看得很遠）就少抓一點
+      z--;
+    }
+    const alpha = id === "photo" ? 1 : (this.layerOpacity[id] ?? cfg.opacity ?? 1), drawnParents = new Set();
+    const ready = t => t && t.complete && t.naturalWidth;
+    const list = [];
     for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
-      const key = `${z}/${ty}/${tx}`;
+      const key = `${id}/${z}/${ty}/${tx}`;
       let t = this.tiles.get(key);
-      if (!t) {
+      if (!t && load) {
+        const w = tx / n * 360 - 180, e = (tx + 1) / n * 360 - 180, no = y2lat(ty, n), so = y2lat(ty + 1, n);
         t = new Image(); t.decoding = "async"; t.onload = () => this.request(); t.onerror = () => { t.failed = true; };
-        t.src = TILE_URL.replace("{z}", z).replace("{y}", ty).replace("{x}", tx);
+        t.src = cfg.wms ? cfg.wms.replace("{w}", w).replace("{e}", e).replace("{n}", no).replace("{s}", so)
+          : (cfg.tiles || TILE_URL).replace("{z}", z).replace("{y}", ty).replace("{x}", tx);
         this.tiles.set(key, t);
-        if (this.tiles.size > 400) this.tiles.delete(this.tiles.keys().next().value);
+        if (this.tiles.size > 600) this.tiles.delete(this.tiles.keys().next().value);
       }
-      if (t.failed) continue;
-      const w = tx / n * 360 - 180, e = (tx + 1) / n * 360 - 180;
-      this._drawImageGeo(t, w, e, y2lat(ty), y2lat(ty + 1));
+      list.push([tx, ty, t]);
+    }
+    // 先畫還沒到的那幾張的上一層（較模糊）頂著，再畫已經到的，畫面不會一片空白
+    if (this.tileLayers) for (const [tx, ty, t] of list) {
+      if (ready(t)) continue;
+      for (let k = 1; k <= 4; k++) {
+        const pk = `${id}/${z - k}/${ty >> k}/${tx >> k}`, pt = this.tiles.get(pk);
+        if (!ready(pt)) continue;
+        if (!drawnParents.has(pk)) {
+          drawnParents.add(pk);
+          const pn = 2 ** (z - k), px = tx >> k, py = ty >> k;
+          this._drawImageGeo(pt, px / pn * 360 - 180, (px + 1) / pn * 360 - 180, y2lat(py, pn), y2lat(py + 1, pn), alpha);
+        }
+        break;
+      }
+    }
+    for (const [tx, ty, t] of list) {
+      if (!ready(t) || t.failed) continue;
+      this._drawImageGeo(t, tx / n * 360 - 180, (tx + 1) / n * 360 - 180, y2lat(ty, n), y2lat(ty + 1, n), alpha);
     }
   }
 
@@ -202,7 +243,10 @@ export class View3D {
     this.hits = [];
     const base = this.layers.photo;
     if (base) this._drawImageGeo(this._layerImage(base), base.meta.west, base.meta.east, base.meta.north, base.meta.south);
-    if (!fast) this._drawTiles();
+    if (this.tileLayers) {
+      this._drawTiles("photo", !fast);
+      for (const id of ["liq", "fault", "town"]) if (this.layerOn[id]) this._drawTiles(id, !fast);
+    } else if (!fast) this._drawTiles();
     for (const id of ["liq", "fault", "town"]) {
       const L = this.layers[id];
       if (L && this.layerOn[id]) this._drawImageGeo(L.img, L.meta.west, L.meta.east, L.meta.north, L.meta.south, this.layerOpacity[id] ?? 1);
@@ -384,11 +428,12 @@ export class View3D {
       if (g.box[2] < -30 || g.box[0] > this.W + 30 || g.box[3] < -30 || g.box[1] > this.H + 30) continue;
       items.push({ depth: g.depth, kind: 0, o: b, g });
     }
-    if (this.show.markers) for (const m of this.markers) {
+    const near = z >= 4;            // 全台縮小時不畫地標與建設圖案（太擠）
+    if (this.show.markers && near) for (const m of this.markers) {
       const [x, y] = toXY(m.lat, m.lng), [sx, sy, dp] = this.project(x, y);
       if (this._onScreen(sx, sy)) items.push({ depth: dp, kind: 1, o: m, g: [sx, sy] });
     }
-    if (this.models.length) {
+    if (this.models.length && near) {
       const placed = [], k = z < 40 ? 0.8 : z >= 150 ? 0.42 : 0.8 - (z - 40) / 110 * 0.38;
       const gap = Math.max(42, Math.min(88, 36 + z * 0.35)) * k;
       const order = [...this.models].sort((A, B) => {

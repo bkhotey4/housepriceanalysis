@@ -6,6 +6,7 @@
 import re
 
 from .prices import _ROAD, _VILLAGE, median, road_of
+from .taiwan import strip_county
 
 _FULL = str.maketrans("０１２３４５６７８９－（）", "0123456789-()")
 _LANE = re.compile(r"(\d+)巷")
@@ -15,14 +16,11 @@ _TAIL_NUMBER = re.compile(r"(\d+)(?:之(\d+))?$")
 
 
 def normalize(text):
-    """去掉空白、全形數字轉半形、去掉開頭的郵遞區號與「臺南市」。"""
+    """去掉空白、全形數字轉半形、去掉開頭的郵遞區號與縣市名稱（「臺南市」「台北市」…）。"""
     s = re.sub(r"\s+", "", (text or "")).translate(_FULL)
     s = re.sub(r"^\d{3,6}(?=[^\d號巷弄之])", "", s)
-    for prefix in ("臺南市", "台南市", "臺南", "台南"):
-        if s.startswith(prefix) and len(s) > len(prefix):
-            s = s[len(prefix):]
-            break
-    return s
+    rest = strip_county(s)
+    return rest if rest else s
 
 
 def _parts(rest):

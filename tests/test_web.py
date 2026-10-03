@@ -45,7 +45,7 @@ class WebAppTest(unittest.TestCase):
         cls.pw.stop()
         cls.httpd.shutdown()
 
-    def open(self, phone=True):
+    def open(self, phone=True, query="?tw=0"):
         kw = dict(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True) if phone \
             else dict(viewport={"width": 1366, "height": 820})
         ctx = self.browser.new_context(**kw)
@@ -53,7 +53,7 @@ class WebAppTest(unittest.TestCase):
         pg = ctx.new_page()
         errors = []
         pg.on("pageerror", lambda e: errors.append(str(e)))
-        pg.goto(self.url)
+        pg.goto(self.url + query)
         pg.wait_for_function("window.__app && window.__app.D.txs", timeout=30000)
         pg.wait_for_timeout(300)
         self.addCleanup(ctx.close)
@@ -247,6 +247,116 @@ class WebAppTest(unittest.TestCase):
         body = rep.inner_text("body")
         for want in ("房價行情報告", "王小明", "給 陳先生", "同一條巷", "周邊生活機能與嫌惡設施", "超商A", "附近的重大建設"):
             self.assertIn(want, body)
+
+
+
+def _make_tw_fixture(root):
+    """把 web/ 複製到暫存資料夾，加上一個假的「臺北市」（3 區、幾十筆成交、一條路），測全台版的切換流程。"""
+    import shutil
+    import random
+    from core import prices
+    from tools import export_tw
+    web = os.path.join(root, "web")
+    shutil.copytree(WEB, web)
+    export_tw.OUT = os.path.join(web, "data", "tw")
+    rnd = random.Random(7)
+    towns = [{"name": "大安區", "lat": 25.0263, "lng": 121.5434}, {"name": "信義區", "lat": 25.0330, "lng": 121.5654},
+             {"name": "中正區", "lat": 25.0324, "lng": 121.5199}]
+    txs = []
+    for i in range(90):
+        t = towns[i % 3]
+        num = 100 + (i % 9) * 10
+        m = 1 + i % 12
+        txs.append({"id": "T%d" % i, "dist": t["name"], "ym": "2026-%02d" % min(m, 8), "date": "2026-%02d-15" % min(m, 8),
+                    "cat": "apt", "btype": "住宅大樓", "addr": "臺北市%s信義路三段%d號%d樓" % (t["name"], num, 3 + i % 9),
+                    "tw": 2500 + rnd.random() * 2000, "u": 90 + rnd.random() * 40, "ping": 30 + rnd.random() * 10,
+                    "built": 2005, "floors": "", "note": "", "kind": "sale", "proj": ""})
+    os.makedirs(os.path.join(export_tw.OUT, "A", "roads"), exist_ok=True)
+    raw = prices.build_book(txs, [t["name"] for t in towns], as_of="2026-10-02", total="台北市", today_ym="2026-10")
+    export_tw._dump("A/book.json", raw)
+    export_tw._dump("A/districts.json", {"districts": towns})
+    export_tw.export_tx("A", txs, [t["name"] for t in towns])
+    line = [25.0335, 121.5300, 25.0337, 121.5400, 25.0339, 121.5500]
+    export_tw._dump("A/roads/大安區.json", {"roads": {"信義路三段": [line]}, "places": {}, "fetched": "2026-10-02"})
+    # 全台首頁的統計：原本的臺南市＋假的臺北市
+    tn = prices.load_transactions()
+    nat = prices.build_book([dict(x, dist="台南市") for x in tn] + [dict(x, dist="台北市") for x in txs], ["台北市", "台南市"],
+                            as_of="2026-10-02", total="全台", today_ym="2026-10")
+    export_tw._dump("book.json", nat)
+    with open(os.path.join(WEB, "data", "tw", "index.json"), encoding="utf-8") as f:
+        index = json.load(f)
+    for c in index["counties"]:
+        if c["code"] == "A":
+            c.update(has_data=True, towns=3, town_names=[t["name"] for t in towns], roads=["大安區"], tx_count=len(txs))
+    export_tw._dump("index.json", index)
+    return web
+
+
+@unittest.skipIf(sync_playwright is None, "沒有安裝 playwright")
+@unittest.skipIf(not os.path.exists(os.path.join(WEB, "data", "tw", "index.json")) or not os.path.exists(
+    os.path.join(ROOT, "data", "cache", "transactions.json")), "沒有全台版資料或台南逐筆快取")
+class TaiwanWebTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import tempfile
+        cls.tmp = tempfile.mkdtemp()
+        web = _make_tw_fixture(cls.tmp)
+        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=web)
+        handler.log_message = lambda *a: None
+        cls.httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
+        cls.url = "http://127.0.0.1:%d/" % cls.httpd.server_address[1]
+        cls.pw = sync_playwright().start()
+        cls.browser = cls.pw.chromium.launch()
+
+    @classmethod
+    def tearDownClass(cls):
+        import shutil
+        cls.browser.close()
+        cls.pw.stop()
+        cls.httpd.shutdown()
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_nation_and_counties(self):
+        ctx = self.browser.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
+        ctx.route("https://wmts.nlsc.gov.tw/**", lambda r: r.abort())
+        ctx.route("https://geomap.gsmma.gov.tw/**", lambda r: r.abort())
+        self.addCleanup(ctx.close)
+        pg = ctx.new_page()
+        errors = []
+        pg.on("pageerror", lambda e: errors.append(str(e)))
+        pg.goto(self.url)
+        pg.wait_for_function("window.__app && __app.D.tw")
+        self.assertEqual(pg.evaluate("__app.S.current"), "全台")
+        self.assertEqual(pg.evaluate("__app.D.districts.length"), 22)
+        self.assertIn("先在地圖上點一個縣市", pg.evaluate("(() => { __app.S.tab = 'tx'; return 'x'; })()") and
+                      (pg.click("#tabs button[data-tab='tx']") or pg.inner_text("#tab-body")))
+        # 地址有縣市：自動切到臺北市、插圖釘
+        self.assertEqual(pg.evaluate("__app.search('台北市大安區信義路三段120號')"), "address")
+        pg.wait_for_timeout(600)
+        st = pg.evaluate("({c: __app.D.county.code, cur: __app.S.current, pin: !!__app.S.pin, n: __app.D.txs.length})")
+        self.assertEqual((st["c"], st["cur"], st["pin"], st["n"]), ("A", "大安區", True, 90))
+        self.assertIn("台北市大安區", pg.evaluate("__app.L.platformLinks('大安區', '信義路三段')[0][1]").replace("%E5%8F%B0%E5%8C%97%E5%B8%82", "台北市").replace("%E5%A4%A7%E5%AE%89%E5%8D%80", "大安區"))
+        # 回全台、點台南市的柱子（selectDistrict）→ 進到臺南市
+        pg.click("#btn-nation"); pg.wait_for_timeout(300)
+        self.assertIsNone(pg.evaluate("__app.D.county"))
+        pg.evaluate("__app.selectDistrict('台南市')")
+        pg.wait_for_function("__app.D.county && __app.D.county.code === 'D' && __app.D.txs")
+        self.assertEqual(pg.evaluate("__app.D.districts.length"), 37)
+        # 在臺南市搜尋另一縣市的地址
+        self.assertEqual(pg.evaluate("__app.search('臺北市信義區')"), "district")
+        self.assertEqual(pg.evaluate("[__app.D.county.code, __app.S.current]"), ["A", "信義區"])
+        # 全台首頁只打鄉鎮名稱：唯一的縣市就切過去
+        pg.evaluate("__app.enterNation()")
+        self.assertEqual(pg.evaluate("__app.search('中正區')"), "district")
+        self.assertEqual(pg.evaluate("__app.D.county.code"), "A")
+        # 重新開啟：回到上次看的縣市
+        pg.reload(); pg.wait_for_function("window.__app && __app.D.county && __app.D.txs")
+        self.assertEqual(pg.evaluate("__app.D.county.code"), "A")
+        # 點臺南市的地標 → 切到臺南市
+        pg.evaluate("__app.pick(['landmark', __app.D.landmarks[0].id])")
+        pg.wait_for_function("__app.D.county.code === 'D' && __app.S.tab === 'detail'")
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":

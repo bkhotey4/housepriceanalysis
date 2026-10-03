@@ -1,4 +1,5 @@
-// 台南購屋深度分析（網頁版）：所有資料都是靜態檔案，計算全部在使用者的裝置上完成。
+// 購屋深度分析（網頁版）：所有資料都是靜態檔案，計算全部在使用者的裝置上完成。
+// 有 data/tw/index.json 時是「全台版」：首頁是 22 縣市，點縣市才下載該縣市的資料；沒有就是原本的台南版。
 import * as L from "./logic.js";
 import { View3D, mix } from "./view3d.js";
 import { buildReport } from "./report.js";
@@ -47,16 +48,21 @@ async function getJSON(path) {
   if (!r.ok) throw new Error(path + " " + r.status);
   return r.json();
 }
+const roadKey = dist => (D.county ? D.county.code + "/" : "") + dist;
 async function loadRoads(dist) {
-  if (D.roads.has(dist)) return D.roads.get(dist);
-  if (!D.meta.road_districts.includes(dist)) { D.roads.set(dist, null); return null; }
-  const p = getJSON("data/roads/" + encodeURIComponent(dist) + ".json").catch(() => null);
-  D.roads.set(dist, p);
+  const key = roadKey(dist);
+  if (D.roads.has(key)) return D.roads.get(key);
+  const avail = D.county ? D.county.roads || [] : D.tw ? [] : D.meta.road_districts;
+  if (!avail.includes(dist)) { D.roads.set(key, null); return null; }
+  const path = D.county ? `data/tw/${D.county.code}/roads/` : "data/roads/";
+  const p = getJSON(path + encodeURIComponent(dist) + ".json").catch(() => null);
+  D.roads.set(key, p);
   const data = await p;
-  D.roads.set(dist, data);
+  D.roads.set(key, data);
   return data;
 }
-const roadsNow = dist => { const v = D.roads.get(dist); return v && !(v instanceof Promise) ? v : null; };
+const roadsNow = dist => { const v = D.roads.get(roadKey(dist)); return v && !(v instanceof Promise) ? v : null; };
+const isNation = () => !!D.tw && !D.county;
 
 let view, toastTimer;
 function toast(msg, ms = 4200) {
@@ -188,6 +194,7 @@ function refreshAll() { refreshBars(); refreshModels(); refreshPins(); refreshRo
 
 // ------------------------------------------------------------------ 選取
 function selectDistrict(name, fly = true) {
+  if (isNation() && name !== L.CITY) { const c = D.tw.counties.find(x => x.short === name); if (c) enterCounty(c.code); return; }
   S.current = name; S.roadFilter = null; S.addr = null; S.pin = null; S.bldg = null;
   if (S.poi) { S.poi = null; refreshPois(); }
   if (name === L.CITY) { view.select(null); if (fly) view.flyHome(); }
@@ -215,6 +222,31 @@ function selectRoad(name, focus = true) {
 async function search(text) {
   text = (text || "").trim();
   if (!text) return;
+  if (D.tw) {
+    // 全台版：先判斷縣市；地址開頭有縣市就切過去，沒有就在目前的縣市找，首頁時再用鄉鎮名稱猜縣市
+    let [c, rest] = L.splitCounty(text);
+    if (!c && isNation()) {
+      const lm = D.landmarks.find(l => text.length >= 2 && (l.name.includes(text) || text.includes(l.name)));
+      if (lm) { pick(["landmark", lm.id]); return "landmark"; }
+      const pr = D.intel.find(it => it.build && text.length >= 2 && it.name.includes(text));
+      if (pr) { pick(["project", pr.id]); return "project"; }
+      const hits = D.tw.counties.filter(x => (x.town_names || []).some(t => text.startsWith(t) || L.normTw(text).startsWith(L.normTw(t))));
+      if (hits.length === 1) c = hits[0];
+      else {
+        toast(hits.length ? `有好幾個縣市都有這個地名（${hits.map(x => x.short).join("、")}），請在前面加上縣市，例如「${hits[0].short}${text}」。`
+          : "請在地址前面加上縣市，例如「台北市大安區信義路三段」。");
+        return "none";
+      }
+      rest = text;
+    }
+    if (c) {
+      const entry = D.tw.counties.find(x => x.code === c.code);
+      if (!D.county || D.county.code !== c.code) { if (!(await enterCounty(c.code, false))) return "none"; }
+      if (!rest) { selectDistrict(L.CITY); return "county"; }
+      text = rest;
+      if (entry) await D.txPromise;
+    }
+  }
   const names = D.districts.map(d => d.name), q = L.parseAddress(text, names), s = q.text;
   const only = names.includes(s) ? s : names.includes(s + "區") ? s + "區" : null;
   if (only || (q.district && !q.road)) {
@@ -387,8 +419,16 @@ function pick(hit, latlng) {
   if (kind === "road") { selectRoad(id); return; }
   if (kind === "pin" && id === "search") { if (S.pin) view.flyTo(S.pin.lat, S.pin.lng, Math.max(view.zoom, ZOOM.address)); S.tab = "tx"; renderPanel(); sheet("half"); return; }
   if (kind === "pin" && id !== "work") { S.tab = "watch"; S.watchSel = id; renderPanel(); sheet("half"); return; }
-  const where = kind === "landmark" ? (D.landmarks.find(x => x.id === id) || {}).district
-    : (kind === "project" || kind === "marker") ? ((D.intel[id] || {}).district || "").split(/[、／\/,，\s（(]/)[0] : null;
+  const item = kind === "landmark" ? D.landmarks.find(x => x.id === id) : (kind === "project" || kind === "marker") ? D.intel[id] : null;
+  const where = kind === "landmark" ? (item || {}).district : item ? ((item.district || "").split(/[、／\/,，\s（(]/)[0]) : null;
+  if (D.tw && item) {
+    // 全台版：圖案屬於別的縣市，先切到那個縣市（舊資料沒有標縣市的都是臺南市）
+    const code = item.county || "D";
+    if (!D.county || D.county.code !== code) {
+      const c = D.tw.counties.find(x => x.code === code);
+      if (c && c.has_data) { enterCounty(code, false).then(ok => { if (ok) pick(hit, latlng); }); return; }
+    }
+  }
   if (where && D.dmap[where] && where !== S.current) selectDistrict(where, false);
   S.picked = hit; S.tab = "detail";
   view.select(kind === "station" ? "line" : kind, kind === "station" ? id[0] : id);
@@ -407,6 +447,9 @@ function renderPanel() {
   const name = S.current, b = D.book;
   $("#d-name").textContent = name;
   $("#btn-city").hidden = name === L.CITY;
+  $("#btn-city").textContent = D.tw ? "全" + L.CITY : "全市";
+  $("#btn-nation").hidden = !D.county;
+  $("#map-tools [data-act='home']").textContent = D.tw ? (D.county && S.current !== L.CITY ? "縣市" : "全台") : "全市";
   const bu = b.best(name, S.cat, "u"), bt = b.best(name, S.cat, "t"), tr = b.trend(name, S.cat, S.metric);
   const win = bu.window === "h6" ? "近半年" : bu.window === "y12" ? "近一年" : "";
   const zone = name === L.CITY ? "" : (D.dmap[name].zone || "") + "｜";
@@ -455,7 +498,8 @@ function tabOverview() {
     h += `<div class="row">${reportButton()}<a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a>` +
       (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
   } else {
-    h += `<p class="muted">點地圖上的柱子看各區，或在上方搜尋地址。透天厝的單價含土地，看透天請以總價為主。</p>`;
+    h += isNation() ? `<p class="muted">點地圖上的柱子（或「排行」）進入一個縣市，才會下載那個縣市的逐筆成交與路段；也可以直接搜尋「台北市大安區…」這樣的地址。透天厝的單價含土地，看透天請以總價為主。</p>`
+      : `<p class="muted">點地圖上的柱子看各區，或在上方搜尋地址。透天厝的單價含土地，看透天請以總價為主。</p>`;
   }
   return h;
 }
@@ -495,7 +539,9 @@ function tabRank() {
   }
   return h + `</tbody></table><p class="muted">灰字是樣本少（近半年不到 5 件）。${filtersOn() ? "淡色是不符合預算／通勤條件。" : ""}</p>`;
 }
+const needCounty = () => `<p class="muted">先在地圖上點一個縣市的柱子（或從「排行」選），才會載入那個縣市的逐筆成交、路段與社區。</p>`;
 function tabRoads() {
+  if (isNation()) return needCounty();
   if (!D.txs) return `<p class="empty">成交資料載入中…</p>`;
   const since = D.book.windows.y12[0], kw = S.roadKw.trim();
   let list, note;
@@ -522,6 +568,7 @@ function linksRow(dist, place, title) {
     `<a class="btn small" href="${esc(u)}" target="_blank" rel="noopener">${esc(n)}</a>`).join("") + `</div>`;
 }
 function tabBldg() {
+  if (isNation()) return needCounty();
   if (!D.txs) return `<p class="empty">成交資料載入中…</p>`;
   if (S.current === L.CITY) return `<p class="muted">先在地圖或「排行」選一個行政區，這裡會列出區內有多筆成交的社區／大樓。</p>`;
   const since = D.book.windows.y12[0], kw = S.bldgKw.trim();
@@ -560,6 +607,7 @@ function txRows() {
   return { q, ranked: q ? L.rankByAddress(rows, q) : rows.map(x => ({ level: 1, x })) };
 }
 function tabTx() {
+  if (isNation()) return needCounty();
   if (!D.txs) return `<p class="empty">成交資料載入中…</p>`;
   const { q, ranked } = txRows();
   S.txShown = ranked.slice(0, 300).map(r => r.x);
@@ -634,7 +682,7 @@ function tabDetail() {
     const dists = D.districts.filter(d => (l.district || "").includes(d.name));
     return `<h2 style="margin-top:2px">${esc(l.name)}</h2><p class="muted">${esc(l.district || "")}</p><p>${esc(l.note || "")}</p>` +
       dists.map(d => { const b = D.book.best(d.name, S.cat, "u"); return `<p><a href="#" data-goto="${esc(d.name)}">看${esc(d.name)}的房價</a> <span class="muted">${b.value != null ? "中位單價 " + b.value.toFixed(1) + " 萬/坪" : ""}</span></p>`; }).join("") +
-      `<p><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/${encodeURIComponent("台南 " + l.name)}">在 Google 地圖查看</a></p><p class="muted">圖案是示意造型，位置取自 OpenStreetMap。</p>`;
+      `<p><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/${encodeURIComponent(L.COUNTY_NAME.replace("全台", "") + " " + l.name)}">在 Google 地圖查看</a></p><p class="muted">圖案是示意造型，位置取自 OpenStreetMap。</p>`;
   }
   if (kind === "project" || kind === "marker") return writeIntel(D.intel[id]);
   if (kind === "station") {
@@ -808,12 +856,13 @@ function bindUI() {
   });
   $("#map-tools").addEventListener("click", e => {
     const a = (e.target.closest("button") || {}).dataset?.act;
-    if (a === "home") selectDistrict(L.CITY);
+    if (a === "home") { if (D.county && S.current === L.CITY) enterNation(); else selectDistrict(L.CITY); }
     if (a === "zin") view.zoomAt(1.4); if (a === "zout") view.zoomAt(1 / 1.4);
     if (a === "rotl") view.rotate(-20); if (a === "rotr") view.rotate(20);
     if (a === "tilt") { view.pitch = view.pitch > 70 ? 40 : 89; view.request(); }
   });
   $("#btn-city").addEventListener("click", () => selectDistrict(L.CITY));
+  $("#btn-nation").addEventListener("click", () => enterNation());
   $("#search").addEventListener("submit", e => { e.preventDefault(); $("#q").blur(); search($("#q").value); });
   $("#btn-menu").addEventListener("click", () => { renderMenu(); $("#menu").hidden = !$("#menu").hidden; });
   $("#menu").addEventListener("click", e => { if (e.target.closest("[data-close]")) $("#menu").hidden = true; });
@@ -909,30 +958,100 @@ function bindUI() {
 }
 
 // ------------------------------------------------------------------ 啟動
+// ------------------------------------------------------------------ 全台版：全台首頁 ↔ 縣市
+const TW_ORIGIN = [23.7, 120.95];
+function extentOf(points, padKm = 4, minKm = 16) {
+  const xy = points.map(p => L.toXY(p.lat, p.lng)), xs = xy.map(p => p[0]), ys = xy.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 - 2, w: Math.max(minKm, x1 - x0 + 2 * padKm), h: Math.max(minKm * 0.75, y1 - y0 + 2 * padKm) };
+}
+function resetSelection() {
+  S.roadFilter = null; S.addr = null; S.pin = null; S.bldg = null; S.picked = null; S.pendingAddr = null; S.roadKw = ""; S.bldgKw = "";
+  if (S.poi) { S.poi = null; refreshPois(); }
+  if (["roads", "bldg", "tx", "detail", "poi"].includes(S.tab)) S.tab = "overview";
+}
+function enterNation(fly = true) {
+  D.county = null;
+  L.setCity(D.tw.nation || "全台", "全台");
+  D.book = D.twBook; D.txs = null; D.txPromise = Promise.resolve();
+  D.districts = D.tw.counties.map(c => ({ name: c.short, lat: c.lat, lng: c.lng, zone: c.region, code: c.code }));
+  D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
+  D.meta = { ...D.tw, road_districts: [] };
+  S.current = L.CITY; resetSelection();
+  // 本島為主（離島可以拖過去看）
+  view.setExtent(extentOf(D.districts.filter(d => !["W", "Z"].includes(d.code)), 12, 60));
+  S.settings.lastCounty = ""; saveStore();
+  view.select(null);
+  if (fly) view.flyHome();
+  refreshAll();
+}
+async function enterCounty(code, fly = true) {
+  const c = D.tw.counties.find(x => x.code === code);
+  if (!c) return false;
+  if (!c.has_data) { toast(`${c.short}的資料還在準備中（每次自動更新會補上）。`); return false; }
+  const base = `data/tw/${code}/`;
+  let book, dd;
+  try { [book, dd] = await Promise.all([getJSON(base + "book.json"), getJSON(base + "districts.json")]); }
+  catch (e) { toast(`${c.short}的資料載入失敗，請檢查網路後再試。`); return false; }
+  D.county = c;
+  L.setCity(c.short, c.short);
+  D.book = new L.Book(book);
+  D.districts = dd.districts; D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
+  D.meta = { ...D.tw, describe: D.tw.describe, tx_count: c.tx_count || 0, road_districts: c.roads || [] };
+  D.txs = null;
+  D.txPromise = getJSON(base + "tx.json").then(raw => { if (D.county === c) { D.txs = L.decodeTx(raw); refreshRoads(); renderPanel(); } })
+    .catch(() => toast("成交資料載入失敗，請檢查網路後重新整理。"));
+  S.current = L.CITY; resetSelection();
+  view.setExtent(extentOf(D.districts));
+  S.settings.lastCounty = code; saveStore();
+  view.select(null);
+  if (fly) view.flyHome(); else { view.stop(); view.autoZoom = true; view.fitZoom(); view.tx = view.extent.cx; view.ty = view.extent.cy; }
+  refreshAll();
+  return true;
+}
+
+// ------------------------------------------------------------------ 啟動
 async function main() {
   loadStore();
-  const [meta, book, districts, intel, mrt, landmarks, models, workplaces] = await Promise.all(
-    ["meta", "book", "districts", "intel", "mrt", "landmarks", "models", "workplaces"].map(n => getJSON(`data/${n}.json`)));
-  Object.assign(D, { meta, book: new L.Book(book), districts, intel: intel.items, mrt, landmarks, workplaces });
-  D.dmap = Object.fromEntries(districts.map(d => [d.name, d]));
+  const params = new URLSearchParams(location.search);
+  const tw = params.get("tw") === "0" ? null : await getJSON("data/tw/index.json").catch(() => null);    // ?tw=0：強制台南版（測試用）
+  const shared = ["intel", "mrt", "landmarks", "models", "workplaces"];
+  const [intel, mrt, landmarks, models, workplaces] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`)));
+  Object.assign(D, { intel: intel.items, mrt, landmarks, workplaces });
+  if (tw) {
+    L.setOrigin(...TW_ORIGIN);
+    D.tw = tw; D.twBook = new L.Book(await getJSON("data/tw/book.json"));
+  } else {
+    const [meta, book, districts] = await Promise.all(["meta", "book", "districts"].map(n => getJSON(`data/${n}.json`)));
+    Object.assign(D, { meta, book: new L.Book(book), districts });
+    D.dmap = Object.fromEntries(districts.map(d => [d.name, d]));
+  }
   view = new View3D($("#map"), { models });
   view.lines = mrt.lines;
   view.layerOn = { town: S.settings.town, liq: S.settings.liq, fault: S.settings.fault };
   Object.assign(view.show, { hires: S.settings.hires, lines: S.settings.lines, labels: S.settings.labels });
-  for (const [id, m] of Object.entries(meta.layers || {})) view.setLayer(id, m, "");
+  if (tw) {
+    view.tileLayers = tw.layers;
+    view.setExtent({ cx: 0, cy: 0, w: 260, h: 380 }, { x0: -320, x1: 160, y0: -230, y1: 320 }, 0.6);
+  } else for (const [id, m] of Object.entries(D.meta.layers || {})) view.setLayer(id, m, "");
   view.onPick = pick;
   const lg = $("#legend");
   if (window.innerWidth < 900 || S.settings.legendCollapsed) lg.classList.add("collapsed");
   lg.addEventListener("click", () => { lg.classList.toggle("collapsed"); S.settings.legendCollapsed = lg.classList.contains("collapsed"); saveStore(); renderLegend(); updateReserved(); });
   bindUI(); bindSheetDrag();
   sheet("peek");
-  refreshAll();
-  // 逐筆成交比較大（壓縮後約 0.6MB），畫面先出來再載入
-  getJSON("data/tx.json").then(raw => { D.txs = L.decodeTx(raw); refreshRoads(); renderPanel(); })
-    .catch(() => toast("成交資料載入失敗，請檢查網路後重新整理。"));
-  const params = new URLSearchParams(location.search);
-  if (params.get("q")) { $("#q").value = params.get("q"); const wait = () => D.txs ? search(params.get("q")) : setTimeout(wait, 200); wait(); }
+  if (tw) {
+    const want = (params.get("c") || S.settings.lastCounty || "").toUpperCase();
+    enterNation(false); view.reset();
+    if (want && !params.get("q")) await enterCounty(want, false);
+  } else {
+    refreshAll();
+    // 逐筆成交比較大（壓縮後約 0.6MB），畫面先出來再載入
+    D.txPromise = getJSON("data/tx.json").then(raw => { D.txs = L.decodeTx(raw); refreshRoads(); renderPanel(); })
+      .catch(() => toast("成交資料載入失敗，請檢查網路後重新整理。"));
+  }
+  if (params.get("q")) { $("#q").value = params.get("q"); const wait = () => (D.tw || D.txs) ? search(params.get("q")) : setTimeout(wait, 200); wait(); }
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
-  window.__app = { S, D, view, search, selectDistrict, pick, L };   // 測試用
+  window.__app = { S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation };   // 測試用
 }
 main().catch(err => { document.body.insertAdjacentHTML("beforeend", `<div class="note" style="position:fixed;top:60px;left:10px;right:10px;z-index:99">載入失敗：${esc(err.message)}</div>`); });

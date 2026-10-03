@@ -23,3 +23,10 @@ Thumbs.db
 .tmp.drivedownload/
 .tmp.driveupload/
 _backup_原版/
+
+# 全台版：房價統計與逐筆成交每次由 GitHub Actions 重新產生（只有道路位置存進專案）
+web/data/tw/index.json
+web/data/tw/book.json
+web/data/tw/*/book.json
+web/data/tw/*/tx.json
+web/data/tw/*/districts.json

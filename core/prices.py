@@ -16,6 +16,7 @@ import os
 import re
 
 from .geo import DATA_DIR
+from .taiwan import strip_county
 
 CACHE_DIR = os.path.join(DATA_DIR, "cache")
 SNAPSHOT_PATH = os.path.join(DATA_DIR, "price_snapshot.json")
@@ -198,7 +199,7 @@ def _stat(rows):
     return [len(rows), _r1(median([x["u"] for x in rows])), _r0(median([x["tw"] for x in rows]))]
 
 
-def build_book(txs, district_names, as_of, source="live", note="", today_ym=None):
+def build_book(txs, district_names, as_of, source="live", note="", today_ym=None, total=CITY):
     """由交易清單彙整成 PriceBook 的 dict（格式與 price_snapshot.json 相同）。"""
     counts = {}
     for x in txs:
@@ -217,8 +218,8 @@ def build_book(txs, district_names, as_of, source="live", note="", today_ym=None
     for x in txs:
         by_dist.setdefault(x["dist"], []).append(x)
     data = {}
-    for d in [CITY] + list(district_names):
-        rows = txs if d == CITY else by_dist.get(d, [])
+    for d in [total] + list(district_names):
+        rows = txs if d == total else by_dist.get(d, [])
         data[d] = {}
         for cat, _ in CATS:
             rc = [x for x in rows if in_cat(x, cat)]
@@ -234,7 +235,7 @@ def build_book(txs, district_names, as_of, source="live", note="", today_ym=None
             for key, (a, b) in windows.items():
                 cell[key] = _stat([x for x in rc if a <= x["ym"] <= b])
             data[d][cat] = cell
-    return {"source": source, "as_of": as_of, "note": note, "months": months,
+    return {"source": source, "as_of": as_of, "note": note, "months": months, "total": total,
             "complete_through": ct, "windows": windows, "data": data}
 
 
@@ -301,7 +302,7 @@ class PriceBook:
         return out
 
     def districts(self):
-        return [d for d in self.data if d != CITY]
+        return [d for d in self.data if d != self.raw.get("total", CITY)]
 
     def presale_gap(self, district):
         """預售屋單價比區內中古大樓／華廈高多少（%）；任一邊樣本不足回傳 None。"""
@@ -390,9 +391,7 @@ _VILLAGE = re.compile("^[\u4e00-\u9fff]{1,4}里(?=[\u4e00-\u9fff])")
 def road_of(addr, dist=""):
     """由門牌取出路段名稱，例如「臺南市善化區中山路１２３號」->「中山路」。取不出來回傳「其他」。"""
     s = (addr or "").translate(_FULLWIDTH).strip()
-    for prefix in ("臺南市", "台南市"):
-        if s.startswith(prefix):
-            s = s[len(prefix):]
+    s = strip_county(s)
     if dist and s.startswith(dist):
         s = s[len(dist):]
     s = _VILLAGE.sub("", s)

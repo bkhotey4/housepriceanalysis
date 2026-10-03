@@ -4,20 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b5d57">
-<meta name="description" content="台南購屋深度分析：各區與各路段實價登錄行情、3D 地圖、重大建設時程。所有計算都在你的裝置上完成。">
-<title>台南購屋深度分析</title>
+<meta name="description" content="台灣房價分析：全台各縣市、鄉鎮與路段的實價登錄行情、3D 地圖、重大建設時程、通勤與周邊設施。所有計算都在你的裝置上完成。">
+<title>台灣房價分析</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="img/icon-192.png">
 <link rel="apple-touch-icon" href="img/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="台南購屋">
+<meta name="apple-mobile-web-app-title" content="房價分析">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 <header id="top">
-  <div class="brand">台南購屋</div>
+  <div class="brand">房價分析</div>
   <form id="search" autocomplete="off">
-    <input id="q" type="search" enterkeyhint="search" placeholder="地址、路名、行政區或地標，例：善化區中山路123號">
+    <input id="q" type="search" enterkeyhint="search" placeholder="地址、路名、縣市或地標，例：台北市大安區信義路三段">
     <button type="submit" aria-label="搜尋">搜尋</button>
   </form>
   <button id="btn-menu" class="icon" aria-label="設定與圖層" title="設定與圖層">☰</button>
@@ -25,7 +25,7 @@
 
 <main id="app">
   <div id="map-wrap">
-    <canvas id="map" aria-label="台南 3D 房價地圖"></canvas>
+    <canvas id="map" aria-label="3D 房價地圖"></canvas>
     <div id="chips" class="floating">
       <div class="seg" id="seg-cat" role="radiogroup" aria-label="房型"></div>
       <div class="seg" id="seg-metric" role="radiogroup" aria-label="柱高"></div>
@@ -49,6 +49,7 @@
       <div class="title-row">
         <h1 id="d-name">台南市</h1>
         <div class="head-btns">
+          <button id="btn-nation" class="small" hidden>全台</button>
           <button id="btn-city" class="small">全市</button>
         </div>
       </div>

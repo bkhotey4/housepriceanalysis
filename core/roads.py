@@ -38,11 +38,11 @@ _LANE = re.compile(r"^\d+巷(\d+弄)?$|^.{1,6}巷(\d+弄)?$")
 _VARIANTS = str.maketrans({"仔": "子", "臺": "台", "庄": "莊", "廍": "部", "份": "分", "磘": "窯", "衚": "衛"})
 
 
-def query(district):
-    """Overpass QL：臺南市某行政區內所有有名稱的道路，以及聚落地點。"""
-    return ('[out:json][timeout:25];area["name"="臺南市"]["admin_level"="4"]->.c;'
+def query(district, county="臺南市", timeout=25):
+    """Overpass QL：某縣市某行政區內所有有名稱的道路，以及聚落地點。"""
+    return ('[out:json][timeout:%d];area["name"="%s"]["admin_level"="4"]->.c;'
             'rel(area.c)["boundary"="administrative"]["name"="%s"];map_to_area->.a;'
-            '(way["highway"]["name"](area.a);node["place"]["name"](area.a););out tags geom qt;' % district)
+            '(way["highway"]["name"](area.a);node["place"]["name"](area.a););out tags geom qt;' % (timeout, county, district))
 
 
 def reduce(raw):

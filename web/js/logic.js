@@ -1,10 +1,34 @@
 // 資料與計算：房價統計、逐筆成交、路段、地址解析與門牌位置推估。
 // 和桌面版 core/prices.py、core/roads.py、core/address.py 的邏輯一致（測試會比對結果）。
 
-export const LAT0 = 23.145, LNG0 = 120.34;
+// 投影原點：台南版用台南中心；全台版啟動時改成台灣中心（setOrigin）。import 的變數是「活的」，改了大家都看得到。
+export let LAT0 = 23.145, LNG0 = 120.34;
 export const KM_LAT = 110.57;
-export const KM_LNG = 111.32 * Math.cos(LAT0 * Math.PI / 180);
-export const CITY = "台南市";
+export let KM_LNG = 111.32 * Math.cos(LAT0 * Math.PI / 180);
+export function setOrigin(lat, lng) { LAT0 = lat; LNG0 = lng; KM_LNG = 111.32 * Math.cos(lat * Math.PI / 180); }
+// 目前範圍的「總計」名稱：台南版是「台南市」；全台版在首頁是「全台」，進到縣市後是那個縣市（setCity）
+export let CITY = "台南市";
+export let COUNTY_NAME = "台南市";      // 搜尋其他平台、Google 地圖時加在地名前面
+export function setCity(name, county = name) { CITY = name; COUNTY_NAME = county; }
+
+// ------------------------------------------------------------------ 全台縣市（和 core/taiwan.py 相同）
+export const COUNTIES = [
+  ["A", "臺北市", "台北市"], ["F", "新北市", "新北市"], ["C", "基隆市", "基隆市"], ["H", "桃園市", "桃園市"], ["O", "新竹市", "新竹市"],
+  ["J", "新竹縣", "新竹縣"], ["G", "宜蘭縣", "宜蘭縣"], ["K", "苗栗縣", "苗栗縣"], ["B", "臺中市", "台中市"], ["N", "彰化縣", "彰化縣"],
+  ["M", "南投縣", "南投縣"], ["P", "雲林縣", "雲林縣"], ["I", "嘉義市", "嘉義市"], ["Q", "嘉義縣", "嘉義縣"], ["D", "臺南市", "台南市"],
+  ["E", "高雄市", "高雄市"], ["T", "屏東縣", "屏東縣"], ["U", "花蓮縣", "花蓮縣"], ["V", "臺東縣", "台東縣"], ["X", "澎湖縣", "澎湖縣"],
+  ["W", "金門縣", "金門縣"], ["Z", "連江縣", "連江縣"]].map(([code, name, short]) => ({ code, name, short }));
+const PREFIXES = COUNTIES.flatMap(c => [[c.name, c], [c.short, c]]).sort((a, b) => b[0].length - a[0].length);
+export const normTw = s => (s || "").replace(/臺/g, "台");
+export function countyByName(name) { const n = normTw(name); return COUNTIES.find(c => c.short === n || normTw(c.name) === n) || null; }
+// 開頭是縣市名稱就拆開：「台北市大安區…」→ [台北市, 大安區…]；「台南善化區…」（省略市）也可以
+export function splitCounty(text) {
+  const s = (text || "").trim();
+  for (const [p, c] of PREFIXES) if (s.startsWith(p)) return [c, s.slice(p.length)];
+  for (const c of COUNTIES) for (const head of new Set([c.short.slice(0, 2), c.name.slice(0, 2)]))
+    if (s.startsWith(head) && s.length > 3 && !"市縣區鄉鎮路街巷大里村".includes(s[2])) return [c, s.slice(2)];
+  return [null, s];
+}
 export const CATS = [["all", "全部合併"], ["house", "透天厝"], ["apt", "大樓／華廈"], ["presale", "預售屋"]];
 export const CAT_LABEL = Object.fromEntries(CATS);
 const MIN_N = 5, TREND_MIN_N = 10;
@@ -142,10 +166,8 @@ const VILLAGE_RE = /^[一-鿿]{1,4}里(?=[一-鿿])/u;
 export function normalize(text) {
   let s = (text || "").replace(/\s+/g, "").replace(/[０-９－（）]/g, c => FULL[c]);
   s = s.replace(/^\d{3,6}(?=[^\d號巷弄之])/u, "");
-  for (const p of ["臺南市", "台南市", "臺南", "台南"]) {
-    if (s.startsWith(p) && s.length > p.length) { s = s.slice(p.length); break; }
-  }
-  return s;
+  const rest = splitCounty(s)[1];
+  return rest || s;
 }
 export function roadOf(s) {
   s = s.replace(VILLAGE_RE, "");
@@ -421,7 +443,7 @@ export function buildings(txs, district, cat, sinceYm) {
 export const PLATFORMS = [["591", "sale.591.com.tw"], ["樂屋網", "rakuya.com.tw"], ["樂居", "leju.com.tw"],
                           ["永慶", "yungching.com.tw"], ["信義", "sinyi.com.tw"], ["住商", "hbhousing.com.tw"]];
 export function platformLinks(district, place) {
-  const where = `台南市${district === CITY ? "" : district}${place || ""}`;
+  const where = `${COUNTY_NAME === "全台" ? "" : COUNTY_NAME}${district === CITY ? "" : district}${place || ""}`;
   const links = PLATFORMS.map(([name, site]) => [name, "https://www.google.com/search?q=" + encodeURIComponent(`site:${site} ${where}`)]);
   links.push(["Google 地圖", "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(where)]);
   return links;
