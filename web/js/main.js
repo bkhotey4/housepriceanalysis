@@ -1,0 +1,938 @@
+// 台南購屋深度分析（網頁版）：所有資料都是靜態檔案，計算全部在使用者的裝置上完成。
+import * as L from "./logic.js";
+import { View3D, mix } from "./view3d.js";
+import { buildReport } from "./report.js";
+
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const SEQ = ["#fbe3cf", "#f6b98a", "#eb8a4c", "#d2601f", "#9a3f0c"];
+const ROAD_RAMP = ["#fff3b0", "#ffc857", "#f98e3a", "#e2543d", "#a5236f"];
+const NO_DATA = "#b9bfc6", DIV_NEG = "#1c5cab", DIV_MID = "#d8d7d2", DIV_POS = "#c0302f", TREND_SPAN = 8;
+const WORK_COLOR = "#0b5d57", WATCH_COLOR = "#7a3fb5", SEARCH_COLOR = "#d81b60";
+const MARKER_COLOR = { "商辦": "#2a78d6", "商場": "#eb6834", "科學園區": "#1baf7a", "產業園區": "#eda100", "重劃區": "#e87ba4",
+                       "公共建設": "#008300", "交通建設": "#4a3aa7", "住宅開發": "#e34948" };
+const ZOOM = { district: 40, point: 60, road: 70, pin: { lane: 400, alley_mouth: 400, interp: 250, lane_mouth: 250, near_lane: 200 }, address: 120 };
+const STORE = "dth_v1";
+
+function ramp(stops, t) {
+  t = Math.max(0, Math.min(1, t));
+  const pos = t * (stops.length - 1), i = Math.min(Math.floor(pos), stops.length - 2);
+  return mix(stops[i], stops[i + 1], pos - i);
+}
+const trendColor = p => p == null ? NO_DATA : (t => t < 0 ? mix(DIV_MID, DIV_NEG, -t) : mix(DIV_MID, DIV_POS, t))(Math.max(-1, Math.min(1, p / TREND_SPAN)));
+
+// ------------------------------------------------------------------ 狀態（設定與看屋清單存在這台裝置的瀏覽器裡）
+const S = {
+  cat: "all", metric: "u", current: L.CITY, tab: "overview", year: new Date().getFullYear(),
+  addr: null, pin: null, roadFilter: null, picked: null, pickMode: null, roadKw: "", bldgKw: "", bldg: null, poi: null,
+  settings: { town: true, liq: false, fault: false, hires: true, lines: true, markers: true, landmarks: true, projects: true,
+              roads: true, labels: true, color: "price", work: "", workKm: 5, budget: "", mode: "car", commuteMin: 20, workPt: null },
+  watch: [],
+};
+function loadStore() {
+  try {
+    const d = JSON.parse(localStorage.getItem(STORE) || "{}");
+    Object.assign(S.settings, d.settings || {});
+    S.watch = Array.isArray(d.watch) ? d.watch : [];
+  } catch (e) { /* 私密瀏覽等情況讀不到就用預設 */ }
+}
+function saveStore() {
+  try { localStorage.setItem(STORE, JSON.stringify({ settings: S.settings, watch: S.watch })); } catch (e) { toast("這個瀏覽器不允許儲存資料（可能是私密瀏覽），設定與看屋清單關掉後不會保留。"); }
+}
+
+// ------------------------------------------------------------------ 資料
+const D = { roads: new Map() };
+async function getJSON(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error(path + " " + r.status);
+  return r.json();
+}
+async function loadRoads(dist) {
+  if (D.roads.has(dist)) return D.roads.get(dist);
+  if (!D.meta.road_districts.includes(dist)) { D.roads.set(dist, null); return null; }
+  const p = getJSON("data/roads/" + encodeURIComponent(dist) + ".json").catch(() => null);
+  D.roads.set(dist, p);
+  const data = await p;
+  D.roads.set(dist, data);
+  return data;
+}
+const roadsNow = dist => { const v = D.roads.get(dist); return v && !(v instanceof Promise) ? v : null; };
+
+let view, toastTimer;
+function toast(msg, ms = 4200) {
+  const t = $("#toast");
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, ms);
+}
+
+// ------------------------------------------------------------------ 地圖上的東西
+function workPlace() {
+  if (S.settings.work === "__custom") return S.settings.workPt || null;
+  return D.workplaces.find(w => w.name === S.settings.work) || null;
+}
+const modeName = () => (L.MODES[S.settings.mode] || L.MODES.car)[0];
+const minsTo = (lat, lng, w = workPlace()) => w ? L.commuteMin(L.distKm(lat, lng, w.lat, w.lng), S.settings.mode) : null;
+const commuteLimit = () => parseFloat(S.settings.commuteMin) || 0;
+function budgetOK(name) {
+  const b = parseFloat(S.settings.budget);
+  if (!b) return true;
+  const v = D.book.best(name, S.cat, "t").value;
+  return v != null && v <= b;
+}
+function workOK(name) {
+  const w = workPlace(), lim = commuteLimit();
+  if (!w || !lim) return true;
+  const d = D.dmap[name];
+  return minsTo(d.lat, d.lng, w) <= lim;
+}
+const filtersOn = () => !!parseFloat(S.settings.budget) || (!!workPlace() && !!commuteLimit());
+
+function refreshBars() {
+  const vals = D.districts.map(d => [d, D.book.best(d.name, S.cat, S.metric), D.book.trend(d.name, S.cat, S.metric)]);
+  let solid = vals.filter(([, b]) => b.value != null && !b.low).map(([, b]) => b.value);
+  if (!solid.length) solid = vals.filter(([, b]) => b.value != null).map(([, b]) => b.value);
+  if (!solid.length) solid = [1];
+  const lo = Math.min(...solid), hi = Math.max(...solid), span = (hi - lo) || 1, active = filtersOn();
+  view.bars = vals.map(([d, b, tr]) => {
+    const v = b.value, ok = !active || (budgetOK(d.name) && workOK(d.name));
+    const color = v == null ? NO_DATA : S.settings.color === "trend" ? trendColor(tr) : b.low ? NO_DATA : ramp(SEQ, (v - lo) / span);
+    const num = v == null ? "—" : S.metric === "u" ? v.toFixed(1) : L.fmtNum(v);
+    return { id: d.name, lat: d.lat, lng: d.lng, value: v, frac: v == null ? 0 : Math.min(1.15, v / hi), color,
+             label: `${d.name} ${num}${b.low && v != null ? "*" : ""}`, n: b.n, dim: active && !ok };
+  });
+  D.barRange = { lo, hi, span, matched: active ? vals.filter(([d]) => budgetOK(d.name) && workOK(d.name)).length : null };
+  renderLegend();
+  view.request();
+}
+function renderLegend() {
+  const el = $("#legend"), unit = S.metric === "u" ? "萬/坪" : "萬";
+  if (!D.barRange) return;
+  const { lo, span } = D.barRange;
+  let rows;
+  if (S.settings.color === "trend") rows = [[-TREND_SPAN, "跌 8% 以上"], [0, "持平"], [TREND_SPAN, "漲 8% 以上"]].map(([p, t]) => [trendColor(p), t]);
+  else rows = [0, 0.5, 1].map(k => [ramp(SEQ, k), (S.metric === "u" ? (lo + span * k).toFixed(0) : L.fmtNum(lo + span * k)) + " " + unit]);
+  rows.push([NO_DATA, "樣本少／無資料"]);
+  let html = `<div class="lg-head">圖例 ${el.classList.contains("collapsed") ? "▸" : "▾"}</div>` +
+    `<div><b>${S.metric === "u" ? "中位單價" : "中位總價"}</b>${S.settings.color === "trend" ? "｜顏色：近半年漲跌" : ""}</div>` +
+    rows.map(([c, t]) => `<div><span class="sw" style="background:${c}"></span>${esc(t)}</div>`).join("");
+  if (D.barRange.matched != null) html += `<div style="margin-top:3px"><b>符合條件 ${D.barRange.matched} 區</b></div>`;
+  if (view.roads.length && S.current !== L.CITY && D.roadRange) {
+    html += `<div style="margin-top:4px"><b>路段（${S.metric === "u" ? "萬/坪" : "萬"}）</b></div>` +
+      [0, 0.5, 1].map(k => `<div><span class="sw" style="background:${ramp(ROAD_RAMP, k)}"></span>${S.metric === "u" ? (D.roadRange.lo + D.roadRange.span * k).toFixed(1) : L.fmtNum(D.roadRange.lo + D.roadRange.span * k)}</div>`).join("");
+  }
+  if (S.settings.projects) html += `<div style="margin-top:4px"><b>建設（${S.year}）</b></div><div>原色 完工｜塔吊 施工中｜淡色 規劃中</div>`;
+  el.innerHTML = html;
+  el.hidden = false;
+}
+function projectItems() {
+  if (!S.settings.projects) return [];
+  return D.intel.filter(it => it.build && it.lat != null && (it.impact_level || 0) >= 3).map(it => {
+    const b = it.build, state = L.buildState(b, S.year), short = it.name.split("（")[0].split("—")[0].slice(0, 14);
+    const when = b.done && b.done > S.year && state !== "完工" ? `預計 ${b.done} 完工` : "";
+    const lvl = it.impact_level || 2;
+    return { id: it.id, hit: "project", model: b.model, state, lat: it.lat, lng: it.lng, size: 0.9,
+             rank: lvl >= 5 ? 1 : lvl >= 4 ? 2 : 3, label: state === "完工" ? short : `${short}（${when || state}）` };
+  });
+}
+function refreshModels() {
+  const lms = S.settings.landmarks ? D.landmarks.map(l => ({ ...l, label: l.name })) : [];
+  view.models = lms.concat(projectItems());
+  view.markers = !S.settings.markers ? [] : D.intel.filter(it => it.lat != null && (it.impact_level || 0) >= 3 && !(it.build && S.settings.projects))
+    .map(it => ({ id: it.id, lat: it.lat, lng: it.lng, color: MARKER_COLOR[it.type] || "#6b7178", level: it.impact_level || 2,
+                  label: it.name.split("（")[0].split("—")[0].slice(0, 16) }));
+  renderLegend();
+  view.request();
+}
+function refreshPins() {
+  const pins = [], rings = [], w = workPlace();
+  if (w) {
+    pins.push({ id: "work", kind: "work", lat: w.lat, lng: w.lng, color: WORK_COLOR, label: "上班：" + w.name });
+    if (commuteLimit()) rings.push({ lat: w.lat, lng: w.lng, km: L.kmFor(commuteLimit(), S.settings.mode), color: WORK_COLOR });
+  }
+  for (const it of S.watch) if (it.lat != null) pins.push({ id: it.id, kind: "watch", lat: it.lat, lng: it.lng, color: WATCH_COLOR,
+    label: `${(it.name || "").slice(0, 10)}${it.price ? " " + L.fmtNum(it.price) + "萬" : ""}` });
+  if (S.pin) {
+    pins.push({ id: "search", kind: "search", lat: S.pin.lat, lng: S.pin.lng, color: SEARCH_COLOR, label: S.pin.label });
+    if (S.pin.radius) rings.push({ lat: S.pin.lat, lng: S.pin.lng, km: S.pin.radius, color: SEARCH_COLOR });
+  }
+  if (S.poi) rings.push({ lat: S.poi.lat, lng: S.poi.lng, km: 0.5, color: "#1baf7a", poi: true });
+  view.pins = pins; view.rings = rings; view.request();
+}
+async function refreshRoads() {
+  const name = S.current;
+  view.roads = []; D.roadRange = null;
+  if (!S.settings.roads || name === L.CITY || !D.txs || S.cat === "presale") { view.request(); renderLegend(); return; }
+  const data = roadsNow(name) || await loadRoads(name);
+  if (S.current !== name) return;
+  if (!data) { view.request(); return; }
+  const key = S.metric === "u" ? "u" : "t", since = D.book.windows.y12[0];
+  const rows = L.roadPrices(D.txs, name, S.cat, since);
+  const found = [];
+  for (const r of rows) { const loc = L.locate(data, r.name); if (loc) found.push({ ...r, ...loc }); }
+  let solid = found.filter(r => !r.low).map(r => r[key]);
+  if (!solid.length) solid = found.map(r => r[key]);
+  if (!solid.length) solid = [0, 1];
+  const lo = Math.min(...solid), hi = Math.max(...solid), span = (hi - lo) || 1;
+  D.roadRange = { lo, span };
+  const items = found.map(r => ({ id: r.name, n: r.n, color: ramp(ROAD_RAMP, (r[key] - lo) / span), segments: r.segments, lanes: r.lanes,
+    point: r.point, dot: !r.segments.length, label: `${r.name} ${key === "u" ? r.u.toFixed(1) : L.fmtNum(r.t)}${r.low ? "*" : ""}` }));
+  if (S.addr && S.addr.district === name && !items.some(i => i.id === S.addr.road)) {
+    const loc = L.locate(data, S.addr.road);
+    if (loc) items.push({ id: S.addr.road, n: 0, color: "#aeb4bb", ...loc, dot: !loc.segments.length, label: `${S.addr.road}（近一年無成交）` });
+  }
+  view.setRoads(items);
+  if (S.roadFilter) view.select("road", S.roadFilter);
+  renderLegend();
+}
+function refreshAll() { refreshBars(); refreshModels(); refreshPins(); refreshRoads(); renderPanel(); }
+
+// ------------------------------------------------------------------ 選取
+function selectDistrict(name, fly = true) {
+  S.current = name; S.roadFilter = null; S.addr = null; S.pin = null; S.bldg = null;
+  if (S.poi) { S.poi = null; refreshPois(); }
+  if (name === L.CITY) { view.select(null); if (fly) view.flyHome(); }
+  else {
+    view.select("district", name);
+    const d = D.dmap[name];
+    if (fly) view.flyTo(d.lat, d.lng, Math.max(view.zoom, ZOOM.district));
+  }
+  refreshPins(); refreshRoads();
+  if (S.tab === "detail") S.tab = "overview";
+  renderPanel();
+}
+function selectRoad(name, focus = true) {
+  if (S.addr && S.addr.road !== name) { S.addr = null; S.pin = null; refreshPins(); }
+  S.roadFilter = name;
+  view.select("road", name);
+  if (focus) {
+    const it = view.roads.find(r => r.id === name);
+    if (it) view.flyTo(it.point[0], it.point[1], Math.max(view.zoom, ZOOM.road));
+  }
+  S.tab = "tx"; renderPanel(); sheet("half");
+}
+
+// ------------------------------------------------------------------ 地址搜尋
+async function search(text) {
+  text = (text || "").trim();
+  if (!text) return;
+  const names = D.districts.map(d => d.name), q = L.parseAddress(text, names), s = q.text;
+  const only = names.includes(s) ? s : names.includes(s + "區") ? s + "區" : null;
+  if (only || (q.district && !q.road)) {
+    selectDistrict(only || q.district); toast(`已移到${only || q.district}`); sheet("peek"); return "district";
+  }
+  if (q.num == null && q.lane == null && !q.district) {
+    const lm = D.landmarks.find(l => s.length >= 2 && (l.name.includes(s) || s.includes(l.name)));
+    if (lm) { pick(["landmark", lm.id]); return "landmark"; }
+    const pr = D.intel.find(it => it.build && s.length >= 2 && it.name.includes(s));
+    if (pr) { pick(["project", pr.id]); return "project"; }
+  }
+  if (!q.road) { toast("看不出這是哪一條路。請輸入像「善化區中山路123號」「大同路一段」這樣的地址或路名。"); return "none"; }
+  if (!D.txs) { toast("成交資料還在載入，請稍候再試一次。"); return "none"; }
+  if (!q.district) {
+    const found = [...new Set(D.txs.filter(x => x.road === q.road).map(x => x.dist))];
+    let cand = found;
+    if (found.length > 1 && q.lane != null) {
+      const narrow = [...new Set(D.txs.filter(x => x.road === q.road && x.lane === q.lane).map(x => x.dist))];
+      if (narrow.length === 1) cand = narrow;
+    }
+    if (cand.length === 1) q.district = cand[0];
+    else {
+      S.pendingAddr = q; S.roadKw = q.road;
+      selectDistrict(L.CITY, false);
+      S.pendingAddr = q;
+      S.tab = "roads"; renderPanel(); sheet("half");
+      toast(cand.length ? `有 ${cand.length} 個行政區都有「${q.road}」，請在下面挑一區。` : `沒有剛好叫「${q.road}」的路段，下面列出路名相近的。`);
+      return "choose";
+    }
+  }
+  await showAddress(q);
+  return "address";
+}
+async function showAddress(q) {
+  if (S.current !== q.district) selectDistrict(q.district, true);
+  S.addr = q; S.roadFilter = q.road; S.pendingAddr = null;
+  view.select("road", q.road);
+  S.tab = "tx"; renderPanel(); sheet("half");
+  await pinAt(q, `${q.district} ${L.describe(q)}`, L.describe(q), true);
+}
+async function pinAt(q, what, label, isSearch) {
+  const data = roadsNow(q.district) || await loadRoads(q.district);
+  if (!data) { S.pin = null; refreshPins(); toast(`${what}：這一區沒有道路位置資料，無法標在地圖上。`); return; }
+  const pos = L.position(data, q);
+  if (!pos) { S.pin = null; refreshPins(); toast(`${what}：OpenStreetMap 上找不到「${q.road}」的位置。`); return; }
+  S.pin = { lat: pos.lat, lng: pos.lng, label, radius: pos.radius, note: pos.note, what };
+  refreshPins();
+  if (isSearch && S.tab === "tx") renderPanel();
+  if (isSearch) refreshRoads();
+  view.flyTo(pos.lat, pos.lng, Math.max(view.zoom, ZOOM.pin[pos.precision] || ZOOM.address));
+  toast(`已標出 ${what}（${pos.note}）`);
+}
+
+// ------------------------------------------------------------------ 周邊（OpenStreetMap / Overpass，在使用者裝置上查詢；結果暫存在這台裝置）
+const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter"];
+const POI_CACHE = "dth_poi_v1";
+function poiCacheGet(k) { try { const c = JSON.parse(localStorage.getItem(POI_CACHE) || "{}"); const e = c[k]; return e && Date.now() - e.t < 30 * 864e5 ? e.d : null; } catch { return null; } }
+function poiCachePut(k, d) {
+  try { const c = JSON.parse(localStorage.getItem(POI_CACHE) || "{}"); c[k] = { t: Date.now(), d };
+    const keys = Object.keys(c).sort((a, b) => c[b].t - c[a].t); for (const old of keys.slice(40)) delete c[old];
+    localStorage.setItem(POI_CACHE, JSON.stringify(c)); } catch { /* 存不下就算了 */ }
+}
+async function fetchPoiElements(lat, lng) {
+  const k = `${lat.toFixed(4)},${lng.toFixed(4)}`, hit = poiCacheGet(k);
+  if (hit) return hit;
+  const q = L.poiQuery(lat, lng);
+  let last = null;
+  for (const url of OVERPASS) {
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 30000);
+    try {
+      const r = await fetch(url, { method: "POST", body: "data=" + encodeURIComponent(q), signal: ctl.signal,
+                                   headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      const els = (j.elements || []).map(e => ({ type: e.type, id: e.id, lat: e.lat, lon: e.lon, center: e.center, tags: e.tags }));
+      poiCachePut(k, els);
+      return els;
+    } catch (e) { last = e; } finally { clearTimeout(timer); }
+  }
+  throw last || new Error("查詢失敗");
+}
+async function showPoi(lat, lng, label) {
+  S.poi = { lat, lng, label, status: "loading" };
+  S.tab = "poi"; renderPanel(); sheet("half"); refreshPois();
+  try {
+    const els = await fetchPoiElements(lat, lng);
+    if (!S.poi || S.poi.lat !== lat || S.poi.lng !== lng) return;
+    S.poi.res = L.classifyPois(els, lat, lng); S.poi.status = "ok";
+  } catch (e) {
+    if (!S.poi || S.poi.lat !== lat) return;
+    S.poi.status = "error"; S.poi.err = e.message;
+  }
+  refreshPois();
+  if (S.tab === "poi") renderPanel();
+  view.flyTo(lat, lng, Math.max(view.zoom, 110));
+}
+function refreshPois() {
+  const cat = Object.fromEntries(L.POI_CATS.map(c => [c.key, c]));
+  view.pois = S.poi && S.poi.res ? S.poi.res.items.map(x => ({ id: x.id + x.cat, lat: x.lat, lng: x.lng, color: cat[x.cat].color, ch: cat[x.cat].ch,
+    label: `${x.name}｜${x.d} 公尺`, cat: x.cat, name: x.name, d: x.d })) : [];
+  view.rings = view.rings.filter(r => !r.poi);
+  if (S.poi) view.rings.push({ lat: S.poi.lat, lng: S.poi.lng, km: 0.5, color: "#1baf7a", poi: true });
+  view.request();
+}
+// ------------------------------------------------------------------ 行情報告（列印／存成 PDF）
+function reportButton() { return `<button class="btn small" data-act="report">行情報告</button>`; }
+function reportDialog() {
+  const a = S.settings.agent || {};
+  let dlg = $("#rep-dlg");
+  if (!dlg) { dlg = document.createElement("dialog"); dlg.id = "rep-dlg"; document.body.appendChild(dlg); }
+  const where = S.addr && S.addr.district === S.current ? `${S.current} ${L.describe(S.addr)}` : S.current;
+  dlg.innerHTML = `<form method="dialog"><h2 style="margin-top:0">行情報告：${esc(where)}</h2>
+    <div class="grid"><label>房仲／姓名</label><input name="name" value="${esc(a.name || "")}" placeholder="可留空">
+    <label>電話</label><input name="phone" value="${esc(a.phone || "")}" inputmode="tel" placeholder="可留空">
+    <label>給（客戶）</label><input name="client" placeholder="可留空">
+    <label>備註</label><textarea name="note" rows="3" placeholder="可留空"></textarea></div>
+    <p class="muted">報告在這台裝置上產生，不會上傳。打開後按「列印／存成 PDF」，手機可用分享 → 列印 → 存成 PDF。</p>
+    <div class="actions"><button value="cancel" class="btn">取消</button><button value="ok" class="btn primary">產生報告</button></div></form>`;
+  dlg.querySelector("form").addEventListener("submit", ev => {
+    if (ev.submitter && ev.submitter.value !== "ok") return;
+    const f = new FormData(ev.target), agent = { name: f.get("name").trim(), phone: f.get("phone").trim() };
+    S.settings.agent = agent; saveStore();
+    const html = buildReport({ book: D.book, txs: D.txs, intel: D.intel, district: S.current, cat: S.cat,
+      q: S.addr && S.addr.district === S.current ? S.addr : null,
+      point: S.pin ? [S.pin.lat, S.pin.lng] : [D.dmap[S.current].lat, D.dmap[S.current].lng],
+      agent: { ...agent, client: f.get("client").trim(), note: f.get("note").trim() },
+      work: workPlace(), mode: S.settings.mode, poi: S.poi && S.poi.status === "ok" ? S.poi : null, meta: D.meta });
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    const w = window.open(url, "_blank");
+    if (!w) { const link = document.createElement("a"); link.href = url; link.download = `${where}_行情報告.html`; link.click(); toast("瀏覽器擋住新視窗，已改成下載報告檔。"); }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  });
+  dlg.showModal();
+}
+function poiButton(lat, lng, label) {
+  return `<div class="row"><button class="btn small primary" data-act="poi" data-lat="${lat}" data-lng="${lng}" data-label="${esc(label)}">看周邊生活機能與嫌惡設施</button></div>`;
+}
+function tabPoi() {
+  const p = S.poi;
+  if (!p) return `<p class="muted">先搜尋地址或點一筆成交，再按「看周邊生活機能與嫌惡設施」。</p>`;
+  let h = `<div class="summary"><b>${esc(p.label)}</b> 周邊</div>`;
+  if (p.status === "loading") return h + `<p class="empty">向 OpenStreetMap 查詢中…（約 5～20 秒）</p>`;
+  if (p.status === "error") return h + `<p class="note">查詢失敗：${esc(p.err || "")}。OpenStreetMap 的查詢伺服器可能正忙，請稍後再按一次。</p>` + poiButton(p.lat, p.lng, p.label);
+  const fmtD = d => d >= 1000 ? (d / 1000).toFixed(1) + " 公里" : d + " 公尺";
+  const block = (group, title) => {
+    let t = `<h2>${title}</h2><table class="list"><tbody>`;
+    for (const c of L.POI_CATS.filter(c => c.group === group)) {
+      const b = p.res.byCat[c.key], rr = fmtD(c.r);
+      t += `<tr${b.n ? ` class="click" data-poi="${esc(b.nearest.id + c.key)}"` : ""}><td><span class="pill" style="background:${c.color};color:#fff">${c.ch}</span>${esc(c.label)}` +
+        `<div class="muted">${b.n ? `最近：${esc(b.nearest.name)} ${fmtD(b.nearest.d)}` : `${rr}內沒有`}</div></td><td class="r">${rr}內<br><b>${b.n}</b></td></tr>`;
+    }
+    return t + "</tbody></table>";
+  };
+  h += block("good", "生活機能") + block("bad", "嫌惡設施");
+  h += `<div class="row">${reportButton()}</div>`;
+  h += `<p class="muted">資料來自 OpenStreetMap 志工繪製，可能有缺漏或過時（特別是禮儀社、宮廟、小型工廠），看屋前請實地走一圈。宮廟是否算嫌惡因人而異。高壓電線、鐵路噪音、機場航道尚未納入。</p>`;
+  return h;
+}
+
+// ------------------------------------------------------------------ 點選地圖
+function pick(hit, latlng) {
+  if (S.pickMode) {
+    const cb = S.pickMode; S.pickMode = null;
+    cb(latlng); return;
+  }
+  if (!hit) return;
+  const [kind, id] = hit;
+  if (kind === "district") { selectDistrict(id); sheet("peek"); return; }
+  if (kind === "poi") { const o = view.pois.find(x => x.id === id); if (o) { view.select("poi", id); toast(`${o.name}｜距離 ${o.d} 公尺`); } return; }
+  if (kind === "road") { selectRoad(id); return; }
+  if (kind === "pin" && id === "search") { if (S.pin) view.flyTo(S.pin.lat, S.pin.lng, Math.max(view.zoom, ZOOM.address)); S.tab = "tx"; renderPanel(); sheet("half"); return; }
+  if (kind === "pin" && id !== "work") { S.tab = "watch"; S.watchSel = id; renderPanel(); sheet("half"); return; }
+  const where = kind === "landmark" ? (D.landmarks.find(x => x.id === id) || {}).district
+    : (kind === "project" || kind === "marker") ? ((D.intel[id] || {}).district || "").split(/[、／\/,，\s（(]/)[0] : null;
+  if (where && D.dmap[where] && where !== S.current) selectDistrict(where, false);
+  S.picked = hit; S.tab = "detail";
+  view.select(kind === "station" ? "line" : kind, kind === "station" ? id[0] : id);
+  let ll = null;
+  if (kind === "landmark") { const l = D.landmarks.find(x => x.id === id); ll = [l.lat, l.lng]; }
+  else if (kind === "project" || kind === "marker") { const it = D.intel[id]; ll = [it.lat, it.lng]; }
+  else if (kind === "station") { const ln = D.mrt.lines.find(l => l.name === id[0]); const st = ln && ln.stations.find(s => s[0] === id[1]); if (st) ll = [st[1], st[2]]; }
+  else if (kind === "pin" && id === "work") { const w = workPlace(); if (w) ll = [w.lat, w.lng]; }
+  if (ll) view.flyTo(ll[0], ll[1], Math.max(view.zoom, ZOOM.point));
+  renderPanel(); sheet("half");
+}
+
+// ------------------------------------------------------------------ 面板
+const TABS = [["overview", "概況"], ["rank", "排行"], ["commute", "通勤"], ["roads", "路段"], ["bldg", "社區"], ["tx", "成交"], ["projects", "建設"], ["detail", "點選"], ["poi", "周邊"], ["watch", "看屋"]];
+function renderPanel() {
+  const name = S.current, b = D.book;
+  $("#d-name").textContent = name;
+  $("#btn-city").hidden = name === L.CITY;
+  const bu = b.best(name, S.cat, "u"), bt = b.best(name, S.cat, "t"), tr = b.trend(name, S.cat, S.metric);
+  const win = bu.window === "h6" ? "近半年" : bu.window === "y12" ? "近一年" : "";
+  const zone = name === L.CITY ? "" : (D.dmap[name].zone || "") + "｜";
+  $("#d-sub").textContent = `${zone}${L.CAT_LABEL[S.cat]}｜${win ? win + "（" + b.windowLabel(bu.window) + "）" : "近一年沒有成交"}`;
+  const trCls = tr == null ? "" : tr > 0.5 ? "up" : tr < -0.5 ? "down" : "";
+  $("#kpis").innerHTML = [
+    ["中位單價", bu.value == null ? "—" : bu.value.toFixed(1), "萬/坪"],
+    ["中位總價", L.fmtNum(bt.value), "萬"],
+    ["成交件數", L.fmtNum(bu.n), bu.low && bu.n ? "樣本少" : "件"],
+    ["近半年", `<span class="${trCls}">${L.trendText(tr).replace("▲ ", "▲").replace("▼ ", "▼")}</span>`, ""],
+  ].map(([k, v, u]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}<small> ${u}</small></div></div>`).join("");
+  $("#tabs").innerHTML = TABS.filter(([k]) => (k !== "detail" || S.picked) && (k !== "poi" || S.poi)).map(([k, t]) =>
+    `<button role="tab" data-tab="${k}" aria-selected="${S.tab === k}">${t}</button>`).join("");
+  const body = $("#tab-body");
+  body.innerHTML = ({ overview: tabOverview, rank: tabRank, commute: tabCommute, roads: tabRoads, bldg: tabBldg, tx: tabTx, projects: tabProjects, detail: tabDetail, poi: tabPoi, watch: tabWatch }[S.tab] || tabOverview)();
+  body.scrollTop = 0;
+  const on = $("#tabs [aria-selected='true']");
+  if (on) { const bar = $("#tabs"); if (on.offsetLeft < bar.scrollLeft || on.offsetLeft + on.offsetWidth > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = on.offsetLeft - 16; }
+}
+
+function trendSVG(series) {
+  const pts = series.map((p, i) => ({ ...p, i })), vals = pts.filter(p => p.v != null).map(p => p.v);
+  if (vals.length < 2) return `<p class="empty">成交太少，畫不出走勢。</p>`;
+  let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * 0.15 || 1; lo -= pad; hi += pad;
+  const W = 360, H = 170, l = 40, r = 10, t = 10, bH = 34, nmax = Math.max(...pts.map(p => p.n)) || 1;
+  const step = (W - l - r) / Math.max(1, pts.length - 1), x = i => l + i * step, y = v => t + (hi - v) / (hi - lo) * (H - t - bH - 26);
+  let s = `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="每月中位價走勢">`;
+  for (const p of pts) { const h = p.n / nmax * bH; s += `<rect x="${x(p.i) - step * 0.3}" y="${H - 22 - h}" width="${step * 0.6}" height="${h}" fill="${p.partial ? "#e3e6ea" : "#c4cad1"}"/>`; }
+  for (const f of [0, 0.5, 1]) { const v = hi - (hi - lo) * f, yy = y(v); s += `<line x1="${l}" x2="${W - r}" y1="${yy}" y2="${yy}" stroke="#eceff2"/><text x="${l - 5}" y="${yy + 4}" font-size="10" text-anchor="end" fill="#5b6168">${S.metric === "u" ? v.toFixed(1) : L.fmtNum(v)}</text>`; }
+  const line = pts.filter(p => p.v != null && !p.partial).map(p => `${x(p.i)},${y(p.v)}`).join(" ");
+  s += `<polyline fill="none" stroke="#2a78d6" stroke-width="2.2" points="${line}"/>`;
+  for (const p of pts) if (p.v != null) s += `<circle cx="${x(p.i)}" cy="${y(p.v)}" r="3" fill="${p.partial ? "#fff" : "#2a78d6"}" stroke="#2a78d6"/>`;
+  pts.forEach(p => { if (p.i % 3 === 0 || p.i === pts.length - 1) s += `<text x="${x(p.i)}" y="${H - 8}" font-size="10" text-anchor="middle" fill="#5b6168">${p.m.slice(2).replace("-", "/")}</text>`; });
+  return s + "</svg>";
+}
+function tabOverview() {
+  const name = S.current, b = D.book;
+  let h = `<h2 style="margin-top:2px">${esc(name)}每月中位${S.metric === "u" ? "單價（萬/坪）" : "總價（萬）"}</h2>${trendSVG(b.series(name, S.cat, S.metric))}`;
+  h += `<p class="muted">空心點是資料還沒到齊的月份；灰色長條是每月件數。${esc(D.meta.describe)}</p>`;
+  if (name !== L.CITY) {
+    const gap = b.presaleGap(name), w = workPlace(), d = D.dmap[name];
+    const bits = [];
+    if (gap != null) bits.push(`預售屋單價比中古大樓${gap >= 0 ? "高" : "低"} ${Math.abs(gap).toFixed(0)}%`);
+    if (w) bits.push(`到${esc(w.name)}：${modeName()}約 ${minsTo(d.lat, d.lng, w)} 分鐘（直線 ${L.distKm(d.lat, d.lng, w.lat, w.lng).toFixed(1)} 公里，估計）`);
+    if (bits.length) h += `<div class="summary">${bits.join("<br>")}</div>`;
+    h += `<div class="row">${reportButton()}<a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a>` +
+      (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
+  } else {
+    h += `<p class="muted">點地圖上的柱子看各區，或在上方搜尋地址。透天厝的單價含土地，看透天請以總價為主。</p>`;
+  }
+  return h;
+}
+function tabCommute() {
+  const s = S.settings, w = workPlace(), lim = commuteLimit() || 20;
+  const opts = D.workplaces.map(x => `<option${x.name === s.work ? " selected" : ""}>${esc(x.name)}</option>`).join("") +
+    (s.workPt ? `<option value="__custom"${s.work === "__custom" ? " selected" : ""}>自訂地點</option>` : "");
+  let h = `<div class="row"><span>上班地點 A</span><select data-set="work"><option value="">（請選擇）</option>${opts}</select></div>
+    <div class="row"><button class="btn small" data-act="work-pick">在地圖上點選 A</button>
+    <div class="seg">${Object.entries(L.MODES).map(([k, m]) => `<button data-act="mode" data-mode="${k}" aria-checked="${s.mode === k}">${m[0]}</button>`).join("")}</div></div>
+    <div class="year"><span>通勤上限</span><input type="range" id="commute-min" min="10" max="60" step="5" value="${lim}"><b id="commute-v">${lim} 分鐘</b></div>`;
+  if (!w) return h + `<p class="muted">先選上班地點，或在地圖上點一下公司位置。地圖會畫出${modeName()} ${lim} 分鐘的範圍，下面列出範圍內每一區的房價。</p>`;
+  const rows = D.districts.map(d => ({ d, m: minsTo(d.lat, d.lng, w), b: D.book.best(d.name, S.cat, "u"), t: D.book.best(d.name, S.cat, "t") }))
+    .sort((a, b) => a.m - b.m);
+  const inside = rows.filter(r => r.m <= lim && r.b.value != null);
+  const cheap = [...inside].sort((a, b) => a.b.value - b.b.value)[0];
+  h += `<div class="summary"><b>${esc(w.name)}</b>｜${modeName()} ${lim} 分鐘內：<b>${inside.length}</b> 個行政區` +
+    (cheap ? `<br>範圍內單價最低：<a href="#" data-goto="${esc(cheap.d.name)}">${esc(cheap.d.name)}</a> ${cheap.b.value.toFixed(1)} 萬/坪、總價約 ${L.fmtNum(cheap.t.value)} 萬` : "") + `</div>`;
+  h += `<table class="list"><thead><tr><th>B 行政區</th><th class="r">通勤</th><th class="r">萬/坪</th><th class="r">總價</th></tr></thead><tbody>`;
+  for (const r of rows) {
+    const ok = r.m <= lim;
+    h += `<tr class="click${r.b.low ? " low" : ""}" data-dist="${esc(r.d.name)}" style="${ok ? "" : "opacity:.4"}"><td>${esc(r.d.name)}</td><td class="r">${ok ? "<b>" + r.m + "</b>" : r.m} 分</td>` +
+      `<td class="r">${r.b.value == null ? "—" : r.b.value.toFixed(1)}</td><td class="r">${L.fmtNum(r.t.value)}</td></tr>`;
+  }
+  return h + `</tbody></table><p class="muted">通勤時間用直線距離 ×1.3 與平均車速（開車 32、機車 28、腳踏車 14 公里/時）加 3 分鐘出發時間估算，尖峰時段可能多 3～5 成；實際路線請按各區「概況」裡的「通勤路線」用 Google 地圖查。</p>`;
+}
+function tabRank() {
+  const w = workPlace();
+  const rows = D.districts.map(d => ({ d, b: D.book.best(d.name, S.cat, S.metric), t: D.book.best(d.name, S.cat, "t"), tr: D.book.trend(d.name, S.cat, S.metric),
+    km: w ? minsTo(d.lat, d.lng, w) : null, ok: !filtersOn() || (budgetOK(d.name) && workOK(d.name)) }));
+  rows.sort((a, b) => (b.b.value ?? -1) - (a.b.value ?? -1));
+  let h = `<table class="list"><thead><tr><th>行政區</th><th class="r">${S.metric === "u" ? "萬/坪" : "總價"}</th><th class="r">總價</th>${w ? '<th class="r">通勤</th>' : ""}<th class="r">半年</th></tr></thead><tbody>`;
+  for (const r of rows) {
+    h += `<tr class="click${r.b.low ? " low" : ""}${r.d.name === S.current ? " sel" : ""}" data-dist="${esc(r.d.name)}" style="${r.ok ? "" : "opacity:.45"}"><td>${esc(r.d.name)}</td>` +
+      `<td class="r">${r.b.value == null ? "—" : S.metric === "u" ? r.b.value.toFixed(1) : L.fmtNum(r.b.value)}</td><td class="r">${L.fmtNum(r.t.value)}</td>` +
+      (w ? `<td class="r">${r.km}分</td>` : "") + `<td class="r">${L.trendText(r.tr).replace("樣本不足", "—")}</td></tr>`;
+  }
+  return h + `</tbody></table><p class="muted">灰字是樣本少（近半年不到 5 件）。${filtersOn() ? "淡色是不符合預算／通勤條件。" : ""}</p>`;
+}
+function tabRoads() {
+  if (!D.txs) return `<p class="empty">成交資料載入中…</p>`;
+  const since = D.book.windows.y12[0], kw = S.roadKw.trim();
+  let list, note;
+  if (S.current === L.CITY) {
+    list = kw ? L.searchRoads(D.txs, kw, S.cat, since) : [];
+    note = kw ? `全市路名含「${esc(kw)}」的路段 ${list.length} 個，點一列會到那一區。` : "輸入路名（例如「中山路」）搜尋全市；或先選一個行政區，列出區內所有路段。";
+  } else {
+    list = L.roadPrices(D.txs, S.current, S.cat, since);
+    if (kw) list = list.filter(r => r.name.includes(kw));
+    note = `${esc(S.current)}近一年有成交的${S.cat === "presale" ? "建案" : "路段"} ${list.length} 個（灰字不到 3 件），點一列看逐筆成交並在地圖上標出來。`;
+  }
+  const city = S.current === L.CITY;
+  let h = `<div class="row"><input type="search" id="road-kw" placeholder="路名，例如：中山路" value="${esc(kw)}"></div><p class="muted">${note}</p>`;
+  if (!list.length) return h;
+  h += `<table class="list"><thead><tr>${city ? "<th>區</th>" : ""}<th>${S.cat === "presale" ? "建案" : "路段"}</th><th class="r">件</th><th class="r">萬/坪</th><th class="r">總價</th><th class="r">最近</th></tr></thead><tbody>`;
+  for (const r of list.slice(0, 300)) {
+    h += `<tr class="click${r.low ? " low" : ""}${r.name === S.roadFilter && r.dist === S.current ? " sel" : ""}" data-road="${esc(r.name)}" data-rdist="${esc(r.dist)}">` +
+      (city ? `<td>${esc(r.dist)}</td>` : "") + `<td>${esc(r.name)}${r.low ? "*" : ""}</td><td class="r">${r.n}</td><td class="r">${r.u.toFixed(1)}</td><td class="r">${L.fmtNum(r.t)}</td><td class="r">${r.last.slice(2, 7).replace("-", "/")}</td></tr>`;
+  }
+  return h + "</tbody></table>";
+}
+function linksRow(dist, place, title) {
+  return `<div class="links"><span class="muted">${esc(title)}：</span>` + L.platformLinks(dist, place).map(([n, u]) =>
+    `<a class="btn small" href="${esc(u)}" target="_blank" rel="noopener">${esc(n)}</a>`).join("") + `</div>`;
+}
+function tabBldg() {
+  if (!D.txs) return `<p class="empty">成交資料載入中…</p>`;
+  if (S.current === L.CITY) return `<p class="muted">先在地圖或「排行」選一個行政區，這裡會列出區內有多筆成交的社區／大樓。</p>`;
+  const since = D.book.windows.y12[0], kw = S.bldgKw.trim();
+  const all = L.buildings(D.txs, S.current, S.cat, since);
+  let h = "";
+  const b = S.bldg && all.find(r => r.key === S.bldg);
+  if (b) {
+    const age = b.built ? `屋齡約 ${Math.max(0, new Date().getFullYear() - b.built)} 年｜` : "";
+    h += `<div class="summary"><b>${esc(b.name)}</b>｜${esc(S.current)}<br>${esc(b.btype)}｜${age}共 ${b.n} 筆，中位單價 ${b.u.toFixed(1)} 萬/坪、總價 ${L.fmtNum(b.t)} 萬` +
+      (b.n12 ? `<br>近一年 ${b.n12} 筆：中位單價 ${b.u12.toFixed(1)} 萬/坪` : `<br>近一年沒有成交`) + `</div>`;
+    h += linksRow(S.current, b.presale ? b.name : b.name, "找這個社區正在賣的房子");
+    h += `<div class="row"><button class="btn small" data-act="bldg-back">← 回社區列表</button></div>`;
+    if (S.pin) h += poiButton(S.pin.lat, S.pin.lng, b.name);
+    const rows = D.txs.filter(x => x.dist === S.current && L.inCat(x, S.cat) && L.bldgKey(x) === b.key);
+    h += `<table class="list"><thead><tr><th>日期</th><th>樓層／地址</th><th class="r">總價</th><th class="r">萬/坪</th><th class="r">坪</th></tr></thead><tbody>`;
+    for (const x of rows.slice(0, 300))
+      h += `<tr><td>${x.date.slice(2).replace(/-/g, "/")}</td><td>${esc(x.addr)}</td><td class="r">${L.fmtNum(x.tw)}</td><td class="r">${x.u.toFixed(1)}</td><td class="r">${x.ping.toFixed(1)}</td></tr>`;
+    return h + `</tbody></table>`;
+  }
+  const list = kw ? all.filter(r => r.name.includes(kw)) : all;
+  h += `<div class="row"><input type="search" id="bldg-kw" placeholder="社區或路名，例如：成功路" value="${esc(kw)}"></div>`;
+  h += `<p class="muted">${esc(S.current)}有 2 筆以上成交的${S.cat === "presale" ? "建案" : "社區／大樓"} ${list.length} 個。實價登錄沒有社區名稱，中古屋以「同一個門牌」當作同一棟；預售屋用建案名稱。點一列看每一筆成交。</p>`;
+  if (!list.length) return h;
+  h += `<table class="list"><thead><tr><th>社區／門牌</th><th class="r">件</th><th class="r">萬/坪</th><th class="r">近一年</th><th class="r">屋齡</th></tr></thead><tbody>`;
+  const yr = new Date().getFullYear();
+  for (const r of list.slice(0, 300))
+    h += `<tr class="click" data-bldg="${esc(r.key)}"><td>${esc(r.name)}<div class="muted">${esc(r.btype)}｜最近 ${r.last.slice(2, 7).replace("-", "/")}</div></td><td class="r">${r.n}</td>` +
+      `<td class="r">${r.u.toFixed(1)}</td><td class="r">${r.u12 == null ? "—" : r.u12.toFixed(1)}</td><td class="r">${r.built ? Math.max(0, yr - r.built) : "—"}</td></tr>`;
+  return h + "</tbody></table>";
+}
+function txRows() {
+  const name = S.current;
+  let rows = D.txs.filter(x => (name === L.CITY || x.dist === name) && L.inCat(x, S.cat));
+  if (S.roadFilter && name !== L.CITY) rows = rows.filter(x => (S.cat === "presale" ? (x.proj || "未命名建案") : x.road) === S.roadFilter);
+  const q = S.addr && S.addr.district === name && S.roadFilter === S.addr.road && S.cat !== "presale" ? S.addr : null;
+  return { q, ranked: q ? L.rankByAddress(rows, q) : rows.map(x => ({ level: 1, x })) };
+}
+function tabTx() {
+  if (!D.txs) return `<p class="empty">成交資料載入中…</p>`;
+  const { q, ranked } = txRows();
+  S.txShown = ranked.slice(0, 300).map(r => r.x);
+  let h = "";
+  if (q) {
+    const st = L.addressSummary(ranked), part = (t, g) => `${t} ${g.n} 筆：中位單價 ${g.u.toFixed(1)} 萬/坪、總價 ${L.fmtNum(g.t)} 萬`;
+    const lines = [`<b>${esc(q.district)} ${esc(L.describe(q))}</b>｜${L.CAT_LABEL[S.cat]}`];
+    if (!ranked.length) lines.push("實價登錄裡這條路沒有符合的成交。");
+    else {
+      if (q.num != null) lines.push(st.exact.n ? part("同門牌", st.exact) : "同門牌沒有成交紀錄，下面依門牌號碼由近到遠排列。");
+      if (q.lane != null && st.lane.n > st.exact.n) lines.push(part("同一條巷", st.lane));
+      lines.push(part("整條路", st.road));
+    }
+    const w = workPlace();
+    if (w && S.pin) lines.push(`到${esc(w.name)}：${modeName()}約 ${minsTo(S.pin.lat, S.pin.lng, w)} 分鐘（估計）｜<a target="_blank" rel="noopener" href="${L.routeUrl(S.pin, w, S.settings.mode)}">看實際路線</a>`);
+    h += `<div class="summary">${lines.join("<br>")}</div>`;
+    if (S.pin) h += poiButton(S.pin.lat, S.pin.lng, S.pin.label).replace("</div>", reportButton() + "</div>");
+  } else {
+    const scope = S.roadFilter ? `${S.current} ${S.roadFilter}` : S.current;
+    h += `<p class="muted">${esc(scope)}｜${L.CAT_LABEL[S.cat]}｜共 ${ranked.length} 筆，列出最近 ${Math.min(300, ranked.length)} 筆（已排除親友等特殊交易）。點一列在地圖上標出大概位置。</p>`;
+  }
+  if (S.roadFilter) h += `<div class="row"><button class="btn small" data-act="clear-road">顯示全區</button></div>`;
+  if (S.roadFilter && S.cat !== "presale") h += linksRow(S.current, q && q.district === S.current ? L.describe(q).replace(/ /g, "") : S.roadFilter, "找這條路正在賣的房子");
+  h += `<table class="list"><thead><tr><th>日期</th><th>地址／建案</th><th class="r">總價</th><th class="r">萬/坪</th><th class="r">坪</th></tr></thead><tbody>`;
+  ranked.slice(0, 300).forEach((r, i) => {
+    const x = r.x, where = x.proj ? `${x.proj}（${x.addr.slice(0, 12)}）` : x.addr;
+    const age = x.built ? ` ${Math.max(0, +x.date.slice(0, 4) - x.built)}年` : "";
+    h += `<tr class="click ${r.level === 3 ? "exact" : r.level === 2 ? "lane" : ""}" data-tx="${i}"><td>${x.date.slice(2).replace(/-/g, "/")}</td>` +
+      `<td>${esc(where)}<div class="muted">${esc(x.btype)}${age}${S.current === L.CITY ? "｜" + esc(x.dist) : ""}</div></td>` +
+      `<td class="r">${L.fmtNum(x.tw)}</td><td class="r">${x.u.toFixed(1)}</td><td class="r">${x.ping.toFixed(1)}</td></tr>`;
+  });
+  return h + `</tbody></table>${ranked.length ? "" : '<p class="empty">沒有符合的成交。</p>'}`;
+}
+function stateClass(s) { return s === "完工" ? "done" : s === "施工中" ? "build" : "plan"; }
+function tabProjects() {
+  const items = D.intel.filter(it => it.build && it.lat != null && (S.current === L.CITY || (it.district || "").includes(S.current)));
+  const yMin = new Date().getFullYear();
+  let h = `<div class="year"><span>建設年份</span><input type="range" id="year" min="${yMin}" max="${yMin + 9}" value="${S.year}"><b id="year-v">${S.year} 年</b></div>`;
+  h += `<p class="muted">拉到未來的年份，看那時候哪些建設完工。年份依報導與官方說法整理，常會延後。</p>`;
+  if (!items.length) return h + `<p class="empty">這一區沒有收錄有時程的重大建設。</p>`;
+  const rows = items.map(it => ({ it, st: L.buildState(it.build, S.year) })).sort((a, b) => (b.it.impact_level || 0) - (a.it.impact_level || 0));
+  h += `<table class="list"><tbody>`;
+  for (const { it, st } of rows) h += `<tr class="click" data-proj="${it.id}"><td><span class="pill ${stateClass(st)}">${st}</span>${esc(it.name)}<div class="muted">${esc(it.district || "")}｜${esc(it.build.note || "")}</div></td></tr>`;
+  return h + "</tbody></table>";
+}
+function writeIntel(it) {
+  let h = `<h2 style="margin-top:2px">${esc(it.name)}</h2><p class="muted">${esc([it.type, it.district, it.impact_level ? "影響度 " + it.impact_level + "/5" : "", it.confidence ? "可信度 " + it.confidence : ""].filter(Boolean).join("｜"))}</p>`;
+  if (it.build) {
+    const st = L.buildState(it.build, S.year);
+    h += `<h3>時程</h3><p><span class="pill ${stateClass(st)}">${S.year} 年：${st}</span> ${esc(it.build.note || "")}</p>`;
+  }
+  h += `<h3>現況</h3><p>${esc(it.status)}</p>`;
+  for (const [t, k] of [["時程", "timeline"], ["主辦／開發商", "developer"], ["規模", "scale"], ["對周邊的可能影響", "impact"]]) if (it[k]) h += `<h3>${t}</h3><p>${esc(it[k])}</p>`;
+  const dists = D.districts.filter(d => (it.district || "").includes(d.name));
+  if (dists.length) {
+    h += `<h3>所在區的房價</h3>`;
+    for (const d of dists) {
+      const b = D.book.best(d.name, S.cat, "u"), tr = D.book.trend(d.name, S.cat, "u");
+      h += `<p><a href="#" data-goto="${esc(d.name)}">${esc(d.name)}</a> <span class="muted">${b.value != null ? "中位單價 " + b.value.toFixed(1) + " 萬/坪" : ""}${tr != null ? "、近半年 " + L.trendText(tr) : ""}</span></p>`;
+    }
+  }
+  if (it.sources && it.sources.length) {
+    h += `<h3>來源</h3>` + it.sources.slice(0, 4).map(s => `<p class="muted">· <a target="_blank" rel="noopener" href="${esc(s.url)}">${esc(s.title)}</a> ${esc(s.date || "")}</p>`).join("");
+  }
+  return h + `<p class="muted">影響度為整理資料時的主觀評估，不是投資建議。</p>`;
+}
+function tabDetail() {
+  if (!S.picked) return `<p class="empty">點地圖上的地標、建設、開發案或車站，這裡會顯示說明。</p>`;
+  const [kind, id] = S.picked;
+  if (kind === "landmark") {
+    const l = D.landmarks.find(x => x.id === id);
+    const dists = D.districts.filter(d => (l.district || "").includes(d.name));
+    return `<h2 style="margin-top:2px">${esc(l.name)}</h2><p class="muted">${esc(l.district || "")}</p><p>${esc(l.note || "")}</p>` +
+      dists.map(d => { const b = D.book.best(d.name, S.cat, "u"); return `<p><a href="#" data-goto="${esc(d.name)}">看${esc(d.name)}的房價</a> <span class="muted">${b.value != null ? "中位單價 " + b.value.toFixed(1) + " 萬/坪" : ""}</span></p>`; }).join("") +
+      `<p><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/${encodeURIComponent("台南 " + l.name)}">在 Google 地圖查看</a></p><p class="muted">圖案是示意造型，位置取自 OpenStreetMap。</p>`;
+  }
+  if (kind === "project" || kind === "marker") return writeIntel(D.intel[id]);
+  if (kind === "station") {
+    const ln = D.mrt.lines.find(l => l.name === id[0]);
+    return `<h2 style="margin-top:2px">${esc(id[0])}｜${esc(id[1])}</h2><p>${esc(ln.status)}</p><p class="muted">預計動工：${esc(ln.construction_start)}｜預計通車：${esc(ln.estimated_completion)}</p>` +
+      (ln.sources || []).map(s => `<p class="muted">· <a target="_blank" rel="noopener" href="${esc(s.url)}">${esc(s.title)}</a></p>`).join("") +
+      `<p class="muted">站位依路口與地標估算，誤差可能達數百公尺。</p>`;
+  }
+  if (kind === "pin" && id === "work") {
+    const w = workPlace();
+    if (!w) return "";
+    const near = D.districts.map(d => [minsTo(d.lat, d.lng, w), d.name]).sort((a, b) => a[0] - b[0]).slice(0, 8);
+    return `<h2 style="margin-top:2px">上班地點：${esc(w.name)}</h2><p class="muted">通勤時間是${modeName()}的估計值。完整比較請看「通勤」分頁。</p><h3>最近的行政區</h3>` +
+      near.map(([m, n]) => `<p><a href="#" data-goto="${esc(n)}">${esc(n)}</a> <span class="muted">約 ${m} 分鐘</span></p>`).join("");
+  }
+  return "";
+}
+
+// ---- 看屋清單（只存在這台裝置）
+const WATCH_TYPES = ["透天厝", "大樓／華廈", "公寓", "預售屋", "店面／透店", "土地", "其他"];
+const TYPE_CAT = { "透天厝": "house", "店面／透店": "house", "大樓／華廈": "apt", "公寓": "all", "預售屋": "presale" };
+function compareWatch(it) {
+  const cat = TYPE_CAT[it.type];
+  if (!cat || !D.dmap[it.district]) return null;
+  const bt = D.book.best(it.district, cat, "t"), bu = D.book.best(it.district, cat, "u");
+  const unit = it.price && it.ping ? it.price / it.ping : null;
+  return { cat, bt, bu, unit, vsT: it.price && bt.value ? (it.price - bt.value) / bt.value * 100 : null, vsU: unit && bu.value ? (unit - bu.value) / bu.value * 100 : null };
+}
+const pct = v => v == null ? "—" : `${v >= 0 ? "高" : "低"} ${Math.abs(v).toFixed(0)}%`;
+function tabWatch() {
+  let h = `<div class="row"><button class="btn primary" data-act="watch-add">新增物件</button><button class="btn" data-act="watch-export">匯出備份</button><label class="btn">匯入<input type="file" id="watch-import" accept="application/json" hidden></label></div>`;
+  h += `<p class="muted">看屋清單只存在這台裝置的瀏覽器裡，不會上傳。換手機時請用「匯出備份」再到新手機「匯入」。</p>`;
+  if (!S.watch.length) return h + `<p class="empty">清單是空的。按「新增物件」把正在看的房子記下來，就能和那一區的行情比較。</p>`;
+  h += `<table class="list"><thead><tr><th>物件</th><th class="r">總價</th><th class="r">萬/坪</th><th class="r">對區中位</th></tr></thead><tbody>`;
+  for (const it of S.watch) {
+    const c = compareWatch(it);
+    h += `<tr class="click${S.watchSel === it.id ? " sel" : ""}" data-watch="${esc(it.id)}"><td>${esc(it.name)}<div class="muted">${esc(it.district || "")}｜${esc(it.type || "")}</div></td>` +
+      `<td class="r">${it.price ? L.fmtNum(it.price) : "—"}</td><td class="r">${c && c.unit ? c.unit.toFixed(1) : "—"}</td><td class="r">${c ? pct(c.vsT) : "—"}</td></tr>`;
+  }
+  h += "</tbody></table>";
+  const it = S.watch.find(w => w.id === S.watchSel);
+  if (it) {
+    const c = compareWatch(it);
+    h += `<h2>${esc(it.name)}</h2><p class="muted">${esc([it.district, it.address, it.type].filter(Boolean).join("｜"))}</p>`;
+    if (c && c.bt.value != null) h += `<div class="summary">${esc(it.district)}${L.CAT_LABEL[c.cat]}中位總價 ${L.fmtNum(c.bt.value)} 萬（${c.bt.n} 件）→ 這間 ${pct(c.vsT)}<br>中位單價 ${c.bu.value != null ? c.bu.value.toFixed(1) : "—"} 萬/坪 → 這間 ${pct(c.vsU)}</div>`;
+    if (it.note) h += `<p>${esc(it.note)}</p>`;
+    h += `<div class="row"><button class="btn" data-act="watch-edit">編輯</button><button class="btn" data-act="watch-pin">在地圖上標位置</button>` +
+      (it.lat != null ? `<button class="btn" data-act="watch-map">在地圖上看</button>` : "") +
+      (it.url ? `<a class="btn" target="_blank" rel="noopener" href="${esc(it.url)}">物件網址</a>` : "") +
+      `<button class="btn" data-act="watch-del">刪除</button></div>`;
+  }
+  return h;
+}
+function watchDialog(item) {
+  const dlg = document.createElement("dialog"), v = item || {};
+  dlg.innerHTML = `<form method="dialog"><h2 style="margin-top:0">${item ? "編輯物件" : "新增物件"}</h2><div class="grid">
+    <label>名稱</label><input name="name" required value="${esc(v.name || "")}" placeholder="例：善化透天 A">
+    <label>行政區</label><select name="district">${D.districts.map(d => `<option${d.name === (v.district || S.current) ? " selected" : ""}>${esc(d.name)}</option>`).join("")}</select>
+    <label>地址</label><input name="address" value="${esc(v.address || "")}" placeholder="可只填路名">
+    <label>類型</label><select name="type">${WATCH_TYPES.map(t => `<option${t === v.type ? " selected" : ""}>${t}</option>`).join("")}</select>
+    <label>總價（萬）</label><input name="price" inputmode="decimal" value="${v.price ?? ""}">
+    <label>建坪</label><input name="ping" inputmode="decimal" value="${v.ping ?? ""}">
+    <label>網址</label><input name="url" type="url" value="${esc(v.url || "")}">
+    <label>備註</label><textarea name="note" rows="3">${esc(v.note || "")}</textarea></div>
+    <div class="actions"><button value="cancel" class="btn">取消</button><button value="ok" class="btn primary">儲存</button></div></form>`;
+  document.body.appendChild(dlg);
+  dlg.addEventListener("close", () => {
+    if (dlg.returnValue === "ok") {
+      const f = new FormData(dlg.querySelector("form")), num = k => { const n = parseFloat(String(f.get(k)).replace(/,/g, "")); return isFinite(n) && n > 0 ? n : null; };
+      const data = { name: String(f.get("name")).trim() || "未命名", district: f.get("district"), address: String(f.get("address")).trim(), type: f.get("type"),
+                     price: num("price"), ping: num("ping"), url: String(f.get("url")).trim(), note: String(f.get("note")).trim() };
+      if (item) Object.assign(item, data);
+      else { const it = { id: "w" + Date.now(), lat: null, lng: null, ...data }; S.watch.push(it); S.watchSel = it.id; }
+      saveStore(); refreshPins(); renderPanel();
+    }
+    dlg.remove();
+  });
+  dlg.showModal();
+}
+
+// ------------------------------------------------------------------ 設定
+function renderMenu() {
+  const s = S.settings, chk = (k, t) => `<label class="chk"><input type="checkbox" data-set="${k}"${s[k] ? " checked" : ""}> ${t}</label>`;
+  $("#menu-body").innerHTML = `
+    <h3>地圖圖層</h3>${chk("town", "行政區界")}${chk("liq", "土壤液化潛勢")}${chk("fault", "活動斷層")}${chk("hires", "放大時載入高解析衛星影像（較耗流量）")}
+    ${chk("lines", "捷運規劃路線")}${chk("markers", "開發案與情資（菱形）")}${chk("landmarks", "知名地標 3D")}${chk("projects", "重大建設 3D")}${chk("roads", "路段房價（選了行政區才畫）")}${chk("labels", "名稱標籤")}
+    <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option></select></div>
+    <h3>篩選</h3>
+    <div class="row"><span>總價預算</span><input type="text" inputmode="decimal" data-set="budget" value="${esc(s.budget)}" placeholder="萬，例 1500"></div>
+    <div class="row"><span>上班地點</span><select data-set="work"><option value="">（不設定）</option>${D.workplaces.map(w => `<option${w.name === s.work ? " selected" : ""}>${esc(w.name)}</option>`).join("")}${s.workPt ? `<option value="__custom"${s.work === "__custom" ? " selected" : ""}>自訂地點</option>` : ""}</select></div>
+    <div class="row"><span>通勤上限</span><input type="text" inputmode="numeric" data-set="commuteMin" value="${esc(s.commuteMin)}"> <span>分鐘（${modeName()}）</span></div>
+    <p class="muted">不符合預算或通勤範圍的行政區，柱子會縮成灰色小方塊。</p>
+    <h3>資料</h3><p class="muted">${esc(D.meta.describe)}；成交 ${L.fmtNum(D.meta.tx_count)} 筆；整理於 ${esc(D.meta.built)}。<br>
+    房價：內政部實價登錄開放資料。道路位置：© OpenStreetMap 貢獻者。影像與行政區界：內政部國土測繪中心。
+    土壤液化：經濟部地質調查及礦業管理中心。重大建設整理自新聞與官方公告。統計值為中位數，僅供看屋參考，不構成投資或購屋建議。</p>
+    <p class="muted">這個網頁的所有計算都在你的裝置上完成；設定與看屋清單只存在這台裝置的瀏覽器裡。<br>
+    手機瀏覽器選單裡的「加到主畫面」，之後可以像 App 一樣開啟。</p>`;
+}
+function onSetting(el) {
+  const k = el.dataset.set, v = el.type === "checkbox" ? el.checked : el.value;
+  S.settings[k] = v; saveStore();
+  view.layerOn = { town: S.settings.town, liq: S.settings.liq, fault: S.settings.fault };
+  view.show.hires = S.settings.hires; view.show.lines = S.settings.lines; view.show.labels = S.settings.labels;
+  if (["budget", "work", "workKm", "commuteMin", "mode", "color"].includes(k)) { refreshBars(); refreshPins(); renderPanel(); }
+  if (["landmarks", "projects", "markers"].includes(k)) refreshModels();
+  if (k === "roads") refreshRoads();
+  if (k === "work" && workPlace()) { const w = workPlace(); view.flyTo(w.lat, w.lng, Math.max(view.zoom, 30)); }
+  view.request();
+}
+
+// ------------------------------------------------------------------ 底部抽屜（手機）
+function sheet(state) {
+  if (window.innerWidth >= 900) { view.setInset({ top: 44 }); placeAttrib(); return; }
+  const el = $("#sheet");
+  el.classList.toggle("half", state === "half");
+  el.classList.toggle("full", state === "full");
+  S.sheet = state;
+  const appH = $("#app").clientHeight, peek = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sheet-peek")) || 168;
+  view.setInset({ bottom: state === "peek" ? peek : appH * 0.55, top: 96 });
+  // 抽屜只拉出一半時，面板下半截在螢幕外：清單底部留白，最後幾列才捲得上來
+  $("#tab-body").style.paddingBottom = state === "half" ? `${Math.round(el.clientHeight * 0.45) + 16}px` : "";
+  placeAttrib();
+}
+// 浮在地圖上的按鈕、圖例：名稱標籤不要畫在它們底下
+function updateReserved() {
+  const m = $("#map").getBoundingClientRect(), pad = 4;
+  view.reserved = ["#chips", "#map-tools", "#legend", "#attrib"].map(sel => $(sel)).filter(el => el && !el.hidden && el.offsetParent)
+    .map(el => { const r = el.getBoundingClientRect(); return [r.left - m.left - pad, r.top - m.top - pad, r.right - m.left + pad, r.bottom - m.top + pad]; });
+  view.request();
+}
+function placeAttrib() {
+  const a = $("#attrib"), wide = window.innerWidth >= 900;
+  const bottom = wide ? 4 : (S.sheet === "peek" || !S.sheet ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sheet-peek")) || 168) + 4 : $("#app").clientHeight * 0.55 + 4);
+  a.style.bottom = bottom + "px";
+  a.textContent = "影像、行政區界：內政部國土測繪中心｜道路：© OpenStreetMap 貢獻者";
+  requestAnimationFrame(updateReserved);
+}
+function bindSheetDrag() {
+  const el = $("#sheet"), handle = [$("#sheet-handle"), $("#sheet-head")];
+  let y0 = null, s0 = null, moved = false;
+  for (const h of handle) {
+    h.addEventListener("pointerdown", e => { if (window.innerWidth >= 900 || e.target.closest("button")) return; y0 = e.clientY; s0 = S.sheet || "peek"; moved = false; h.setPointerCapture(e.pointerId); el.classList.add("dragging"); });
+    h.addEventListener("pointermove", e => {
+      if (y0 == null) return;
+      const dy = e.clientY - y0; if (Math.abs(dy) > 6) moved = true;
+      const H = el.clientHeight, peek = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sheet-peek")) || 168;
+      const base = s0 === "full" ? 0 : s0 === "half" ? H * 0.45 : H - peek;
+      el.style.transform = `translateY(${Math.max(0, Math.min(H - peek, base + dy))}px)`;
+    });
+    const up = e => {
+      if (y0 == null) return;
+      const dy = e.clientY - y0; y0 = null; el.classList.remove("dragging"); el.style.transform = "";
+      const order = ["peek", "half", "full"], i = order.indexOf(s0);
+      if (!moved) sheet(s0 === "peek" ? "half" : s0 === "half" ? "peek" : "half");
+      else sheet(order[Math.max(0, Math.min(2, i + (dy < -40 ? 1 : dy > 40 ? -1 : 0)))]);
+    };
+    h.addEventListener("pointerup", up); h.addEventListener("pointercancel", up);
+  }
+}
+
+// ------------------------------------------------------------------ 事件
+function bindUI() {
+  $("#seg-cat").innerHTML = L.CATS.map(([k, t]) => `<button role="radio" data-cat="${k}" aria-checked="${S.cat === k}">${t.replace("大樓／華廈", "大樓")}</button>`).join("");
+  $("#seg-metric").innerHTML = [["u", "單價"], ["t", "總價"]].map(([k, t]) => `<button role="radio" data-metric="${k}" aria-checked="${S.metric === k}">${t}</button>`).join("");
+  $("#chips").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.cat) { S.cat = b.dataset.cat; if (!(S.addr && S.cat !== "presale")) S.roadFilter = null; }
+    if (b.dataset.metric) S.metric = b.dataset.metric;
+    $("#chips").querySelectorAll("button").forEach(x => x.setAttribute("aria-checked", x.dataset.cat ? x.dataset.cat === S.cat : x.dataset.metric === S.metric));
+    refreshAll();
+  });
+  $("#map-tools").addEventListener("click", e => {
+    const a = (e.target.closest("button") || {}).dataset?.act;
+    if (a === "home") selectDistrict(L.CITY);
+    if (a === "zin") view.zoomAt(1.4); if (a === "zout") view.zoomAt(1 / 1.4);
+    if (a === "rotl") view.rotate(-20); if (a === "rotr") view.rotate(20);
+    if (a === "tilt") { view.pitch = view.pitch > 70 ? 40 : 89; view.request(); }
+  });
+  $("#btn-city").addEventListener("click", () => selectDistrict(L.CITY));
+  $("#search").addEventListener("submit", e => { e.preventDefault(); $("#q").blur(); search($("#q").value); });
+  $("#btn-menu").addEventListener("click", () => { renderMenu(); $("#menu").hidden = !$("#menu").hidden; });
+  $("#menu").addEventListener("click", e => { if (e.target.closest("[data-close]")) $("#menu").hidden = true; });
+  $("#menu").addEventListener("change", e => { if (e.target.dataset.set) onSetting(e.target); });
+  $("#tabs").addEventListener("click", e => {
+    const b = e.target.closest("button[data-tab]"); if (!b) return;
+    S.tab = b.dataset.tab; renderPanel(); if (S.sheet !== "full") sheet("half");
+  });
+  const body = $("#tab-body");
+  body.addEventListener("click", async e => {
+    const t = e.target;
+    const go = t.closest("[data-goto]"); if (go) { e.preventDefault(); selectDistrict(go.dataset.goto); return; }
+    const tr = t.closest("tr.click");
+    if (tr && tr.dataset.dist) { selectDistrict(tr.dataset.dist); return; }
+    if (tr && tr.dataset.road) {
+      const dist = tr.dataset.rdist, pend = S.pendingAddr;
+      if (pend && tr.dataset.road === pend.road) { S.roadKw = ""; await showAddress({ ...pend, district: dist }); return; }
+      if (dist !== S.current) { S.roadKw = ""; selectDistrict(dist); await refreshRoads(); }
+      selectRoad(tr.dataset.road); return;
+    }
+    if (tr && tr.dataset.tx != null) {
+      body.querySelectorAll("tr.sel").forEach(r => r.classList.remove("sel")); tr.classList.add("sel");
+      const x = S.txShown[+tr.dataset.tx];
+      if (!x.road || x.road === "其他") { toast("看不出這筆是哪一條路，無法標在地圖上。"); return; }
+      const q = { district: x.dist, road: x.road, lane: x.lane, alley: x.alley, num: x.num };
+      await pinAt(q, `${x.dist}${x.addr}`, `${L.describe(q).replace(/ /g, "")} ${L.fmtNum(x.tw)}萬`, false);
+      return;
+    }
+    if (tr && tr.dataset.proj) { pick(["project", +tr.dataset.proj]); return; }
+    if (tr && tr.dataset.poi) { const o = view.pois.find(x => x.id === tr.dataset.poi); if (o) { view.select("poi", o.id); view.flyTo(o.lat, o.lng, Math.max(view.zoom, 110)); toast(`${o.name}｜距離 ${o.d} 公尺`); } return; }
+    if (tr && tr.dataset.bldg) {
+      S.bldg = tr.dataset.bldg; renderPanel();
+      const b = L.buildings(D.txs, S.current, S.cat, D.book.windows.y12[0]).find(r => r.key === S.bldg);
+      if (b && b.road && b.road !== "其他") {
+        const q = { district: S.current, road: b.road, lane: b.lane, alley: b.alley, num: b.num };
+        await pinAt(q, `${S.current} ${b.name}`, b.name, false);
+        if (S.tab === "bldg") renderPanel();
+      }
+      return;
+    }
+    if (tr && tr.dataset.watch) { S.watchSel = tr.dataset.watch; renderPanel(); const it = S.watch.find(w => w.id === S.watchSel); if (it && it.lat != null) view.flyTo(it.lat, it.lng, Math.max(view.zoom, 60)); return; }
+    const act = t.closest("[data-act]")?.dataset.act;
+    const it = S.watch.find(w => w.id === S.watchSel);
+    if (act === "report") { if (S.current === L.CITY) toast("先選一個行政區或搜尋地址，再產生報告。"); else reportDialog(); return; }
+    if (act === "poi") { const el = t.closest("[data-act]"); showPoi(+el.dataset.lat, +el.dataset.lng, el.dataset.label); return; }
+    if (act === "mode") { S.settings.mode = t.closest("[data-mode]").dataset.mode; saveStore(); refreshBars(); refreshPins(); renderPanel(); return; }
+    if (act === "work-pick") {
+      sheet("peek"); toast("在地圖上點一下上班地點 A", 6000);
+      S.pickMode = ll => { S.settings.workPt = { name: "自訂地點", lat: +ll[0].toFixed(5), lng: +ll[1].toFixed(5) }; S.settings.work = "__custom";
+        saveStore(); refreshBars(); refreshPins(); S.tab = "commute"; renderPanel(); sheet("half"); toast("已設定上班地點"); };
+      return;
+    }
+    if (act === "bldg-back") { S.bldg = null; S.pin = null; refreshPins(); renderPanel(); return; }
+    if (act === "clear-road") { S.roadFilter = null; S.addr = null; S.pin = null; refreshPins(); view.select(S.current === L.CITY ? null : "district", S.current); renderPanel(); }
+    if (act === "watch-add") watchDialog(null);
+    if (act === "watch-edit" && it) watchDialog(it);
+    if (act === "watch-del" && it && confirm(`要把「${it.name}」從看屋清單刪除嗎？`)) { S.watch = S.watch.filter(w => w !== it); S.watchSel = null; saveStore(); refreshPins(); renderPanel(); }
+    if (act === "watch-map" && it) view.flyTo(it.lat, it.lng, Math.max(view.zoom, 60));
+    if (act === "watch-pin" && it) {
+      sheet("peek"); toast("請在地圖上點一下這間房子的位置", 6000);
+      const d = D.dmap[it.district]; if (d) view.flyTo(d.lat, d.lng, Math.max(view.zoom, 60));
+      S.pickMode = ll => { it.lat = +ll[0].toFixed(6); it.lng = +ll[1].toFixed(6); saveStore(); refreshPins(); sheet("half"); renderPanel(); toast("已標出位置"); };
+    }
+    if (act === "watch-export") {
+      const blob = new Blob([JSON.stringify({ app: "deep_tainan_house", watch: S.watch }, null, 1)], { type: "application/json" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "看屋清單備份.json"; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+  });
+  body.addEventListener("change", e => {
+    if (e.target.dataset && e.target.dataset.set) { onSetting(e.target); renderPanel(); return; }
+    if (e.target.id === "watch-import") {
+      const f = e.target.files[0]; if (!f) return;
+      f.text().then(txt => {
+        const d = JSON.parse(txt), list = Array.isArray(d) ? d : d.watch || d.items;
+        if (!Array.isArray(list)) throw new Error("格式不對");
+        const have = new Set(S.watch.map(w => w.id)); let n = 0;
+        for (const w of list) if (w && w.name && !have.has(w.id)) { S.watch.push({ lat: null, lng: null, ...w, id: w.id || "w" + Date.now() + n }); n++; }
+        saveStore(); refreshPins(); renderPanel(); toast(`匯入 ${n} 筆`);
+      }).catch(err => toast("匯入失敗：" + err.message));
+    }
+  });
+  body.addEventListener("input", e => {
+    if (e.target.id === "commute-min") {
+      S.settings.commuteMin = +e.target.value; $("#commute-v").textContent = e.target.value + " 分鐘"; saveStore(); refreshBars(); refreshPins();
+      clearTimeout(S._cmT); S._cmT = setTimeout(() => { const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; }, 150);
+    }
+    if (e.target.id === "bldg-kw") { S.bldgKw = e.target.value; clearTimeout(S._bkT); S._bkT = setTimeout(() => { const pos = e.target.selectionStart; renderPanel(); const i = $("#bldg-kw"); i.focus(); i.setSelectionRange(pos, pos); }, 350); }
+    if (e.target.id === "road-kw") { S.roadKw = e.target.value; clearTimeout(S._kwT); S._kwT = setTimeout(() => { const pos = e.target.selectionStart; renderPanel(); const i = $("#road-kw"); i.focus(); i.setSelectionRange(pos, pos); }, 350); }
+    if (e.target.id === "year") { S.year = +e.target.value; $("#year-v").textContent = S.year + " 年"; clearTimeout(S._yT); S._yT = setTimeout(() => { refreshModels(); const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; }, 120); refreshModels(); }
+  });
+  window.addEventListener("resize", () => { sheet(S.sheet || "peek"); placeAttrib(); });
+}
+
+// ------------------------------------------------------------------ 啟動
+async function main() {
+  loadStore();
+  const [meta, book, districts, intel, mrt, landmarks, models, workplaces] = await Promise.all(
+    ["meta", "book", "districts", "intel", "mrt", "landmarks", "models", "workplaces"].map(n => getJSON(`data/${n}.json`)));
+  Object.assign(D, { meta, book: new L.Book(book), districts, intel: intel.items, mrt, landmarks, workplaces });
+  D.dmap = Object.fromEntries(districts.map(d => [d.name, d]));
+  view = new View3D($("#map"), { models });
+  view.lines = mrt.lines;
+  view.layerOn = { town: S.settings.town, liq: S.settings.liq, fault: S.settings.fault };
+  Object.assign(view.show, { hires: S.settings.hires, lines: S.settings.lines, labels: S.settings.labels });
+  for (const [id, m] of Object.entries(meta.layers || {})) view.setLayer(id, m, "");
+  view.onPick = pick;
+  const lg = $("#legend");
+  if (window.innerWidth < 900 || S.settings.legendCollapsed) lg.classList.add("collapsed");
+  lg.addEventListener("click", () => { lg.classList.toggle("collapsed"); S.settings.legendCollapsed = lg.classList.contains("collapsed"); saveStore(); renderLegend(); updateReserved(); });
+  bindUI(); bindSheetDrag();
+  sheet("peek");
+  refreshAll();
+  // 逐筆成交比較大（壓縮後約 0.6MB），畫面先出來再載入
+  getJSON("data/tx.json").then(raw => { D.txs = L.decodeTx(raw); refreshRoads(); renderPanel(); })
+    .catch(() => toast("成交資料載入失敗，請檢查網路後重新整理。"));
+  const params = new URLSearchParams(location.search);
+  if (params.get("q")) { $("#q").value = params.get("q"); const wait = () => D.txs ? search(params.get("q")) : setTimeout(wait, 200); wait(); }
+  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+  window.__app = { S, D, view, search, selectDistrict, pick, L };   // 測試用
+}
+main().catch(err => { document.body.insertAdjacentHTML("beforeend", `<div class="note" style="position:fixed;top:60px;left:10px;right:10px;z-index:99">載入失敗：${esc(err.message)}</div>`); });

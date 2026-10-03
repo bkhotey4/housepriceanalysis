@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_e8fd351376913da7186931d75dd83c49 {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@3.0.0/Control.FullScreen.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@3.0.0/Control.FullScreen.css"/>
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_e8fd351376913da7186931d75dd83c49" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_e8fd351376913da7186931d75dd83c49 = L.map(
+                "map_e8fd351376913da7186931d75dd83c49",
+                {
+                    center: [23.03, 120.27],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 11,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+            L.control.scale().addTo(map_e8fd351376913da7186931d75dd83c49);
+
+            
+
+        
+    
+            var tile_layer_ea2f06bca4b6370661d6c717779b175c = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 20,
+  "maxNativeZoom": 20,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_ea2f06bca4b6370661d6c717779b175c.addTo(map_e8fd351376913da7186931d75dd83c49);
+        
+    
+            var feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b = L.featureGroup(
+                {
+}
+            );
+        
+    
+            var poly_line_c4883781cdc3fda46544613ea1de7ae6 = L.polyline(
+                [[23.02, 120.243], [23.023, 120.225], [23.048, 120.247], [23.031, 120.259], [23.0, 120.237], [22.991, 120.233], [22.988, 120.22], [22.993, 120.205], [22.989, 120.189], [22.996, 120.163], [22.978, 120.158]],
+                {"bubblingMouseEvents": true, "color": "#1E88E5", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#1E88E5", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.8, "smoothFactor": 1.0, "stroke": true, "weight": 4}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_65a0383a80ac211387fc58385f30460d = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_4cbdf14fc095823bdd749ffc84437345 = $(`<div id="html_4cbdf14fc095823bdd749ffc84437345" style="width: 100.0%; height: 100.0%;"><b>藍線（第一期）</b><br>細部設計中<br>綜合規劃已獲交通部、國發會、行政院核定，環評已通過。進行細部設計，預計2026年動工、2031年完工。</div>`)[0];
+                popup_65a0383a80ac211387fc58385f30460d.setContent(html_4cbdf14fc095823bdd749ffc84437345);
+            
+        
+
+        poly_line_c4883781cdc3fda46544613ea1de7ae6.bindPopup(popup_65a0383a80ac211387fc58385f30460d)
+        ;
+
+        
+    
+    
+            poly_line_c4883781cdc3fda46544613ea1de7ae6.bindTooltip(
+                `<div>
+                     藍線（第一期）
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_d58095a582afb69e370cc6516c302d4d = L.circleMarker(
+                [23.02, 120.243],
+                {"bubblingMouseEvents": true, "color": "#1E88E5", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#1E88E5", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_f2bc718e92b9b43200c60d090794e22b = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_6dff7e38049593928eef1c5bd7c47139 = $(`<div id="html_6dff7e38049593928eef1c5bd7c47139" style="width: 100.0%; height: 100.0%;"><b>大橋</b><br>藍線（第一期）<br>細部設計中</div>`)[0];
+                popup_f2bc718e92b9b43200c60d090794e22b.setContent(html_6dff7e38049593928eef1c5bd7c47139);
+            
+        
+
+        circle_marker_d58095a582afb69e370cc6516c302d4d.bindPopup(popup_f2bc718e92b9b43200c60d090794e22b)
+        ;
+
+        
+    
+    
+            circle_marker_d58095a582afb69e370cc6516c302d4d.bindTooltip(
+                `<div>
+                     大橋
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_a922896a964196d46fa96676a3413c93 = L.circleMarker(
+                [23.023, 120.225],
+                {"bubblingMouseEvents": true, "color": "#1E88E5", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#1E88E5", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_027c06013690e48356d799c95bf76e86 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_10b7d3643460d7bc4931fa17ceb70a16 = $(`<div id="html_10b7d3643460d7bc4931fa17ceb70a16" style="width: 100.0%; height: 100.0%;"><b>南台科大</b><br>藍線（第一期）<br>細部設計中</div>`)[0];
+                popup_027c06013690e48356d799c95bf76e86.setContent(html_10b7d3643460d7bc4931fa17ceb70a16);
+            
+        
+
+        circle_marker_a922896a964196d46fa96676a3413c93.bindPopup(popup_027c06013690e48356d799c95bf76e86)
+        ;
+
+        
+    
+    
+            circle_marker_a922896a964196d46fa96676a3413c93.bindTooltip(
+                `<div>
+                     南台科大
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_fe608a5c5cebbd3095a25afa2420a4c2 = L.circleMarker(
+                [23.048, 120.247],
+                {"bubblingMouseEvents": true, "color": "#1E88E5", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#1E88E5", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_fcc4509a135a892744ce9933392744ee = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_ce2f968568564761b7d9a0f6d13e83d0 = $(`<div id="html_ce2f968568564761b7d9a0f6d13e83d0" style="width: 100.0%; height: 100.0%;"><b>鹽行</b><br>藍線（第一期）<br>細部設計中</div>`)[0];
+                popup_fcc4509a135a892744ce9933392744ee.setContent(html_ce2f968568564761b7d9a0f6d13e83d0);
+            
+        
+
+        circle_marker_fe608a5c5cebbd3095a25afa2420a4c2.bindPopup(popup_fcc4509a135a892744ce9933392744ee)
+        ;
+
+        
+    
+    
+            circle_marker_fe608a5c5cebbd3095a25afa2420a4c2.bindTooltip(
+                `<div>
+                     鹽行
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_eb87add1def15dc4b13384e734279f68 = L.circleMarker(
+                [23.031, 120.259],
+                {"bubblingMouseEvents": true, "color": "#1E88E5", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#1E88E5", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_0c4340d45197e6ee2715e0e97d7e3377 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_c87443f77ac1b9e04bac8afa5f908fd4 = $(`<div id="html_c87443f77ac1b9e04bac8afa5f908fd4" style="width: 100.0%; height: 100.0%;"><b>永康</b><br>藍線（第一期）<br>細部設計中</div>`)[0];
+                popup_0c4340d45197e6ee2715e0e97d7e3377.setContent(html_c87443f77ac1b9e04bac8afa5f908fd4);
+            
+        
+
+        circle_marker_eb87add1def15dc4b13384e734279f68.bindPopup(popup_0c4340d45197e6ee2715e0e97d7e3377)
+        ;
+
+        
+    
+    
+            circle_marker_eb87add1def15dc4b13384e734279f68.bindTooltip(
+                `<div>
+                     永康
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_e6839e4c78350620288cfcc7fe9282c3 = L.circleMarker(
+                [23.0, 120.237],
+                {"bubblingMouseEvents": true, "color": "#1E88E5", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#1E88E5", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_ebcba574b77119762de0b887dd592df2 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_d15ccc7c68fa01b927d876b519d22b3b = $(`<div id="html_d15ccc7c68fa01b927d876b519d22b3b" style="width: 100.0%; height: 100.0%;"><b>平實公園</b><br>藍線（第一期）<br>細部設計中</div>`)[0];
+                popup_ebcba574b77119762de0b887dd592df2.setContent(html_d15ccc7c68fa01b927d876b519d22b3b);
+            
+        
+
+        circle_marker_e6839e4c78350620288cfcc7fe9282c3.bindPopup(popup_ebcba574b77119762de0b887dd592df2)
+        ;
+
+        
+    
+    
+            circle_marker_e6839e4c78350620288cfcc7fe9282c3.bindTooltip(
+                `<div>
+                     平實公園
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_bec19265a8c45622298cf7d1d3b21493 = L.circleMarker(
+                [22.991, 120.233],
+                {"bubblingMouseEvents": true, "color": "#1E88E5", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#1E88E5", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_029a7f63268711610af84e24a36625e5 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_b28d04728266e5a3ae32d47afdddd743 = $(`<div id="html_b28d04728266e5a3ae32d47afdddd743" style="width: 100.0%; height: 100.0%;"><b>南紡購物中心</b><br>藍線（第一期）<br>細部設計中</div>`)[0];
+                popup_029a7f63268711610af84e24a36625e5.setContent(html_b28d04728266e5a3ae32d47afdddd743);
+            
+        
+
+        circle_marker_bec19265a8c45622298cf7d1d3b21493.bindPopup(popup_029a7f63268711610af84e24a36625e5)
+        ;
+
+        
+    
+    
+            circle_marker_bec19265a8c45622298cf7d1d3b21493.bindTooltip(
+                `<div>
+                     南紡購物中心
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_faf1245a7984b371a8802fbf3eeba189 = L.circleMarker(
+                [22.988, 120.22],
+                {"bubblingMouseEvents": true, "color": "#1E88E5", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#1E88E5", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_571f11797d6eb68b69dea647809caecd = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_0ab0db1755af57e7b57974c7bdcd98f2 = $(`<div id="html_0ab0db1755af57e7b57974c7bdcd98f2" style="width: 100.0%; height: 100.0%;"><b>東門</b><br>藍線（第一期）<br>細部設計中</div>`)[0];
+                popup_571f11797d6eb68b69dea647809caecd.setContent(html_0ab0db1755af57e7b57974c7bdcd98f2);
+            
+        
+
+        circle_marker_faf1245a7984b371a8802fbf3eeba189.bindPopup(popup_571f11797d6eb68b69dea647809caecd)
+        ;
+
+        
+    
+    
+            circle_marker_faf1245a7984b371a8802fbf3eeba189.bindTooltip(
+                `<div>
+                     東門
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_f2fa81d7198dd4b2c7007f9c5dc013e6 = L.circleMarker(
+                [22.993, 120.205],
+                {"bubblingMouseEvents": true, "color": "#1E88E5", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#1E88E5", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_483a1f6b9b6438c0749deeeb84afafa0 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_1a57735518bcfcfec3abd77f32079b0b = $(`<div id="html_1a57735518bcfcfec3abd77f32079b0b" style="width: 100.0%; height: 100.0%;"><b>民生綠園</b><br>藍線（第一期）<br>細部設計中</div>`)[0];
+                popup_483a1f6b9b6438c0749deeeb84afafa0.setContent(html_1a57735518bcfcfec3abd77f32079b0b);
+            
+        
+
+        circle_marker_f2fa81d7198dd4b2c7007f9c5dc013e6.bindPopup(popup_483a1f6b9b6438c0749deeeb84afafa0)
+        ;
+
+        
+    
+    
+            circle_marker_f2fa81d7198dd4b2c7007f9c5dc013e6.bindTooltip(
+                `<div>
+                     民生綠園
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_f5aaa57d949fb3d599d18b7bcf34dc85 = L.circleMarker(
+                [22.989, 120.189],
+                {"bubblingMouseEvents": true, "color": "#1E88E5", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#1E88E5", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_3ec5d12fd9214f8d89992fc0d89730a1 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_ccd2e3768e92eca3b6e442549742a580 = $(`<div id="html_ccd2e3768e92eca3b6e442549742a580" style="width: 100.0%; height: 100.0%;"><b>中華西路</b><br>藍線（第一期）<br>細部設計中</div>`)[0];
+                popup_3ec5d12fd9214f8d89992fc0d89730a1.setContent(html_ccd2e3768e92eca3b6e442549742a580);
+            
+        
+
+        circle_marker_f5aaa57d949fb3d599d18b7bcf34dc85.bindPopup(popup_3ec5d12fd9214f8d89992fc0d89730a1)
+        ;
+
+        
+    
+    
+            circle_marker_f5aaa57d949fb3d599d18b7bcf34dc85.bindTooltip(
+                `<div>
+                     中華西路
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_3d0556d20763a75fdc00a68663a22a68 = L.circleMarker(
+                [22.996, 120.163],
+                {"bubblingMouseEvents": true, "color": "#1E88E5", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#1E88E5", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_be78c1daff4666277d90af597e3d0ce1 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_9f306c00e68f536ad909f8068be42590 = $(`<div id="html_9f306c00e68f536ad909f8068be42590" style="width: 100.0%; height: 100.0%;"><b>安平</b><br>藍線（第一期）<br>細部設計中</div>`)[0];
+                popup_be78c1daff4666277d90af597e3d0ce1.setContent(html_9f306c00e68f536ad909f8068be42590);
+            
+        
+
+        circle_marker_3d0556d20763a75fdc00a68663a22a68.bindPopup(popup_be78c1daff4666277d90af597e3d0ce1)
+        ;
+
+        
+    
+    
+            circle_marker_3d0556d20763a75fdc00a68663a22a68.bindTooltip(
+                `<div>
+                     安平
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_e9d08d1d7b04536346c9b0944ad33cc4 = L.circleMarker(
+                [22.978, 120.158],
+                {"bubblingMouseEvents": true, "color": "#1E88E5", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#1E88E5", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_e2aef1d2975be76fae8dbe5e99c54f13 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_65b99d68be29bff93ef06a8d2b663cf0 = $(`<div id="html_65b99d68be29bff93ef06a8d2b663cf0" style="width: 100.0%; height: 100.0%;"><b>安平港</b><br>藍線（第一期）<br>細部設計中</div>`)[0];
+                popup_e2aef1d2975be76fae8dbe5e99c54f13.setContent(html_65b99d68be29bff93ef06a8d2b663cf0);
+            
+        
+
+        circle_marker_e9d08d1d7b04536346c9b0944ad33cc4.bindPopup(popup_e2aef1d2975be76fae8dbe5e99c54f13)
+        ;
+
+        
+    
+    
+            circle_marker_e9d08d1d7b04536346c9b0944ad33cc4.bindTooltip(
+                `<div>
+                     安平港
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_a285011f8771f2673eae51424a230d18 = L.polyline(
+                [[22.964, 120.25], [22.958, 120.294], [22.967, 120.335], [22.92, 120.315]],
+                {"bubblingMouseEvents": true, "color": "#64B5F6", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#64B5F6", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.8, "smoothFactor": 1.0, "stroke": true, "weight": 4}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_33e94165fd666618a87e7211e6b18dc0 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_ef3756189cc8d95b6e03f0c61df094a2 = $(`<div id="html_ef3756189cc8d95b6e03f0c61df094a2" style="width: 100.0%; height: 100.0%;"><b>藍線延伸線</b><br>可行性研究中<br>可行性研究已啟動，尚未送交通部審查。預計2026年完成可行性研究報告。</div>`)[0];
+                popup_33e94165fd666618a87e7211e6b18dc0.setContent(html_ef3756189cc8d95b6e03f0c61df094a2);
+            
+        
+
+        poly_line_a285011f8771f2673eae51424a230d18.bindPopup(popup_33e94165fd666618a87e7211e6b18dc0)
+        ;
+
+        
+    
+    
+            poly_line_a285011f8771f2673eae51424a230d18.bindTooltip(
+                `<div>
+                     藍線延伸線
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_991da874106a947808103a3500256ebe = L.circleMarker(
+                [22.964, 120.25],
+                {"bubblingMouseEvents": true, "color": "#64B5F6", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#64B5F6", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_027900f2de59b3af16a6fa308aad4cbf = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_054b5862be363dc195fbd31c13618e91 = $(`<div id="html_054b5862be363dc195fbd31c13618e91" style="width: 100.0%; height: 100.0%;"><b>仁德轉運站</b><br>藍線延伸線<br>可行性研究中</div>`)[0];
+                popup_027900f2de59b3af16a6fa308aad4cbf.setContent(html_054b5862be363dc195fbd31c13618e91);
+            
+        
+
+        circle_marker_991da874106a947808103a3500256ebe.bindPopup(popup_027900f2de59b3af16a6fa308aad4cbf)
+        ;
+
+        
+    
+    
+            circle_marker_991da874106a947808103a3500256ebe.bindTooltip(
+                `<div>
+                     仁德轉運站
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_52589e34489d1eac31aecd2928b78d1b = L.circleMarker(
+                [22.958, 120.294],
+                {"bubblingMouseEvents": true, "color": "#64B5F6", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#64B5F6", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_1cbdad97a1886cb8de20e8259ab5bbbc = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_aacfbccff44a0431fc964bcabf1e22ac = $(`<div id="html_aacfbccff44a0431fc964bcabf1e22ac" style="width: 100.0%; height: 100.0%;"><b>歸仁</b><br>藍線延伸線<br>可行性研究中</div>`)[0];
+                popup_1cbdad97a1886cb8de20e8259ab5bbbc.setContent(html_aacfbccff44a0431fc964bcabf1e22ac);
+            
+        
+
+        circle_marker_52589e34489d1eac31aecd2928b78d1b.bindPopup(popup_1cbdad97a1886cb8de20e8259ab5bbbc)
+        ;
+
+        
+    
+    
+            circle_marker_52589e34489d1eac31aecd2928b78d1b.bindTooltip(
+                `<div>
+                     歸仁
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_35430902a85d89b0b36e617a9840a446 = L.circleMarker(
+                [22.967, 120.335],
+                {"bubblingMouseEvents": true, "color": "#64B5F6", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#64B5F6", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_93333198c6f81ebc6a84f670c07f8860 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_9aa2ab9dc56d0187cef0184ad0be64c8 = $(`<div id="html_9aa2ab9dc56d0187cef0184ad0be64c8" style="width: 100.0%; height: 100.0%;"><b>關廟</b><br>藍線延伸線<br>可行性研究中</div>`)[0];
+                popup_93333198c6f81ebc6a84f670c07f8860.setContent(html_9aa2ab9dc56d0187cef0184ad0be64c8);
+            
+        
+
+        circle_marker_35430902a85d89b0b36e617a9840a446.bindPopup(popup_93333198c6f81ebc6a84f670c07f8860)
+        ;
+
+        
+    
+    
+            circle_marker_35430902a85d89b0b36e617a9840a446.bindTooltip(
+                `<div>
+                     關廟
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_33198fb72a94f5297c308ccb69f04e3d = L.circleMarker(
+                [22.92, 120.315],
+                {"bubblingMouseEvents": true, "color": "#64B5F6", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#64B5F6", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_39b3d10e6422d73d9a0cdca80224517b = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_1cc76d31053617c7047a89b2dff45ce7 = $(`<div id="html_1cc76d31053617c7047a89b2dff45ce7" style="width: 100.0%; height: 100.0%;"><b>綠能科學城</b><br>藍線延伸線<br>可行性研究中</div>`)[0];
+                popup_39b3d10e6422d73d9a0cdca80224517b.setContent(html_1cc76d31053617c7047a89b2dff45ce7);
+            
+        
+
+        circle_marker_33198fb72a94f5297c308ccb69f04e3d.bindPopup(popup_39b3d10e6422d73d9a0cdca80224517b)
+        ;
+
+        
+    
+    
+            circle_marker_33198fb72a94f5297c308ccb69f04e3d.bindTooltip(
+                `<div>
+                     綠能科學城
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_68fffba99581c81c297bfd711a19c7b5 = L.polyline(
+                [[23.0, 120.237], [22.999, 120.214], [22.997, 120.21], [22.993, 120.205], [22.988, 120.2], [22.996, 120.163]],
+                {"bubblingMouseEvents": true, "color": "#43A047", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#43A047", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.8, "smoothFactor": 1.0, "stroke": true, "weight": 4}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_052a7d13335a52d738d589ca46d00369 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_ad6b6d578371a8a32798a9879fa41eb2 = $(`<div id="html_ad6b6d578371a8a32798a9879fa41eb2" style="width: 100.0%; height: 100.0%;"><b>綠線</b><br>可行性研究中<br>可行性研究修正報告送交通部審查中。與藍線共線段（平實公園－民生綠園）優先推動。</div>`)[0];
+                popup_052a7d13335a52d738d589ca46d00369.setContent(html_ad6b6d578371a8a32798a9879fa41eb2);
+            
+        
+
+        poly_line_68fffba99581c81c297bfd711a19c7b5.bindPopup(popup_052a7d13335a52d738d589ca46d00369)
+        ;
+
+        
+    
+    
+            poly_line_68fffba99581c81c297bfd711a19c7b5.bindTooltip(
+                `<div>
+                     綠線
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_28c8e76ec6d22fa6d690e141e68882b7 = L.circleMarker(
+                [23.0, 120.237],
+                {"bubblingMouseEvents": true, "color": "#43A047", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#43A047", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_8100f2b6fa75d23a2ac4a38c3303f639 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_d87447eb72ab7b308bffb37964336903 = $(`<div id="html_d87447eb72ab7b308bffb37964336903" style="width: 100.0%; height: 100.0%;"><b>平實公園</b><br>綠線<br>可行性研究中</div>`)[0];
+                popup_8100f2b6fa75d23a2ac4a38c3303f639.setContent(html_d87447eb72ab7b308bffb37964336903);
+            
+        
+
+        circle_marker_28c8e76ec6d22fa6d690e141e68882b7.bindPopup(popup_8100f2b6fa75d23a2ac4a38c3303f639)
+        ;
+
+        
+    
+    
+            circle_marker_28c8e76ec6d22fa6d690e141e68882b7.bindTooltip(
+                `<div>
+                     平實公園
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_55a3c9836800b33ffd5caba32cadce91 = L.circleMarker(
+                [22.999, 120.214],
+                {"bubblingMouseEvents": true, "color": "#43A047", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#43A047", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_4afb51c1d4d8bfbeb52aeeab52f06833 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_a55dbac25716c71f7f095e59ff96dc06 = $(`<div id="html_a55dbac25716c71f7f095e59ff96dc06" style="width: 100.0%; height: 100.0%;"><b>成大醫院</b><br>綠線<br>可行性研究中</div>`)[0];
+                popup_4afb51c1d4d8bfbeb52aeeab52f06833.setContent(html_a55dbac25716c71f7f095e59ff96dc06);
+            
+        
+
+        circle_marker_55a3c9836800b33ffd5caba32cadce91.bindPopup(popup_4afb51c1d4d8bfbeb52aeeab52f06833)
+        ;
+
+        
+    
+    
+            circle_marker_55a3c9836800b33ffd5caba32cadce91.bindTooltip(
+                `<div>
+                     成大醫院
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_2e769d8003d60cddc6001d0d7ab7e045 = L.circleMarker(
+                [22.997, 120.21],
+                {"bubblingMouseEvents": true, "color": "#43A047", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#43A047", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_3464a053e3ea6fc2f9b0e993cb0c0f99 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_5118e494399a5080a2dd5d43ef381b34 = $(`<div id="html_5118e494399a5080a2dd5d43ef381b34" style="width: 100.0%; height: 100.0%;"><b>火車站</b><br>綠線<br>可行性研究中</div>`)[0];
+                popup_3464a053e3ea6fc2f9b0e993cb0c0f99.setContent(html_5118e494399a5080a2dd5d43ef381b34);
+            
+        
+
+        circle_marker_2e769d8003d60cddc6001d0d7ab7e045.bindPopup(popup_3464a053e3ea6fc2f9b0e993cb0c0f99)
+        ;
+
+        
+    
+    
+            circle_marker_2e769d8003d60cddc6001d0d7ab7e045.bindTooltip(
+                `<div>
+                     火車站
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_849ad95a1ecfb24d1831a930053b36fd = L.circleMarker(
+                [22.993, 120.205],
+                {"bubblingMouseEvents": true, "color": "#43A047", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#43A047", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_92d2efbf46f5fce49c5757498c6e30f5 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_a81fc4141409f564424e85f3df9f6721 = $(`<div id="html_a81fc4141409f564424e85f3df9f6721" style="width: 100.0%; height: 100.0%;"><b>民生綠園</b><br>綠線<br>可行性研究中</div>`)[0];
+                popup_92d2efbf46f5fce49c5757498c6e30f5.setContent(html_a81fc4141409f564424e85f3df9f6721);
+            
+        
+
+        circle_marker_849ad95a1ecfb24d1831a930053b36fd.bindPopup(popup_92d2efbf46f5fce49c5757498c6e30f5)
+        ;
+
+        
+    
+    
+            circle_marker_849ad95a1ecfb24d1831a930053b36fd.bindTooltip(
+                `<div>
+                     民生綠園
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_3027b915ea4336c30914ea6385cc3ee5 = L.circleMarker(
+                [22.988, 120.2],
+                {"bubblingMouseEvents": true, "color": "#43A047", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#43A047", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_7db7a91e5a081d0a98d5f2f602844970 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_705b2410c8786d1b22d3e27f2f7bb483 = $(`<div id="html_705b2410c8786d1b22d3e27f2f7bb483" style="width: 100.0%; height: 100.0%;"><b>運河</b><br>綠線<br>可行性研究中</div>`)[0];
+                popup_7db7a91e5a081d0a98d5f2f602844970.setContent(html_705b2410c8786d1b22d3e27f2f7bb483);
+            
+        
+
+        circle_marker_3027b915ea4336c30914ea6385cc3ee5.bindPopup(popup_7db7a91e5a081d0a98d5f2f602844970)
+        ;
+
+        
+    
+    
+            circle_marker_3027b915ea4336c30914ea6385cc3ee5.bindTooltip(
+                `<div>
+                     運河
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_e3d0feb827719b37952dd5ed3804432e = L.circleMarker(
+                [22.996, 120.163],
+                {"bubblingMouseEvents": true, "color": "#43A047", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#43A047", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_ccfc4ef469e9d737c1a2815ec2acae91 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_35cb12bfe1fbd53f4aea5eb0e5ef786d = $(`<div id="html_35cb12bfe1fbd53f4aea5eb0e5ef786d" style="width: 100.0%; height: 100.0%;"><b>安平</b><br>綠線<br>可行性研究中</div>`)[0];
+                popup_ccfc4ef469e9d737c1a2815ec2acae91.setContent(html_35cb12bfe1fbd53f4aea5eb0e5ef786d);
+            
+        
+
+        circle_marker_e3d0feb827719b37952dd5ed3804432e.bindPopup(popup_ccfc4ef469e9d737c1a2815ec2acae91)
+        ;
+
+        
+    
+    
+            circle_marker_e3d0feb827719b37952dd5ed3804432e.bindTooltip(
+                `<div>
+                     安平
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_80a0c881e50cfdf873da572d899e34b3 = L.polyline(
+                [[22.983, 120.225], [22.98, 120.218], [22.957, 120.204], [22.964, 120.25], [22.958, 120.294], [22.92, 120.285]],
+                {"bubblingMouseEvents": true, "color": "#E53935", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#E53935", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.8, "smoothFactor": 1.0, "stroke": true, "weight": 4}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_55e577aff902ec20d80decc17235e8d5 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_524cd84fb6a99ae99b5ee09fbb0cd55f = $(`<div id="html_524cd84fb6a99ae99b5ee09fbb0cd55f" style="width: 100.0%; height: 100.0%;"><b>紅線</b><br>可行性研究中<br>可行性研究報告送交通部審查中。將銜接高雄捷運岡山路竹延伸線。</div>`)[0];
+                popup_55e577aff902ec20d80decc17235e8d5.setContent(html_524cd84fb6a99ae99b5ee09fbb0cd55f);
+            
+        
+
+        poly_line_80a0c881e50cfdf873da572d899e34b3.bindPopup(popup_55e577aff902ec20d80decc17235e8d5)
+        ;
+
+        
+    
+    
+            poly_line_80a0c881e50cfdf873da572d899e34b3.bindTooltip(
+                `<div>
+                     紅線
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_f6db8e7d88327e7250906c73b7a4b0d6 = L.circleMarker(
+                [22.983, 120.225],
+                {"bubblingMouseEvents": true, "color": "#E53935", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#E53935", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_983b89ecb380d0683b81db7cece46f8b = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_95c594f5f9166bb08fbb1bd0f3aadfae = $(`<div id="html_95c594f5f9166bb08fbb1bd0f3aadfae" style="width: 100.0%; height: 100.0%;"><b>文化中心</b><br>紅線<br>可行性研究中</div>`)[0];
+                popup_983b89ecb380d0683b81db7cece46f8b.setContent(html_95c594f5f9166bb08fbb1bd0f3aadfae);
+            
+        
+
+        circle_marker_f6db8e7d88327e7250906c73b7a4b0d6.bindPopup(popup_983b89ecb380d0683b81db7cece46f8b)
+        ;
+
+        
+    
+    
+            circle_marker_f6db8e7d88327e7250906c73b7a4b0d6.bindTooltip(
+                `<div>
+                     文化中心
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_e2d048a4df77c16bf0eeac3daeebce8e = L.circleMarker(
+                [22.98, 120.218],
+                {"bubblingMouseEvents": true, "color": "#E53935", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#E53935", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_1eafc8442585125212cf48808dd125a8 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_f4801ef63a65bbe79d4544728691a2db = $(`<div id="html_f4801ef63a65bbe79d4544728691a2db" style="width: 100.0%; height: 100.0%;"><b>大同</b><br>紅線<br>可行性研究中</div>`)[0];
+                popup_1eafc8442585125212cf48808dd125a8.setContent(html_f4801ef63a65bbe79d4544728691a2db);
+            
+        
+
+        circle_marker_e2d048a4df77c16bf0eeac3daeebce8e.bindPopup(popup_1eafc8442585125212cf48808dd125a8)
+        ;
+
+        
+    
+    
+            circle_marker_e2d048a4df77c16bf0eeac3daeebce8e.bindTooltip(
+                `<div>
+                     大同
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_c16a7b9b8b6a0a988ccfcd41ba374d38 = L.circleMarker(
+                [22.957, 120.204],
+                {"bubblingMouseEvents": true, "color": "#E53935", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#E53935", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_375dae4a79fed3c31cf495804e3a4df8 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_169dae33ea317fb8464e47fd1ba469b5 = $(`<div id="html_169dae33ea317fb8464e47fd1ba469b5" style="width: 100.0%; height: 100.0%;"><b>台南機場</b><br>紅線<br>可行性研究中</div>`)[0];
+                popup_375dae4a79fed3c31cf495804e3a4df8.setContent(html_169dae33ea317fb8464e47fd1ba469b5);
+            
+        
+
+        circle_marker_c16a7b9b8b6a0a988ccfcd41ba374d38.bindPopup(popup_375dae4a79fed3c31cf495804e3a4df8)
+        ;
+
+        
+    
+    
+            circle_marker_c16a7b9b8b6a0a988ccfcd41ba374d38.bindTooltip(
+                `<div>
+                     台南機場
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_c3615e8bfa1f48a93cd33b6a9ac45b7d = L.circleMarker(
+                [22.964, 120.25],
+                {"bubblingMouseEvents": true, "color": "#E53935", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#E53935", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_a9b66c3415dffe3e4ed9864f982ffcf2 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_ba1d0339022be9b6a99790a0dd342750 = $(`<div id="html_ba1d0339022be9b6a99790a0dd342750" style="width: 100.0%; height: 100.0%;"><b>仁德</b><br>紅線<br>可行性研究中</div>`)[0];
+                popup_a9b66c3415dffe3e4ed9864f982ffcf2.setContent(html_ba1d0339022be9b6a99790a0dd342750);
+            
+        
+
+        circle_marker_c3615e8bfa1f48a93cd33b6a9ac45b7d.bindPopup(popup_a9b66c3415dffe3e4ed9864f982ffcf2)
+        ;
+
+        
+    
+    
+            circle_marker_c3615e8bfa1f48a93cd33b6a9ac45b7d.bindTooltip(
+                `<div>
+                     仁德
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_0ba3d166b53dc02078741c35558d9057 = L.circleMarker(
+                [22.958, 120.294],
+                {"bubblingMouseEvents": true, "color": "#E53935", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#E53935", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_7476d2e1d0aeaada08958b5f297cd40a = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_b5c5b92feb47e7a34f5cddb60ab6e5a2 = $(`<div id="html_b5c5b92feb47e7a34f5cddb60ab6e5a2" style="width: 100.0%; height: 100.0%;"><b>歸仁</b><br>紅線<br>可行性研究中</div>`)[0];
+                popup_7476d2e1d0aeaada08958b5f297cd40a.setContent(html_b5c5b92feb47e7a34f5cddb60ab6e5a2);
+            
+        
+
+        circle_marker_0ba3d166b53dc02078741c35558d9057.bindPopup(popup_7476d2e1d0aeaada08958b5f297cd40a)
+        ;
+
+        
+    
+    
+            circle_marker_0ba3d166b53dc02078741c35558d9057.bindTooltip(
+                `<div>
+                     歸仁
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_deee5dc62295972b09d767eee2963971 = L.circleMarker(
+                [22.92, 120.285],
+                {"bubblingMouseEvents": true, "color": "#E53935", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#E53935", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_78a0fb5b012130f4f84a22d5622e955b = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_f1157108a626d742765e28f9bcb72d39 = $(`<div id="html_f1157108a626d742765e28f9bcb72d39" style="width: 100.0%; height: 100.0%;"><b>嘉南藥理大學</b><br>紅線<br>可行性研究中</div>`)[0];
+                popup_78a0fb5b012130f4f84a22d5622e955b.setContent(html_f1157108a626d742765e28f9bcb72d39);
+            
+        
+
+        circle_marker_deee5dc62295972b09d767eee2963971.bindPopup(popup_78a0fb5b012130f4f84a22d5622e955b)
+        ;
+
+        
+    
+    
+            circle_marker_deee5dc62295972b09d767eee2963971.bindTooltip(
+                `<div>
+                     嘉南藥理大學
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_17c4fe2acf7a2d6e3faf240850d638b5 = L.polyline(
+                [[22.925, 120.31], [23.081, 120.295], [23.103, 120.29], [23.133, 120.313]],
+                {"bubblingMouseEvents": true, "color": "#00897B", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#00897B", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.8, "smoothFactor": 1.0, "stroke": true, "weight": 4}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_0ed6850438a578e583fa2cbbef8327cd = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_8a5b9b902b4a01ed9910e410ca0b0b4b = $(`<div id="html_8a5b9b902b4a01ed9910e410ca0b0b4b" style="width: 100.0%; height: 100.0%;"><b>深綠線（南科線）</b><br>可行性研究中<br>台南市政府啟動可行性研究，串聯高鐵站、新市、南科、善化生活圈。因應南科人口成長優先推動。</div>`)[0];
+                popup_0ed6850438a578e583fa2cbbef8327cd.setContent(html_8a5b9b902b4a01ed9910e410ca0b0b4b);
+            
+        
+
+        poly_line_17c4fe2acf7a2d6e3faf240850d638b5.bindPopup(popup_0ed6850438a578e583fa2cbbef8327cd)
+        ;
+
+        
+    
+    
+            poly_line_17c4fe2acf7a2d6e3faf240850d638b5.bindTooltip(
+                `<div>
+                     深綠線（南科線）
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_2f6db282812bc5baf7018b6d7f24dd35 = L.circleMarker(
+                [22.925, 120.31],
+                {"bubblingMouseEvents": true, "color": "#00897B", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#00897B", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_da5e4a7768845013d895c297c2f1615f = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_a95a279db5888b34749bab014c847234 = $(`<div id="html_a95a279db5888b34749bab014c847234" style="width: 100.0%; height: 100.0%;"><b>高鐵台南站</b><br>深綠線（南科線）<br>可行性研究中</div>`)[0];
+                popup_da5e4a7768845013d895c297c2f1615f.setContent(html_a95a279db5888b34749bab014c847234);
+            
+        
+
+        circle_marker_2f6db282812bc5baf7018b6d7f24dd35.bindPopup(popup_da5e4a7768845013d895c297c2f1615f)
+        ;
+
+        
+    
+    
+            circle_marker_2f6db282812bc5baf7018b6d7f24dd35.bindTooltip(
+                `<div>
+                     高鐵台南站
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_ac3e565dec72bc7888873d87d761181f = L.circleMarker(
+                [23.081, 120.295],
+                {"bubblingMouseEvents": true, "color": "#00897B", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#00897B", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_9ce8cfa042f35dc7acf89faba6026ba5 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_6befbd3e3d9b702cbc68ab2f103e226b = $(`<div id="html_6befbd3e3d9b702cbc68ab2f103e226b" style="width: 100.0%; height: 100.0%;"><b>新市</b><br>深綠線（南科線）<br>可行性研究中</div>`)[0];
+                popup_9ce8cfa042f35dc7acf89faba6026ba5.setContent(html_6befbd3e3d9b702cbc68ab2f103e226b);
+            
+        
+
+        circle_marker_ac3e565dec72bc7888873d87d761181f.bindPopup(popup_9ce8cfa042f35dc7acf89faba6026ba5)
+        ;
+
+        
+    
+    
+            circle_marker_ac3e565dec72bc7888873d87d761181f.bindTooltip(
+                `<div>
+                     新市
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_e2a222bfd56ffbe084f6c4ce968d51bd = L.circleMarker(
+                [23.103, 120.29],
+                {"bubblingMouseEvents": true, "color": "#00897B", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#00897B", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_6a41e2eed0b9cc410fc1fcd60b5a2c5e = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_23f1202a527295cc12aac70597abab6f = $(`<div id="html_23f1202a527295cc12aac70597abab6f" style="width: 100.0%; height: 100.0%;"><b>南科</b><br>深綠線（南科線）<br>可行性研究中</div>`)[0];
+                popup_6a41e2eed0b9cc410fc1fcd60b5a2c5e.setContent(html_23f1202a527295cc12aac70597abab6f);
+            
+        
+
+        circle_marker_e2a222bfd56ffbe084f6c4ce968d51bd.bindPopup(popup_6a41e2eed0b9cc410fc1fcd60b5a2c5e)
+        ;
+
+        
+    
+    
+            circle_marker_e2a222bfd56ffbe084f6c4ce968d51bd.bindTooltip(
+                `<div>
+                     南科
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_11ffa3f8d89a8968aa5ca8942bfb3d85 = L.circleMarker(
+                [23.133, 120.313],
+                {"bubblingMouseEvents": true, "color": "#00897B", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#00897B", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_b9732e1d74fa99e25877525f494ba77e = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_405c9c4e6276b122f83b23579cc6ea69 = $(`<div id="html_405c9c4e6276b122f83b23579cc6ea69" style="width: 100.0%; height: 100.0%;"><b>善化</b><br>深綠線（南科線）<br>可行性研究中</div>`)[0];
+                popup_b9732e1d74fa99e25877525f494ba77e.setContent(html_405c9c4e6276b122f83b23579cc6ea69);
+            
+        
+
+        circle_marker_11ffa3f8d89a8968aa5ca8942bfb3d85.bindPopup(popup_b9732e1d74fa99e25877525f494ba77e)
+        ;
+
+        
+    
+    
+            circle_marker_11ffa3f8d89a8968aa5ca8942bfb3d85.bindTooltip(
+                `<div>
+                     善化
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_265a65672df36e2c2c33938b1978a605 = L.polyline(
+                [[22.983, 120.225], [22.978, 120.23], [22.964, 120.25], [22.958, 120.294], [23.038, 120.312], [23.081, 120.295]],
+                {"bubblingMouseEvents": true, "color": "#FDD835", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#FDD835", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.8, "smoothFactor": 1.0, "stroke": true, "weight": 4}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_0405bd77bca1d26d9105b5a5b3738eeb = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_20e040a1760a386778692094bc36899f = $(`<div id="html_20e040a1760a386778692094bc36899f" style="width: 100.0%; height: 100.0%;"><b>黃線</b><br>可行性研究中<br>可行性研究剛啟動。連結東區、仁德、歸仁、新化至新市。</div>`)[0];
+                popup_0405bd77bca1d26d9105b5a5b3738eeb.setContent(html_20e040a1760a386778692094bc36899f);
+            
+        
+
+        poly_line_265a65672df36e2c2c33938b1978a605.bindPopup(popup_0405bd77bca1d26d9105b5a5b3738eeb)
+        ;
+
+        
+    
+    
+            poly_line_265a65672df36e2c2c33938b1978a605.bindTooltip(
+                `<div>
+                     黃線
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_86a71ab4e6a7b14b8777959b93c5ee61 = L.circleMarker(
+                [22.983, 120.225],
+                {"bubblingMouseEvents": true, "color": "#FDD835", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#FDD835", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_6eb3b39136f90d50bba54ce8b9af6900 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_dc0d138bf18b6e76b83eeddbd1a8e02d = $(`<div id="html_dc0d138bf18b6e76b83eeddbd1a8e02d" style="width: 100.0%; height: 100.0%;"><b>文化中心</b><br>黃線<br>可行性研究中</div>`)[0];
+                popup_6eb3b39136f90d50bba54ce8b9af6900.setContent(html_dc0d138bf18b6e76b83eeddbd1a8e02d);
+            
+        
+
+        circle_marker_86a71ab4e6a7b14b8777959b93c5ee61.bindPopup(popup_6eb3b39136f90d50bba54ce8b9af6900)
+        ;
+
+        
+    
+    
+            circle_marker_86a71ab4e6a7b14b8777959b93c5ee61.bindTooltip(
+                `<div>
+                     文化中心
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_2d33fd5f5f41717c1c1d29077410b1dc = L.circleMarker(
+                [22.978, 120.23],
+                {"bubblingMouseEvents": true, "color": "#FDD835", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#FDD835", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_70ded5edbbf6bb12bae4e30053b50d31 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_7cb37c0f94e68c062a3fc421fde187be = $(`<div id="html_7cb37c0f94e68c062a3fc421fde187be" style="width: 100.0%; height: 100.0%;"><b>崇德</b><br>黃線<br>可行性研究中</div>`)[0];
+                popup_70ded5edbbf6bb12bae4e30053b50d31.setContent(html_7cb37c0f94e68c062a3fc421fde187be);
+            
+        
+
+        circle_marker_2d33fd5f5f41717c1c1d29077410b1dc.bindPopup(popup_70ded5edbbf6bb12bae4e30053b50d31)
+        ;
+
+        
+    
+    
+            circle_marker_2d33fd5f5f41717c1c1d29077410b1dc.bindTooltip(
+                `<div>
+                     崇德
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_2dce21a4121de6e0b041df4d7dae0481 = L.circleMarker(
+                [22.964, 120.25],
+                {"bubblingMouseEvents": true, "color": "#FDD835", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#FDD835", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_7fee7826de79fde982dc59f3a12e7198 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_90252d96132ed2e4e753bbc2a3eaf532 = $(`<div id="html_90252d96132ed2e4e753bbc2a3eaf532" style="width: 100.0%; height: 100.0%;"><b>仁德</b><br>黃線<br>可行性研究中</div>`)[0];
+                popup_7fee7826de79fde982dc59f3a12e7198.setContent(html_90252d96132ed2e4e753bbc2a3eaf532);
+            
+        
+
+        circle_marker_2dce21a4121de6e0b041df4d7dae0481.bindPopup(popup_7fee7826de79fde982dc59f3a12e7198)
+        ;
+
+        
+    
+    
+            circle_marker_2dce21a4121de6e0b041df4d7dae0481.bindTooltip(
+                `<div>
+                     仁德
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_cc5ef18cdad12bb811b1f0b24517f894 = L.circleMarker(
+                [22.958, 120.294],
+                {"bubblingMouseEvents": true, "color": "#FDD835", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#FDD835", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_cc08fed704785c4caea39f20268d11c7 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_de5ecf21870f80a29d0ac7475f1ac164 = $(`<div id="html_de5ecf21870f80a29d0ac7475f1ac164" style="width: 100.0%; height: 100.0%;"><b>歸仁</b><br>黃線<br>可行性研究中</div>`)[0];
+                popup_cc08fed704785c4caea39f20268d11c7.setContent(html_de5ecf21870f80a29d0ac7475f1ac164);
+            
+        
+
+        circle_marker_cc5ef18cdad12bb811b1f0b24517f894.bindPopup(popup_cc08fed704785c4caea39f20268d11c7)
+        ;
+
+        
+    
+    
+            circle_marker_cc5ef18cdad12bb811b1f0b24517f894.bindTooltip(
+                `<div>
+                     歸仁
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_306e482e89e3479520f141b22a60ba87 = L.circleMarker(
+                [23.038, 120.312],
+                {"bubblingMouseEvents": true, "color": "#FDD835", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#FDD835", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_daa50174b408f0347c9783a829c2da33 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_ff72fb66534b66d3d13ca35cfe4285df = $(`<div id="html_ff72fb66534b66d3d13ca35cfe4285df" style="width: 100.0%; height: 100.0%;"><b>新化</b><br>黃線<br>可行性研究中</div>`)[0];
+                popup_daa50174b408f0347c9783a829c2da33.setContent(html_ff72fb66534b66d3d13ca35cfe4285df);
+            
+        
+
+        circle_marker_306e482e89e3479520f141b22a60ba87.bindPopup(popup_daa50174b408f0347c9783a829c2da33)
+        ;
+
+        
+    
+    
+            circle_marker_306e482e89e3479520f141b22a60ba87.bindTooltip(
+                `<div>
+                     新化
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1f2e481805c3e010d0310c084481e348 = L.circleMarker(
+                [23.081, 120.295],
+                {"bubblingMouseEvents": true, "color": "#FDD835", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#FDD835", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b);
+        
+    
+        var popup_28a0a7baf8a84f464494c55a035be083 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_ce5925e25c86e34b366f5a30735e22e9 = $(`<div id="html_ce5925e25c86e34b366f5a30735e22e9" style="width: 100.0%; height: 100.0%;"><b>新市</b><br>黃線<br>可行性研究中</div>`)[0];
+                popup_28a0a7baf8a84f464494c55a035be083.setContent(html_ce5925e25c86e34b366f5a30735e22e9);
+            
+        
+
+        circle_marker_1f2e481805c3e010d0310c084481e348.bindPopup(popup_28a0a7baf8a84f464494c55a035be083)
+        ;
+
+        
+    
+    
+            circle_marker_1f2e481805c3e010d0310c084481e348.bindTooltip(
+                `<div>
+                     新市
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b.addTo(map_e8fd351376913da7186931d75dd83c49);
+        
+    
+            var layer_control_218ac1ab58dcffd40992c280b64cc705_layers = {
+                base_layers : {
+                    "cartodbpositron" : tile_layer_ea2f06bca4b6370661d6c717779b175c,
+                },
+                overlays :  {
+                    "\u6377\u904b\u8def\u7dda" : feature_group_34cdd48fe8d3ab6ed667d0bfd69c118b,
+                },
+            };
+            let layer_control_218ac1ab58dcffd40992c280b64cc705 = L.control.layers(
+                layer_control_218ac1ab58dcffd40992c280b64cc705_layers.base_layers,
+                layer_control_218ac1ab58dcffd40992c280b64cc705_layers.overlays,
+                {
+  "position": "topright",
+  "collapsed": false,
+  "autoZIndex": true,
+}
+            ).addTo(map_e8fd351376913da7186931d75dd83c49);
+
+        
+    
+            L.control.fullscreen(
+                {
+  "position": "topleft",
+  "title": "Full Screen",
+  "titleCancel": "Exit Full Screen",
+  "forceSeparateButton": false,
+}
+            ).addTo(map_e8fd351376913da7186931d75dd83c49);
+        
+</script>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "台南購屋深度分析",
+  "short_name": "台南購屋",
+  "description": "台南各區與各路段實價登錄行情、3D 地圖、重大建設時程。所有計算都在你的裝置上完成。",
+  "lang": "zh-Hant",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f5f7",
+  "theme_color": "#0b5d57",
+  "icons": [
+    {"src": "img/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "img/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

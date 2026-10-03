@@ -1,0 +1,1345 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.225,
+            23.018
+          ],
+          [
+            120.231,
+            23.012
+          ],
+          [
+            120.235,
+            23.006
+          ],
+          [
+            120.235,
+            23.0
+          ],
+          [
+            120.234,
+            22.993
+          ],
+          [
+            120.233,
+            22.986
+          ],
+          [
+            120.229,
+            22.98
+          ],
+          [
+            120.223,
+            22.976
+          ]
+        ]
+      },
+      "properties": {
+        "type": "mrt_line",
+        "name": "藍線（第一期）",
+        "color": "#1E88E5",
+        "status": "綜合規劃已獲行政院核定、基本設計已獲工程會核定，統包工程2026-08-18公告招標、2026-09-29截止投標；開標/決標結果未查證，尚未動工",
+        "stage": "設計階段／統包工程招標中",
+        "completion": "2032年（依工期約6年推估，出自2025-10至2026-04媒體報導；捷運工程處官網未載明通車日期）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.233,
+            22.986
+          ],
+          [
+            120.233,
+            22.983
+          ],
+          [
+            120.238,
+            22.98
+          ],
+          [
+            120.243,
+            22.977
+          ]
+        ]
+      },
+      "properties": {
+        "type": "mrt_line",
+        "name": "藍線（第一期）",
+        "color": "#1E88E5",
+        "status": "綜合規劃已獲行政院核定、基本設計已獲工程會核定，統包工程2026-08-18公告招標、2026-09-29截止投標；開標/決標結果未查證，尚未動工",
+        "stage": "設計階段／統包工程招標中",
+        "completion": "2032年（依工期約6年推估，出自2025-10至2026-04媒體報導；捷運工程處官網未載明通車日期）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.225,
+          23.018
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "B01 中華路與臺鐵大橋站交會處（轉乘臺鐵大橋站）",
+        "line": "藍線（第一期）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.231,
+          23.012
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "B02 中華路與中山南路口",
+        "line": "藍線（第一期）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.235,
+          23.006
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "B03 中華路與勝華街口（中華路286巷口南側）",
+        "line": "藍線（第一期）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.235,
+          23.0
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "B04 中華東路一段與小東路口（平實轉運站；規劃轉乘綠線）",
+        "line": "藍線（第一期）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.234,
+          22.993
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "B05 中華東路一段與平實路口",
+        "line": "藍線（第一期）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.233,
+          22.986
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "B06 中華東路二段與203巷口（仁德線、文化中心線分岔點）",
+        "line": "藍線（第一期）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.229,
+          22.98
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "B07 中華東路三段與崇德四街七巷口",
+        "line": "藍線（第一期）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.223,
+          22.976
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "B08 中華東路三段與399巷口（臺南文化中心；規劃銜接紅線）",
+        "line": "藍線（第一期）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.238,
+          22.98
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "B09 東門路三段與226巷口",
+        "line": "藍線（第一期）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.243,
+          22.977
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "B10 中山路與裕忠路口（仁德轉運站；規劃銜接藍線延伸線）",
+        "line": "藍線（第一期）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.243,
+            22.977
+          ],
+          [
+            120.251,
+            22.974
+          ],
+          [
+            120.261,
+            22.971
+          ],
+          [
+            120.272,
+            22.97
+          ],
+          [
+            120.287,
+            22.969
+          ],
+          [
+            120.294,
+            22.967
+          ],
+          [
+            120.3,
+            22.966
+          ],
+          [
+            120.311,
+            22.964
+          ],
+          [
+            120.325,
+            22.962
+          ]
+        ]
+      },
+      "properties": {
+        "type": "mrt_line",
+        "name": "藍線延伸線",
+        "color": "#64B5F6",
+        "status": "可行性研究已通過交通部審查、行政院審查中；綜合規劃及環評報告已提送交通部審議，尚未核定",
+        "stage": "可行性研究中央審議中／綜合規劃及環評進行中",
+        "completion": "未查證（2023年前後媒體報導曾稱最快2035年完工，其後未見官方更新）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.283,
+            22.966
+          ],
+          [
+            120.284,
+            22.959
+          ],
+          [
+            120.284,
+            22.951
+          ],
+          [
+            120.285,
+            22.942
+          ],
+          [
+            120.285,
+            22.933
+          ],
+          [
+            120.286,
+            22.925
+          ],
+          [
+            120.286,
+            22.917
+          ]
+        ]
+      },
+      "properties": {
+        "type": "mrt_line",
+        "name": "藍線延伸線",
+        "color": "#64B5F6",
+        "status": "可行性研究已通過交通部審查、行政院審查中；綜合規劃及環評報告已提送交通部審議，尚未核定",
+        "stage": "可行性研究中央審議中／綜合規劃及環評進行中",
+        "completion": "未查證（2023年前後媒體報導曾稱最快2035年完工，其後未見官方更新）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.251,
+          22.974
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BK01 仁德區中山路與文德路口",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.261,
+          22.971
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BK02 仁德區中山路與中清二街口",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.272,
+          22.97
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BK03 仁德區中山路與義林一街口",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.287,
+          22.969
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BK04 歸仁區中山路三段與民生北街口",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.294,
+          22.967
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BK05 歸仁圓環",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.3,
+          22.966
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BK06 歸仁區中山路一段與忠孝南路口",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.311,
+          22.964
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BK07 中山路一段、歸仁交流道東側",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.325,
+          22.962
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BK08 關廟區中山路二段與文化街口（關廟轉運站轉乘）",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.283,
+          22.966
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BH01 台39線與民生十街50巷口（規劃轉乘深綠線）",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.284,
+          22.959
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BH02 台39線與六甲八街東側",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.284,
+          22.951
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BH03 台39線與凱旋路口",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.285,
+          22.942
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BH04 台39線與中正南路一段1263巷口",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.285,
+          22.933
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BH05 台39線與歸仁一路口",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.286,
+          22.925
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BH06 高鐵臺南站（轉乘高鐵、臺鐵沙崙站）",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.286,
+          22.917
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "BH07 台39線與大武路口（歸仁機廠旁）",
+        "line": "藍線延伸線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.287,
+            22.995
+          ],
+          [
+            120.272,
+            22.999
+          ],
+          [
+            120.263,
+            22.999
+          ],
+          [
+            120.253,
+            22.998
+          ],
+          [
+            120.244,
+            23.001
+          ],
+          [
+            120.235,
+            23.0
+          ],
+          [
+            120.23,
+            23.001
+          ],
+          [
+            120.225,
+            23.001
+          ],
+          [
+            120.219,
+            23.001
+          ],
+          [
+            120.212,
+            23.0
+          ],
+          [
+            120.208,
+            22.995
+          ],
+          [
+            120.202,
+            22.99
+          ],
+          [
+            120.196,
+            22.99
+          ],
+          [
+            120.185,
+            22.992
+          ],
+          [
+            120.179,
+            22.992
+          ],
+          [
+            120.173,
+            22.993
+          ],
+          [
+            120.166,
+            22.993
+          ],
+          [
+            120.161,
+            22.989
+          ],
+          [
+            120.167,
+            22.986
+          ]
+        ]
+      },
+      "properties": {
+        "type": "mrt_line",
+        "name": "綠線",
+        "color": "#43A047",
+        "status": "可行性研究修正方案已獲臺南市議會同意，2026年4月提送交通部審議中",
+        "stage": "可行性研究（中央審議中）",
+        "completion": "未定"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.287,
+          22.995
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G01 保吉路（歸仁區台39線與保吉路口；規劃轉乘深綠線）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.272,
+          22.999
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G02 大灣民族（永康區大灣）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.263,
+          22.999
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G03 大灣南興（永康區大灣）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.253,
+          22.998
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G04 崑山科大",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.244,
+          23.001
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G05 復興里（永康區）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.235,
+          23.0
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G06 平實轉運站（小東路與中華東路口；轉乘藍線B04）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.23,
+          23.001
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G07 小東東興（小東路與東興路口）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.225,
+          23.001
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G08 成功大學（小東路；地下）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.219,
+          23.001
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G09 成大醫院（小東路；地下）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.212,
+          23.0
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G10 臺南車站（北門路與公園南路一帶；地下，以地下通道接臺鐵）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.208,
+          22.995
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G11 臺南醫院（地下）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.202,
+          22.99
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G12 南市美術館二館（地下）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.196,
+          22.99
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G13 永華海安（永華路一段近夏林路、水萍塭公園；地下）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.185,
+          22.992
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G14 市政府（永華市政中心；地下）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.179,
+          22.992
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G15 永華安平（永華路二段建平路口以西出土後高架）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.173,
+          22.993
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G16 永華育平（永華路與育平路口）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.166,
+          22.993
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G17 安億轉運站",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.161,
+          22.989
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G18 億載金城",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.167,
+          22.986
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "G19 地方法院（安平區健康路三段臺南地方法院）",
+        "line": "綠線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.223,
+            22.976
+          ],
+          [
+            120.218,
+            22.968
+          ],
+          [
+            120.219,
+            22.962
+          ],
+          [
+            120.22,
+            22.95
+          ],
+          [
+            120.222,
+            22.935
+          ],
+          [
+            120.225,
+            22.922
+          ]
+        ]
+      },
+      "properties": {
+        "type": "mrt_line",
+        "name": "紅線",
+        "color": "#E53935",
+        "status": "可行性研究配合中央審議中（2024-09提送交通部、2024-12-11交通部現勘）；綜合規劃已於2025-01決標並辦理期中作業",
+        "stage": "可行性研究中央審議中／綜合規劃進行中",
+        "completion": "未定"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.223,
+          22.976
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "文化中心站（中華東路三段，銜接藍線B08）",
+        "line": "紅線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.218,
+          22.968
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "大林站（中華東路三段與大同路口）",
+        "line": "紅線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.219,
+          22.962
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "南臺南副都心站（大同路二段、生產路一帶）",
+        "line": "紅線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.22,
+          22.95
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "臺南航空站（大同路二段機場前）",
+        "line": "紅線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.222,
+          22.935
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "奇美博物館站（台1線、臺南都會公園西側）",
+        "line": "紅線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.225,
+          22.922
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "嘉藥大學站（仁德區二仁路一段；規劃與高雄捷運紅線延伸線共站）",
+        "line": "紅線"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.284,
+            22.977
+          ],
+          [
+            120.287,
+            22.992
+          ],
+          [
+            120.288,
+            23.01
+          ],
+          [
+            120.289,
+            23.03
+          ],
+          [
+            120.29,
+            23.048
+          ],
+          [
+            120.29,
+            23.068
+          ],
+          [
+            120.288,
+            23.079
+          ],
+          [
+            120.284,
+            23.092
+          ],
+          [
+            120.28,
+            23.101
+          ],
+          [
+            120.279,
+            23.11
+          ],
+          [
+            120.285,
+            23.118
+          ],
+          [
+            120.292,
+            23.126
+          ],
+          [
+            120.298,
+            23.13
+          ],
+          [
+            120.307,
+            23.133
+          ]
+        ]
+      },
+      "properties": {
+        "type": "mrt_line",
+        "name": "深綠線（南科線）",
+        "color": "#00796B",
+        "status": "可行性研究經市議會同意後於2025年6月提送交通部，2026年8月11日交通部鐵道局現勘，中央審議中",
+        "stage": "可行性研究（中央審議中）",
+        "completion": "未定"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.284,
+          22.977
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG8 歸仁區南潭聚落、陸軍航特部一帶",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.287,
+          22.992
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG9 歸仁區大埔聚落（大廟一帶）",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.288,
+          23.01
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG10 新化區崙頂聚落",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.289,
+          23.03
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG11 新化區南橫公路（台20線）與新化市區西側",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.29,
+          23.048
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG12 新化區北勢聚落",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.29,
+          23.068
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG13 臺鐵新市站",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.288,
+          23.079
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG14 新市安居社會住宅",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.284,
+          23.092
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG15 南科迎曦湖旁",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.28,
+          23.101
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG16 南科管理局",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.279,
+          23.11
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG17 南科園區內（科技廠區）",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.285,
+          23.118
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG18 南科特定區FG區",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.292,
+          23.126
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG19 善化戶政事務所",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.298,
+          23.13
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG20 善化高中",
+        "line": "深綠線（南科線）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.307,
+          23.133
+        ]
+      },
+      "properties": {
+        "type": "mrt_station",
+        "name": "DG21 臺鐵善化站（規劃共構轉乘）",
+        "line": "深綠線（南科線）"
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+# 個人資料：只留在自己電腦，不上傳
+data/settings.json
+data/watchlist.json
+data/backup/
+reports/
+
+# 下載的快取（每台電腦會自己抓；網頁版用的資料在 web/data）
+data/cache/
+
+# 其他
+__pycache__/
+*.pyc
+tests/last_result.txt
+Claude outputs/
+*.zip
+.DS_Store
+Thumbs.db
+
+# 宣傳短片（檔案大，不放進網站）
+宣傳短片/
+
+# 雲端硬碟同步暫存、舊版備份
+.tmp.drivedownload/
+.tmp.driveupload/
+_backup_原版/

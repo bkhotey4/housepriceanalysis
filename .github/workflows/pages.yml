@@ -1,0 +1,63 @@
+# 網頁版（web/）部署到 GitHub Pages，並定期更新實價登錄資料。
+#
+# 第一次使用：到 GitHub 專案的 Settings → Pages，Source 選「GitHub Actions」。
+# 之後：
+#   - push 到 main：重新整理情資、捷運、地標（房價資料沿用 web/data 現有的），再部署。
+#   - 每月 2、12、22 日（內政部 1、11、21 日發布後）：下載新一期實價登錄、重新統計、把 web/data 的變更 commit 回來，再部署。
+#   - 也可以在 Actions 頁面手動按「Run workflow」。
+name: 網頁版部署與資料更新
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 1 2,12,22 * *"     # UTC 01:17 = 台灣 09:17
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pillow numpy
+      - name: 整理網頁版資料
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            python tools/export_web.py --no-images
+          else
+            python tools/export_web.py --update --no-images
+          fi
+      - name: 資料檢查
+        run: python tools/check_data.py
+      - name: 把更新後的資料存回專案
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git add web/data
+          git diff --cached --quiet || git commit -m "更新網頁版資料（實價登錄 $(date +%Y-%m-%d)）"
+          git push
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
