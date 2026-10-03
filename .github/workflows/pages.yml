@@ -1,17 +1,21 @@
-# 網頁版（web/）部署到 GitHub Pages，並定期更新實價登錄資料。
+# 網頁版（web/）部署到 GitHub Pages，並定期更新全台實價登錄資料。
 #
 # 第一次使用：到 GitHub 專案的 Settings → Pages，Source 選「GitHub Actions」。
-# 之後：
-#   - push 到 main：重新整理情資、捷運、地標（房價資料沿用 web/data 現有的），再部署。
-#   - 每月 2、12、22 日（內政部 1、11、21 日發布後）：下載新一期實價登錄、重新統計、把 web/data 的變更 commit 回來，再部署。
-#   - 也可以在 Actions 頁面手動按「Run workflow」。
+# 每次執行（push、每月 2/12/22 日排程、或在 Actions 頁面手動按 Run workflow）：
+#   1. 補齊全台鄉鎮市區清單（OpenStreetMap；已有的縣市不重抓）
+#   2. 整理情資、捷運、地標（data/ → web/data/）
+#   3. 下載全國實價登錄（下載過的季檔放在 Actions 快取，不重抓），整理成各縣市的檔案（web/data/tw/）
+#   4. 逐步補抓各區道路位置（OpenStreetMap；每次最多跑一段時間，抓不完下次續抓）
+#   5. 把鄉鎮清單、道路位置存回專案（房價統計每次重新產生，不存回專案，避免專案越來越大）
+#   6. 部署
+# 全台資料哪一步失敗，網站仍會部署（全台版沒有資料時自動退回台南版）。
 name: 網頁版部署與資料更新
 
 on:
   push:
     branches: [main]
   schedule:
-    - cron: "17 1 2,12,22 * *"     # UTC 01:17 = 台灣 09:17
+    - cron: "17 1 2,12,22 * *"     # UTC 01:17 = 台灣 09:17（內政部 1、11、21 日發布）
   workflow_dispatch:
 
 permissions:
@@ -26,29 +30,44 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: pip install pillow numpy
-      - name: 整理網頁版資料
+      - name: 全國實價登錄下載快取
+        uses: actions/cache@v4
+        with:
+          path: data/cache/plvr_tw
+          key: plvr-tw-${{ github.run_id }}
+          restore-keys: plvr-tw-
+      - name: 全台鄉鎮市區清單
+        continue-on-error: true
+        run: python tools/build_towns.py
+      - name: 情資、捷運、地標（與台南版資料）
+        run: python tools/export_web.py --no-images
+      - name: 全台實價登錄
+        id: tw
+        continue-on-error: true
+        run: python tools/export_tw.py --update
+      - name: 各區道路位置（逐步補抓）
+        continue-on-error: true
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            python tools/export_web.py --no-images
-          else
-            python tools/export_web.py --update --no-images
-          fi
+          if [ "${{ github.event_name }}" = "push" ]; then M=10; else M=30; fi
+          python tools/fetch_roads_tw.py --minutes $M
+          # 新抓到的道路也要寫進 index.json 的清單
+          if [ -f web/data/tw/index.json ]; then python tools/export_tw.py --refresh-roads; fi
       - name: 資料檢查
         run: python tools/check_data.py
-      - name: 把更新後的資料存回專案
-        if: github.event_name != 'push'
+      - name: 把鄉鎮清單、道路位置存回專案
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
-          git add web/data
-          git diff --cached --quiet || git commit -m "更新網頁版資料（實價登錄 $(date +%Y-%m-%d)）"
-          git push
+          git add data/tw/towns.json web/data/tw/*/roads 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "更新全台鄉鎮與道路位置（$(date +%Y-%m-%d)）"
+          git push || echo "存回專案失敗（可能同時有人 push），下次再存"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web
