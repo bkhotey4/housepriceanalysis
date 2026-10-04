@@ -46,10 +46,12 @@ PREFETCH_PAUSE_MS = 6000   # 背景補抓道路位置：每一區之間停多久
 SEARCH_HINT = "輸入地址或路名，例如：善化區中山路123號"
 SEARCH_COLOR = "#d81b60"   # 搜尋位置的圖釘
 ROAD_RAMP = ["#fff3b0", "#ffc857", "#f98e3a", "#e2543d", "#a5236f"]
-OVERLAYS = [("town", "區界"), ("roads", "路名"), ("liq", "土壤液化"), ("fault", "活動斷層")]
+OVERLAYS = [("town", "區界"), ("roads", "路名"), ("liq", "土壤液化"), ("slide", "山崩地滑"), ("fault", "活動斷層")]
+FLOOD_URL = "https://dmap.ncdr.nat.gov.tw/1109/map/?group-layer=%E6%B7%B9%E6%B0%B4%E6%BD%9B%E5%8B%A2"   # 國家災害防救科技中心 3D 災害潛勢地圖
 OVERLAY_LEGEND = {
     "liq": [("title", "土壤液化潛勢"), ("swatch", "高", "#ff3355"), ("swatch", "中", "#ffc21a"), ("swatch", "低", "#afff2a"),
             ("note", "強震時的可能程度，不是平時危險")],
+    "slide": [("title", "山崩與地滑地質敏感區"), ("note", "著色範圍為經濟部公告的地質敏感區")],
     "fault": [("title", "活動斷層"), ("line", "斷層線（虛線為推測）", "#e0201a", False),
               ("note", "紅色帶狀為斷層地質敏感區")],
 }
@@ -384,6 +386,7 @@ class MapTab(tk.Frame):
         self._flows.append(links)
         self._links = links_outer
         links.add(ttk.Button(links, text="Google 地形圖", command=lambda: self._google("terrain")))
+        links.add(ttk.Button(links, text="淹水潛勢", command=lambda: kit.open_url(FLOOD_URL)))
         links.add(ttk.Button(links, text="Google 衛星圖", command=lambda: self._google("satellite")))
         links.add(ttk.Button(links, text="通勤路線", command=self._google_route))
         self.btn_report = links.add(ttk.Button(links, text="行情報告", command=self.open_report))

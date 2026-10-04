@@ -151,6 +151,11 @@ class TransitTest(unittest.TestCase):
         for x in lines:
             for seg in x["segments"]:
                 self.assertEqual(len(seg) % 2, 0)
+        # OSM 實際的寫法：方向、支線放在括號裡
+        k = build_transit.line_key
+        self.assertEqual(k({"name": "台北捷運中和新蘆線(蘆洲逆向)"}), k({"name": "台北捷運中和新蘆線(迴龍順向)"}))
+        self.assertEqual(build_transit.short_name(k({"name": "台北捷運松山新店線(順向)"})), "松山新店線")
+        self.assertEqual(build_transit.short_name(k({"name": "南港-板橋-土城線"})), "板南線")
 
 
 class TownListTest(unittest.TestCase):

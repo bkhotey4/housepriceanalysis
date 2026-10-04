@@ -43,6 +43,8 @@ LAYERS = OrderedDict([
     ("liq", {"name": "土壤液化潛勢", "sources": ["SoilLiquefaction", "SoilLiquefaction2"], "rgba": True,
              "max_z": 15, "detail": False, "opacity": 0.55,
              "attribution": "土壤液化潛勢：經濟部地質調查及礦業管理中心、臺南市政府（圖磚：國土測繪中心）"}),
+    ("slide", {"name": "山崩與地滑", "sources": ["GeoSensitive2"], "rgba": True, "max_z": 16, "detail": False, "opacity": 0.5,
+               "attribution": "地質敏感區（山崩與地滑）：經濟部地質調查及礦業管理中心（圖磚：國土測繪中心）"}),
     ("fault", {"name": "活動斷層", "wms": True, "rgba": True, "detail": False,
                "attribution": "活動斷層：經濟部地質調查及礦業管理中心"}),
     ("town", {"name": "行政區界", "sources": ["TOWN"], "rgba": True, "max_z": 17, "detail": True,
@@ -50,7 +52,7 @@ LAYERS = OrderedDict([
     ("roads", {"name": "道路與地名", "sources": ["EMAP2"], "rgba": True, "max_z": 19, "detail": True,
                "attribution": "電子地圖：內政部國土測繪中心"}),
 ])
-OVERLAY_ORDER = ["liq", "fault", "town", "roads"]      # 由下往上的繪製順序
+OVERLAY_ORDER = ["slide", "liq", "fault", "town", "roads"]      # 由下往上的繪製順序
 PROVIDER = {"id": "nlsc_photo2", "name": "國土測繪中心正射影像",
             "url": WMTS_URL.replace("{name}", "PHOTO2"), "attribution": LAYERS["photo"]["attribution"]}
 

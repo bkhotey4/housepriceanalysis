@@ -30,10 +30,14 @@ from core.taiwan import COUNTIES, load_towns  # noqa: E402
 OUT = os.path.join(ROOT, "data", "tw", "transit.json")
 WEB_OUT = os.path.join(ROOT, "web", "data", "tw", "transit.json")
 MAX_AGE_DAYS = 30
-QUERY = ('[out:json][timeout:240][bbox:21.8,118.0,26.5,122.2];'
-         '(rel["route"~"^(subway|light_rail|monorail)$"];'
-         'rel["route"="train"]["name"~"高鐵|高速鐵路|High Speed"];)->.r;'
-         '.r out geom;node(r.r)["name"];out;')
+VERSION = 2          # 格式或抓法改了就加 1：舊檔案即使還沒滿 30 天也會重抓
+REPORT = os.path.join(ROOT, "web", "data", "tw", "transit_report.json")   # 每條 relation 的明細（網站上看得到，方便查漏抓）
+# 一次查全台太大，Overpass 會中途停掉（回傳一部分＋remark 錯誤訊息）：分區、分類各查一次再合併
+AREAS = [("北部", "24.55,120.9,25.35,122.1"), ("中部", "23.75,120.2,24.55,121.4"), ("南部", "21.8,120.0,23.75,121.0"),
+         ("東部與離島", "21.8,118.0,26.5,122.2")]
+_Q = '[out:json][timeout:300][maxsize:1073741824][bbox:%s];%s->.r;.r out geom;node(r.r)["name"];out;'
+QUERIES = [("%s捷運輕軌" % n, _Q % (b, 'rel["route"~"^(subway|light_rail|monorail)$"]')) for n, b in AREAS[:3]] + [
+    ("高鐵", _Q % ("21.8,118.0,26.5,122.2", 'rel["route"="train"]["name"~"高鐵|高速鐵路|High Speed"]'))]
 DEFAULT_COLORS = {"subway": "#2a78d6", "light_rail": "#2ea36b", "monorail": "#8e5bd0", "train": "#e36f1e"}
 
 
@@ -47,7 +51,10 @@ def ask(ql):
                 body = plvr.fetch(base, timeout=300, agent=roads.AGENT, headers=hdr,
                                   data=("data=" + quote(ql)).encode("ascii"))
                 raw = json.loads(body.decode("utf-8"))
-                if isinstance(raw.get("elements"), list) and raw["elements"]:
+                remark = str(raw.get("remark") or "")
+                if "error" in remark.lower() or "runtime" in remark.lower():
+                    raise RuntimeError("Overpass 中途停止：%s" % remark[:200])    # 只回了一部分，不能用
+                if isinstance(raw.get("elements"), list):
                     return raw
             except Exception as e:          # 忙線、逾時：換一台或稍後再試
                 last = e
@@ -59,15 +66,25 @@ def line_key(tags):
     """同一條線不同方向的 relation 合併用：去掉「：起站→迄站」與方向字樣。"""
     name = tags.get("name") or tags.get("name:zh") or tags.get("ref") or ""
     name = re.split(r"[：:]", name)[0].strip()
-    name = re.sub(r"[（(](往|下行|上行|北上|南下|順行|逆行)[^）)]*[）)]$", "", name).strip()
+    # 方向、支線的括號：「(順向)」「(蘆洲逆向)」「（往淡水）」…都去掉，同一條線的各個方向、分支合成一條
+    name = re.sub(r"\s*[（(][^）)]*(往|下行|上行|北上|南下|順行|逆行|順向|逆向|方向|direction)[^）)]*[）)]\s*$", "", name).strip()
     net = (tags.get("network") or "").strip()
     if net and name and not name.startswith(net[:2]):     # 只寫「綠線」的：補上路網名稱，免得台北、台中的綠線被併成一條
         name = net + name
     return name
 
 
+ALIASES = {"南港-板橋-土城線": "板南線"}
+# OSM 沒標顏色時用官方路線色（依名稱比對）
+KNOWN_COLORS = {"文湖線": "#c48c31", "淡水信義線": "#e3002c", "松山新店線": "#008659", "中和新蘆線": "#f8b61c",
+                "板南線": "#0070bd", "環狀線": "#ffdb00", "機場": "#8246af", "高雄捷運紅線": "#e20b65", "高雄捷運橘線": "#faa73f",
+                "綠線": "#8ec31f"}
+
+
 def short_name(full):
     """「臺北捷運淡水信義線」→「淡水信義線」；「高雄捷運紅線」→「紅線」（網路名稱另外存在 network）。"""
+    if full in ALIASES:
+        return ALIASES[full]
     for pre in ("臺北捷運", "台北捷運", "新北捷運", "桃園捷運", "臺中捷運", "台中捷運", "高雄捷運", "高雄輕軌", "淡海輕軌",
                 "安坑輕軌", "臺北都會區大眾捷運系統", "台北都會區大眾捷運系統"):
         if full.startswith(pre) and len(full) > len(pre) + 1:
@@ -136,6 +153,8 @@ def build(raw, towns=None):
         pts = [(s[1], s[2]) for s in stations] or [tuple(ch[0]) for ch in chains]
         counties = sorted({_nearest_county(la, lo, towns) for la, lo in pts})
         color = t.get("colour") or t.get("color") or DEFAULT_COLORS.get(t.get("route"), "#2a78d6")
+        if not (t.get("colour") or t.get("color")):
+            color = next((c for k, c in KNOWN_COLORS.items() if k in key or k in short_name(key)), color)
         if not re.match(r"^#[0-9a-fA-F]{6}$", color):
             color = DEFAULT_COLORS.get(t.get("route"), "#2a78d6")
         kind = {"subway": "捷運", "light_rail": "輕軌", "monorail": "單軌", "train": "高鐵"}.get(t.get("route"), "軌道")
@@ -165,15 +184,39 @@ def main():
             age = (datetime.date.today() - datetime.date.fromisoformat(old["as_of"])).days   # 不看檔案時間：git checkout 會改掉
         except (OSError, ValueError, KeyError):
             old, age = None, None
-        if old and old.get("lines") and age is not None and age < MAX_AGE_DAYS:
+        if old and old.get("lines") and old.get("v") == VERSION and age is not None and age < MAX_AGE_DAYS:
             os.makedirs(os.path.dirname(WEB_OUT), exist_ok=True)
             shutil.copyfile(OUT, WEB_OUT)
             print("路線資料 %d 天前更新過，這次不重抓" % age)
             return
-    lines = build(ask(QUERY))
+    elements, seen, report = [], set(), []
+    for label, ql in QUERIES:
+        raw = ask(ql)
+        n_rel = 0
+        for e in raw["elements"]:
+            k = (e.get("type"), e.get("id"))
+            if k in seen:
+                continue
+            seen.add(k)
+            elements.append(e)
+            if e.get("type") == "relation":
+                n_rel += 1
+                t = e.get("tags") or {}
+                ms = e.get("members") or []
+                report.append({"query": label, "id": e["id"], "name": t.get("name", ""), "route": t.get("route", ""),
+                               "network": t.get("network", ""), "key": line_key(t),
+                               "ways": sum(1 for m in ms if m.get("type") == "way" and m.get("geometry")),
+                               "stops": sum(1 for m in ms if m.get("type") == "node" and str(m.get("role", "")).startswith("stop"))})
+        print("%s：%d 個 relation" % (label, n_rel), flush=True)
+        time.sleep(5)
+    os.makedirs(os.path.dirname(REPORT), exist_ok=True)
+    with open(REPORT, "w", encoding="utf-8") as f:
+        json.dump({"as_of": datetime.date.today().isoformat(), "relations": report}, f, ensure_ascii=False, indent=0)
+    lines = build({"elements": elements})
     if not lines:
         raise SystemExit("沒有抓到任何路線")
-    out = {"as_of": datetime.date.today().isoformat(), "source": "© OpenStreetMap 貢獻者（Overpass API）", "lines": lines}
+    out = {"as_of": datetime.date.today().isoformat(), "v": VERSION, "source": "© OpenStreetMap 貢獻者（Overpass API）",
+           "lines": lines}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))

@@ -94,6 +94,32 @@ class WebAppTest(unittest.TestCase):
         before = pg.inner_text("#loan-out")
         pg.fill("input[data-loan='rate']", "3"); pg.wait_for_timeout(100)
         self.assertNotEqual(pg.inner_text("#loan-out"), before)
+        # 合理價估算：用 JS 估一次，結果的區間要包住中間值；估價分頁顯示區間、比對的成交與開價判斷
+        e = pg.evaluate("""() => __app.L.estimate(__app.D.txs, {dist: '善化區', cat: 'house', ping: 45, age: 10,
+                            todayYm: __app.D.book.months[__app.D.book.months.length - 1]})""")
+        if e["ok"]:
+            self.assertLessEqual(e["uLo"], e["uMid"]); self.assertLessEqual(e["uMid"], e["uHi"])
+            self.assertTrue(all(c["dist"] == "善化區" and not c["presale"] for c in e["comps"]))
+        pg.evaluate("""() => { __app.S.settings.val = {dist: '東區', cat: 'apt', ping: '35', age: '15', addr: '', price: '99999'};
+                               __app.selectDistrict('東區'); }""")
+        pg.click("#tabs button[data-tab='value']"); pg.wait_for_timeout(200)
+        body = pg.inner_text("#tab-body")
+        self.assertIn("合理總價約", body)
+        self.assertIn("高於合理區間", body)
+        self.assertGreater(pg.locator("#tab-body tr.click").count(), 2)
+        # 看屋清單附近的新成交：上次看過的日期很早 → 重新整理後出現「新成交」，按「我看過了」就清掉
+        pg.evaluate("""() => { localStorage.setItem('dth_v1', JSON.stringify({settings: {}, watch: [
+            {id: 'w1', name: '東區測試', district: '東區', type: '大樓／華廈', address: '', seen: '2000-01-01', lat: null, lng: null}]})); }""")
+        pg.reload(); pg.wait_for_function("window.__app && window.__app.D.txs"); pg.wait_for_timeout(300)
+        n = pg.evaluate("(__app.S.watchNews || {}).w1 ? __app.S.watchNews.w1.length : -1")
+        self.assertGreater(n, 0)
+        pg.evaluate("__app.S.tab = 'watch'; __app.S.watchSel = 'w1'; __app.selectDistrict('東區')")
+        pg.evaluate("__app.S.tab = 'watch'"); pg.evaluate("document.querySelector('#tabs [data-tab=watch]').click()"); pg.wait_for_timeout(200)
+        pg.evaluate("document.querySelector('#tab-body tr[data-watch=w1]').click()"); pg.wait_for_timeout(200)
+        self.assertIn("新成交", pg.inner_text("#tab-body"))
+        pg.evaluate("document.querySelector(`#tab-body [data-act='watch-seen']`).click()"); pg.wait_for_timeout(200)
+        self.assertEqual(pg.evaluate("__app.S.watchNews.w1.length"), 0)
+        pg.evaluate("localStorage.removeItem('dth_v1')")
         if book.source != "live":
             return                      # 這台電腦沒有逐筆成交快取：只比對地址解析與門牌位置
         # 路段行情：善化區近一年各路段的件數與中位價
@@ -350,6 +376,22 @@ class TaiwanWebTest(unittest.TestCase):
         pg.wait_for_function("window.__app && __app.D.tw")
         self.assertEqual(pg.evaluate("__app.S.current"), "全台")
         self.assertEqual(pg.evaluate("__app.D.districts.length"), 22)
+        # 跨縣市比較：台北大安區 vs 台南東區
+        pg.evaluate("__app.S.settings.cmp = []")
+        pg.evaluate("__app.enterCounty('A')"); pg.wait_for_function("__app.D.county && __app.D.county.code === 'A'")
+        pg.evaluate("__app.selectDistrict('大安區')"); pg.wait_for_timeout(200)
+        pg.evaluate("__app.S.tab = 'overview'"); pg.evaluate("__app.selectDistrict('大安區')")
+        pg.evaluate("document.querySelector(`#tab-body [data-act='cmp-add']`).click()"); pg.wait_for_timeout(200)
+        pg.evaluate("__app.enterCounty('D')"); pg.wait_for_function("__app.D.county && __app.D.county.code === 'D'")
+        pg.evaluate("__app.S.tab = 'overview'"); pg.evaluate("__app.selectDistrict('東區')"); pg.wait_for_timeout(200)
+        pg.evaluate("document.querySelector(`#tab-body [data-act='cmp-add']`).click()")
+        pg.wait_for_function("document.querySelectorAll('#tab-body table.cmp thead th').length === 3")
+        heads = pg.inner_text("#tab-body table.cmp thead")
+        self.assertIn("台北 大安區", heads); self.assertIn("台南 東區", heads)
+        self.assertIn("中位單價", pg.inner_text("#tab-body table.cmp"))
+        pg.evaluate("document.querySelector(`#tab-body [data-cmpdel='0']`).click()"); pg.wait_for_timeout(200)
+        self.assertEqual(pg.locator("#tab-body table.cmp thead th").count(), 2)
+        pg.evaluate("__app.S.settings.cmp = []; __app.enterNation()")
         # 全台營運中的捷運：畫在地圖上，點車站看得到路線名稱
         pg.wait_for_function("__app.D.transit && __app.D.transit.length")
         self.assertIn("淡水信義線", pg.evaluate("__app.view.lines.map(l => l.name)"))

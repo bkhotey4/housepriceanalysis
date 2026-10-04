@@ -26,7 +26,7 @@ const trendColor = p => p == null ? NO_DATA : (t => t < 0 ? mix(DIV_MID, DIV_NEG
 const S = {
   cat: "all", metric: "u", current: L.CITY, tab: "overview", year: new Date().getFullYear(),
   addr: null, pin: null, roadFilter: null, picked: null, pickMode: null, roadKw: "", bldgKw: "", bldg: null, poi: null,
-  settings: { town: true, liq: false, fault: false, hires: true, lines: true, markers: true, landmarks: true, projects: true,
+  settings: { town: true, liq: false, slide: false, fault: false, hires: true, lines: true, markers: true, landmarks: true, projects: true,
               roads: true, labels: true, color: "price", work: "", workKm: 5, budget: "", mode: "car", commuteMin: 20, workPt: null, autoReport: true },
   watch: [],
 };
@@ -43,6 +43,8 @@ function saveStore() {
 
 // ------------------------------------------------------------------ 資料
 const D = { roads: new Map() };
+// 淹水潛勢：國家災害防救科技中心「3D 災害潛勢地圖」（官方圖資沒有開放給其他網站直接疊圖，所以用連結開啟）
+const FLOOD_URL = "https://dmap.ncdr.nat.gov.tw/1109/map/?group-layer=" + encodeURIComponent("淹水潛勢");
 const allLines = () => (D.mrt ? D.mrt.lines : []).concat(D.transit || []);
 async function getJSON(path) {
   const r = await fetch(path);
@@ -103,7 +105,7 @@ function toast(msg, ms = 4200) {
 
 // ------------------------------------------------------------------ 錯誤紀錄（存在這台裝置；「☰ → 問題回報」可以一鍵到 GitHub 回報）
 // 記在手機上，並匿名送到維護者的 Google 表單（可在設定關閉）；也可以按一下帶著內容開 GitHub Issue（需要登入 GitHub）
-const ERR_KEY = "dth_errors", APP_VER = "2026-10-04c";
+const ERR_KEY = "dth_errors", APP_VER = "2026-10-05a";
 function loadErrors() { try { return JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); } catch { return []; } }
 function logError(where, err, quiet = false) {
   const e = { t: new Date().toLocaleString("sv-SE").slice(0, 19), where, msg: String((err && err.message) || err || "").slice(0, 300),
@@ -548,7 +550,7 @@ function pick(hit, latlng) {
 }
 
 // ------------------------------------------------------------------ 面板
-const TABS = [["overview", "概況"], ["rank", "排行"], ["commute", "通勤"], ["roads", "路段"], ["bldg", "社區"], ["tx", "成交"], ["projects", "建設"], ["detail", "點選"], ["poi", "周邊"], ["watch", "看屋"]];
+const TABS = [["overview", "概況"], ["rank", "排行"], ["commute", "通勤"], ["roads", "路段"], ["bldg", "社區"], ["tx", "成交"], ["value", "估價"], ["cmp", "比較"], ["projects", "建設"], ["detail", "點選"], ["poi", "周邊"], ["watch", "看屋"]];
 function renderPanel() {
   const name = S.current, b = D.book;
   $("#d-name").textContent = name;
@@ -570,7 +572,7 @@ function renderPanel() {
   $("#tabs").innerHTML = TABS.filter(([k]) => (k !== "detail" || S.picked) && (k !== "poi" || S.poi)).map(([k, t]) =>
     `<button role="tab" data-tab="${k}" aria-selected="${S.tab === k}">${t}</button>`).join("");
   const body = $("#tab-body");
-  body.innerHTML = ({ overview: tabOverview, rank: tabRank, commute: tabCommute, roads: tabRoads, bldg: tabBldg, tx: tabTx, projects: tabProjects, detail: tabDetail, poi: tabPoi, watch: tabWatch }[S.tab] || tabOverview)();
+  body.innerHTML = ({ overview: tabOverview, rank: tabRank, commute: tabCommute, roads: tabRoads, bldg: tabBldg, tx: tabTx, value: tabValue, cmp: tabCmp, projects: tabProjects, detail: tabDetail, poi: tabPoi, watch: tabWatch }[S.tab] || tabOverview)();
   body.scrollTop = 0;
   const on = $("#tabs [aria-selected='true']");
   if (on) { const bar = $("#tabs"); if (on.offsetLeft < bar.scrollLeft || on.offsetLeft + on.offsetWidth > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = on.offsetLeft - 16; }
@@ -601,7 +603,7 @@ function tabOverview() {
     if (gap != null) bits.push(`預售屋單價比中古大樓${gap >= 0 ? "高" : "低"} ${Math.abs(gap).toFixed(0)}%`);
     if (w) bits.push(`到${esc(w.name)}：${modeName()}約 ${minsTo(d.lat, d.lng, w)} 分鐘（直線 ${L.distKm(d.lat, d.lng, w.lat, w.lng).toFixed(1)} 公里，估計）`);
     if (bits.length) h += `<div class="summary">${bits.join("<br>")}</div>`;
-    h += `<div class="row">${reportButton()}<a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a>` +
+    h += `<div class="row">${reportButton()}<button class="btn small" data-act="cmp-add">加入比較</button><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a><a class="btn" target="_blank" rel="noopener" href="${FLOOD_URL}">淹水潛勢</a>` +
       (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
     h += loanSection(bt.value);
   } else {
@@ -853,6 +855,31 @@ function compareWatch(it) {
   return { cat, bt, bu, unit, vsT: it.price && bt.value ? (it.price - bt.value) / bt.value * 100 : null, vsU: unit && bu.value ? (unit - bu.value) / bu.value * 100 : null };
 }
 const pct = v => v == null ? "—" : `${v >= 0 ? "高" : "低"} ${Math.abs(v).toFixed(0)}%`;
+// ---- 看屋清單附近的新成交：每次載入成交資料時，找出物件同一條路（沒填路名就同一區、同房型）上次看過之後的新成交
+const watchCode = it => it.code || "D";
+function watchNearby(it) {
+  if (!D.txs) return [];
+  const cat = TYPE_CAT[it.type] || "all";
+  let road = null;
+  if (it.address) { const a = L.parseAddress(it.district + it.address.replace(it.district, ""), D.districts.map(d => d.name)); road = a && a.road; }
+  return D.txs.filter(x => x.dist === it.district && L.inCat(x, cat) && (!road || x.road === road));
+}
+function checkWatchNews() {
+  if (!D.txs) return;
+  const code = cmpCode() || "D", latest = D.txs.reduce((m, x) => x.date > m ? x.date : m, "");
+  let changed = false, total = 0, names = [];
+  S.watchNews = S.watchNews || {};
+  for (const it of S.watch) {
+    if (D.tw && watchCode(it) !== code) continue;
+    if (!D.dmap[it.district]) continue;
+    if (!it.seen) { it.seen = latest; changed = true; S.watchNews[it.id] = []; continue; }   // 第一次：從現在開始算
+    const news = watchNearby(it).filter(x => x.date > it.seen).sort((a, b) => b.date.localeCompare(a.date));
+    S.watchNews[it.id] = news;
+    if (news.length) { total += news.length; names.push(it.name); }
+  }
+  if (changed) saveStore();
+  if (total && !S._watchToasted) { S._watchToasted = true; toast(`看屋清單：${names.slice(0, 2).join("、")}${names.length > 2 ? "等" : ""}附近有 ${total} 筆新成交，到「看屋」分頁看。`, 6000); }
+}
 function tabWatch() {
   let h = `<div class="row"><button class="btn primary" data-act="watch-add">新增物件</button><button class="btn" data-act="watch-export">匯出備份</button><label class="btn">匯入<input type="file" id="watch-import" accept="application/json" hidden></label></div>`;
   h += `<p class="muted">看屋清單只存在這台裝置的瀏覽器裡，不會上傳。換手機時請用「匯出備份」再到新手機「匯入」。</p>`;
@@ -860,7 +887,8 @@ function tabWatch() {
   h += `<table class="list"><thead><tr><th>物件</th><th class="r">總價</th><th class="r">萬/坪</th><th class="r">對區中位</th></tr></thead><tbody>`;
   for (const it of S.watch) {
     const c = compareWatch(it);
-    h += `<tr class="click${S.watchSel === it.id ? " sel" : ""}" data-watch="${esc(it.id)}"><td>${esc(it.name)}<div class="muted">${esc(it.district || "")}｜${esc(it.type || "")}</div></td>` +
+    const nn = ((S.watchNews || {})[it.id] || []).length;
+    h += `<tr class="click${S.watchSel === it.id ? " sel" : ""}" data-watch="${esc(it.id)}"><td>${esc(it.name)}${nn ? ` <span class="pill new">新成交 ${nn}</span>` : ""}<div class="muted">${esc(it.district || "")}｜${esc(it.type || "")}</div></td>` +
       `<td class="r">${it.price ? L.fmtNum(it.price) : "—"}</td><td class="r">${c && c.unit ? c.unit.toFixed(1) : "—"}</td><td class="r">${c ? pct(c.vsT) : "—"}</td></tr>`;
   }
   h += "</tbody></table>";
@@ -870,11 +898,133 @@ function tabWatch() {
     h += `<h2>${esc(it.name)}</h2><p class="muted">${esc([it.district, it.address, it.type].filter(Boolean).join("｜"))}</p>`;
     if (c && c.bt.value != null) h += `<div class="summary">${esc(it.district)}${L.CAT_LABEL[c.cat]}中位總價 ${L.fmtNum(c.bt.value)} 萬（${c.bt.n} 件）→ 這間 ${pct(c.vsT)}<br>中位單價 ${c.bu.value != null ? c.bu.value.toFixed(1) : "—"} 萬/坪 → 這間 ${pct(c.vsU)}</div>`;
     if (it.note) h += `<p>${esc(it.note)}</p>`;
-    h += `<div class="row"><button class="btn" data-act="watch-edit">編輯</button><button class="btn" data-act="watch-pin">在地圖上標位置</button>` +
+    const news = (S.watchNews || {})[it.id] || [];
+    if (news.length) {
+      S.txShown = news.slice(0, 30);
+      h += `<h3>上次看過之後，附近的新成交（${news.length} 筆）</h3><table class="list"><thead><tr><th>日期</th><th>地址／建案</th><th class="r">坪</th><th class="r">萬/坪</th><th class="r">總價</th></tr></thead><tbody>` +
+        S.txShown.map((x, i) => `<tr class="click" data-tx="${i}"><td>${x.date.slice(2).replace(/-/g, "/")}</td><td>${esc((x.proj || x.addr.replace(/^.{2,3}[市縣]/, "").replace(x.dist, "")).slice(0, 18))}</td>` +
+          `<td class="r">${x.ping.toFixed(1)}</td><td class="r">${x.u.toFixed(1)}</td><td class="r">${L.fmtNum(x.tw)}</td></tr>`).join("") +
+        `</tbody></table><div class="row"><button class="btn small" data-act="watch-seen">我看過了</button></div>`;
+    }
+    h += `<div class="row"><button class="btn primary" data-act="watch-value">估合理價</button><button class="btn" data-act="watch-edit">編輯</button><button class="btn" data-act="watch-pin">在地圖上標位置</button>` +
       (it.lat != null ? `<button class="btn" data-act="watch-map">在地圖上看</button>` : "") +
       (it.url ? `<a class="btn" target="_blank" rel="noopener" href="${esc(it.url)}">物件網址</a>` : "") +
       `<button class="btn" data-act="watch-del">刪除</button></div>`;
   }
+  return h;
+}
+// ---- 區域比較：最多 3 個區並排，可以跨縣市（例如台南東區 vs 高雄左營 vs 台中北屯）
+const CMP_MAX = 3;
+const cmpCode = () => (D.county ? D.county.code : D.tw ? "" : "D");
+function cmpList() { return (S.settings.cmp || []).filter(x => x && x.name); }
+function cmpAdd() {
+  const code = cmpCode(), name = S.current;
+  if (!name || name === L.CITY || (D.tw && !D.county)) { toast("先選一個行政區再加入比較。"); return; }
+  const list = cmpList().filter(x => !(x.code === code && x.name === name));
+  list.push({ code, name, county: D.county ? D.county.short : L.CITY });
+  S.settings.cmp = list.slice(-CMP_MAX); saveStore();
+  toast(`已加入比較（${S.settings.cmp.length}/${CMP_MAX}）`); S.tab = "cmp"; renderPanel();
+}
+const CMP_DATA = new Map();      // "代碼|區" → {book, d}
+function cmpEnsure() {
+  const need = cmpList().filter(x => !CMP_DATA.has(x.code + "|" + x.name));
+  if (!need.length) return true;
+  Promise.all(need.map(async x => {
+    if (!D.tw) { CMP_DATA.set(x.code + "|" + x.name, { book: D.book, d: D.dmap[x.name] }); return; }
+    const cd = await countyData(x.code);
+    CMP_DATA.set(x.code + "|" + x.name, { book: cd.book, d: cd.dmap[x.name] });
+  })).then(() => { if (S.tab === "cmp") renderPanel(); }).catch(e => { logError("載入比較資料", e); toast("比較資料載入失敗，請檢查網路。"); });
+  return false;
+}
+function cmpSeriesSVG(cols) {
+  const colors = ["#2a78d6", "#e3542c", "#2ea36b"], all = [];
+  const ser = cols.map(c => c.book.series(c.name, S.cat, S.metric).filter(p => !p.partial));
+  ser.forEach(s => s.forEach(p => { if (p.v != null) all.push(p.v); }));
+  if (all.length < 2) return "";
+  let lo = Math.min(...all), hi = Math.max(...all); const pad = (hi - lo) * 0.1 || 1; lo -= pad; hi += pad;
+  const months = [...new Set(ser.flat().map(p => p.m))].sort(), W = 360, H = 150, l = 40, r = 10, t = 10, b = 22;
+  const x = m => l + months.indexOf(m) * (W - l - r) / Math.max(1, months.length - 1), y = v => t + (hi - v) / (hi - lo) * (H - t - b);
+  let g = `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="各區每月中位價比較">`;
+  for (const f of [0, 0.5, 1]) { const v = hi - (hi - lo) * f; g += `<line x1="${l}" x2="${W - r}" y1="${y(v)}" y2="${y(v)}" stroke="#eceff2"/><text x="${l - 5}" y="${y(v) + 4}" font-size="10" text-anchor="end" fill="#5b6168">${S.metric === "u" ? v.toFixed(0) : L.fmtNum(v)}</text>`; }
+  ser.forEach((s, i) => {
+    const pts = s.filter(p => p.v != null).map(p => `${x(p.m)},${y(p.v)}`).join(" ");
+    g += `<polyline fill="none" stroke="${colors[i]}" stroke-width="2.2" points="${pts}"/>`;
+  });
+  months.forEach((m, i) => { if (i % 3 === 0 || i === months.length - 1) g += `<text x="${x(m)}" y="${H - 6}" font-size="10" text-anchor="middle" fill="#5b6168">${m.slice(2).replace("-", "/")}</text>`; });
+  g += "</svg>";
+  return g + `<p class="muted">${cols.map((c, i) => `<span style="color:${colors[i]}">━</span> ${esc(c.label)}`).join("　")}</p>`;
+}
+function tabCmp() {
+  const list = cmpList();
+  let h = `<div class="row">${S.current !== L.CITY && !isNation() ? `<button class="btn primary" data-act="cmp-add">把${esc(S.current)}加入比較</button>` : ""}` +
+    (list.length ? `<button class="btn" data-act="cmp-clear">清空</button>` : "") + `</div>`;
+  if (!list.length) return h + `<p class="empty">還沒有要比較的區。選一個行政區後按「加入比較」，最多 ${CMP_MAX} 個，可以跨縣市。</p>`;
+  if (!cmpEnsure()) return h + `<p class="empty">載入比較資料中…</p>`;
+  const cols = list.map(x => ({ ...x, ...CMP_DATA.get(x.code + "|" + x.name), label: (D.tw ? x.county.replace(/[市縣]$/, "") + " " : "") + x.name }))
+    .filter(c => c.book && c.d);
+  const w = workPlace(), cat = S.cat;
+  const stations = allLines().flatMap(ln => ln.stations.map(st => ({ ln, st })));
+  const rows = [
+    ["中位單價（萬/坪）", c => { const b = c.book.best(c.name, cat, "u"); return b.value == null ? "—" : b.value.toFixed(1) + (b.low ? "*" : ""); }],
+    ["中位總價（萬）", c => L.fmtNum(c.book.best(c.name, cat, "t").value)],
+    ["成交件數", c => L.fmtNum(c.book.best(c.name, cat, "u").n)],
+    ["近半年漲跌", c => L.trendText(c.book.trend(c.name, cat, S.metric))],
+    ["預售比中古大樓", c => { const g = c.book.presaleGap(c.name); return g == null ? "—" : `${g >= 0 ? "高" : "低"} ${Math.abs(g).toFixed(0)}%`; }],
+    [w ? `到${w.name}（${modeName()}）` : "通勤（先設定上班地點）", c => w ? `約 ${minsTo(c.d.lat, c.d.lng, w)} 分` : "—"],
+    ["最近的捷運／高鐵站", c => {
+      let best = null; for (const { ln, st } of stations) { const k = L.distKm(c.d.lat, c.d.lng, st[1], st[2]); if (!best || k < best.k) best = { k, n: st[0], ln }; }
+      return best && best.k <= 8 ? `${esc(best.n.split("（")[0].slice(0, 10))} ${best.k.toFixed(1)} 公里${best.ln.operating ? "" : "（規劃）"}` : "8 公里內沒有";
+    }],
+    ["3 公里內重大建設", c => {
+      const n = D.intel.filter(it => it.lat != null && (it.impact_level || 0) >= 4 && L.distKm(c.d.lat, c.d.lng, it.lat, it.lng) <= 3).length;
+      return n ? `${n} 項` : "—";
+    }],
+  ];
+  h += `<table class="list cmp"><thead><tr><th></th>${cols.map((c, i) => `<th class="r">${esc(c.label)}<div><a href="#" data-cmpdel="${i}">移除</a></div></th>`).join("")}</tr></thead><tbody>` +
+    rows.map(([k, f]) => `<tr><td>${esc(k)}</td>${cols.map(c => `<td class="r">${f(c)}</td>`).join("")}</tr>`).join("") + `</tbody></table>`;
+  h += `<p class="muted">房型：${L.CAT_LABEL[cat]}｜近半年統計，件數太少時改用近一年（標 *）。通勤是直線距離的估計。</p>`;
+  h += `<h3>每月中位${S.metric === "u" ? "單價" : "總價"}</h3>` + cmpSeriesSVG(cols);
+  return h;
+}
+// ---- 合理價估算：找條件相近的實價登錄成交，算出合理價區間
+const VAL_TYPES = [["apt", "大樓／華廈／公寓"], ["house", "透天厝"], ["presale", "預售屋"]];
+function valState() { return Object.assign({ dist: "", cat: "apt", ping: "", age: "", addr: "", price: "" }, S.settings.val || {}); }
+function valQuery() {
+  const v = valState(), dist = D.dmap[v.dist] ? v.dist : (S.current !== L.CITY ? S.current : (D.districts[0] || {}).name);
+  const q = { dist, cat: v.cat, ping: +v.ping || null, age: v.cat === "presale" ? null : (v.age === "" ? null : +v.age), presale: v.cat === "presale",
+              todayYm: D.book.months[D.book.months.length - 1] };
+  if (v.addr) {
+    const a = L.parseAddress(dist + v.addr.replace(dist, ""), D.districts.map(d => d.name));
+    if (a && a.road) Object.assign(q, { road: a.road, lane: a.lane, alley: a.alley, num: a.num });
+  }
+  return { v, q };
+}
+function tabValue() {
+  if (isNation()) return needCounty();
+  if (!D.txs) return `<p class="empty">成交資料載入中…</p>`;
+  const { v, q } = valQuery();
+  const inp = (k, label, ph, mode = "decimal") => `<label>${label}</label><input data-val="${k}" inputmode="${mode}" value="${esc(String(v[k] ?? ""))}" placeholder="${esc(ph)}">`;
+  let h = `<p class="muted">輸入一間房子的條件，從實價登錄找條件相近的成交（坪數、屋齡接近、越新的越重要；同一棟、同一條巷、同一條路優先），算出合理價區間。</p>` +
+    `<div class="grid valform"><label>行政區</label><select data-val="dist">${D.districts.map(d => `<option${d.name === q.dist ? " selected" : ""}>${esc(d.name)}</option>`).join("")}</select>` +
+    `<label>房型</label><select data-val="cat">${VAL_TYPES.map(([k, t]) => `<option value="${k}"${k === v.cat ? " selected" : ""}>${t}</option>`).join("")}</select>` +
+    inp("ping", "建坪（含車位）", "例：35") + (v.cat === "presale" ? "" : inp("age", "屋齡（年）", "例：12", "numeric")) +
+    inp("addr", "路名或門牌", "可空白，例：中華路一段", "text") + inp("price", "開價（萬，可空白）", "例：1580") + `</div>`;
+  if (!q.ping) return h + `<p class="empty">填上建坪就能估價。</p>`;
+  const e = L.estimate(D.txs, q);
+  if (!e.ok) return h + `<p class="empty">${esc(q.dist)}條件相近的成交只有 ${e.n} 筆，太少，估不出來。可以把房型改成「全部」看看，或放寬坪數。</p>`;
+  const j = L.judgePrice(e, +v.price);
+  h += `<div class="summary"><b>合理總價約 ${L.fmtNum(e.tLo)}～${L.fmtNum(e.tHi)} 萬</b>（中間值 ${L.fmtNum(e.tMid)} 萬）<br>` +
+    `單價 ${e.uLo}～${e.uHi} 萬/坪（中間值 ${e.uMid}）｜比對 ${e.n} 筆近 ${e.months / 12 | 0} 年成交，最接近的有 ${e.nearN} 筆${esc(e.level)}` +
+    (j ? `<br>開價 ${L.fmtNum(+v.price)} 萬：<b class="${j.pos === "高於" ? "up" : j.pos === "低於" ? "down" : ""}">${j.pos}合理區間</b>（比中間值${j.pct >= 0 ? "高" : "低"} ${Math.abs(j.pct).toFixed(0)}%）` : "") + `</div>`;
+  if (q.cat === "house") h += `<p class="muted">透天的單價含土地，地坪大小影響很大，這個區間只能當粗略參考。</p>`;
+  S.txShown = e.comps;
+  h += `<h3>比對用的成交（最相近的 ${e.comps.length} 筆）</h3><table class="list"><thead><tr><th>日期</th><th>地址／建案</th><th class="r">坪</th><th class="r">屋齡</th><th class="r">萬/坪</th><th class="r">總價</th></tr></thead><tbody>`;
+  e.comps.forEach((x, i) => {
+    const where = x.proj ? x.proj : x.addr.replace(/^.{2,3}[市縣]/, "").replace(x.dist, "");
+    h += `<tr class="click${x.level >= 2 ? " lane" : ""}" data-tx="${i}"><td>${x.date.slice(2).replace(/-/g, "/")}</td><td>${esc(where.slice(0, 18))}<div class="muted">${["", "同路", "同巷", "同一棟"][x.level]}</div></td>` +
+      `<td class="r">${x.ping.toFixed(1)}</td><td class="r">${x.age ?? "—"}</td><td class="r">${x.u.toFixed(1)}</td><td class="r">${L.fmtNum(x.tw)}</td></tr>`;
+  });
+  h += `</tbody></table><p class="muted">這是依過去成交推算的參考區間，不含屋況、樓層、景觀、車位價差與裝潢；實際價格請以現場與專業估價為準，不構成購屋建議。</p>`;
   return h;
 }
 function watchDialog(item) {
@@ -886,6 +1036,7 @@ function watchDialog(item) {
     <label>類型</label><select name="type">${WATCH_TYPES.map(t => `<option${t === v.type ? " selected" : ""}>${t}</option>`).join("")}</select>
     <label>總價（萬）</label><input name="price" inputmode="decimal" value="${v.price ?? ""}">
     <label>建坪</label><input name="ping" inputmode="decimal" value="${v.ping ?? ""}">
+    <label>屋齡（年）</label><input name="age" inputmode="numeric" value="${v.age ?? ""}">
     <label>網址</label><input name="url" type="url" value="${esc(v.url || "")}">
     <label>備註</label><textarea name="note" rows="3">${esc(v.note || "")}</textarea></div>
     <div class="actions"><button value="cancel" class="btn">取消</button><button value="ok" class="btn primary">儲存</button></div></form>`;
@@ -894,9 +1045,9 @@ function watchDialog(item) {
     if (dlg.returnValue === "ok") {
       const f = new FormData(dlg.querySelector("form")), num = k => { const n = parseFloat(String(f.get(k)).replace(/,/g, "")); return isFinite(n) && n > 0 ? n : null; };
       const data = { name: String(f.get("name")).trim() || "未命名", district: f.get("district"), address: String(f.get("address")).trim(), type: f.get("type"),
-                     price: num("price"), ping: num("ping"), url: String(f.get("url")).trim(), note: String(f.get("note")).trim() };
+                     price: num("price"), ping: num("ping"), age: (() => { const a = parseFloat(f.get("age")); return isFinite(a) && a >= 0 ? a : null; })(), url: String(f.get("url")).trim(), note: String(f.get("note")).trim() };
       if (item) Object.assign(item, data);
-      else { const it = { id: "w" + Date.now(), lat: null, lng: null, ...data }; S.watch.push(it); S.watchSel = it.id; }
+      else { const it = { id: "w" + Date.now(), lat: null, lng: null, code: D.county ? D.county.code : "D", ...data }; S.watch.push(it); S.watchSel = it.id; }
       saveStore(); refreshPins(); renderPanel();
     }
     dlg.remove();
@@ -908,7 +1059,8 @@ function watchDialog(item) {
 function renderMenu() {
   const s = S.settings, chk = (k, t) => `<label class="chk"><input type="checkbox" data-set="${k}"${s[k] ? " checked" : ""}> ${t}</label>`;
   $("#menu-body").innerHTML = `
-    <h3>地圖圖層</h3>${chk("town", "行政區界")}${chk("liq", "土壤液化潛勢")}${chk("fault", "活動斷層")}${chk("hires", "放大時載入高解析衛星影像（較耗流量）")}
+    <h3>地圖圖層</h3>${chk("town", "行政區界")}${chk("liq", "土壤液化潛勢")}${D.tw ? chk("slide", "山崩與地滑（地質敏感區）") : ""}${chk("fault", "活動斷層")}
+    <p class="muted">淹水潛勢：官方圖資沒有開放疊圖，請到 <a target="_blank" rel="noopener" href="${FLOOD_URL}">國家災害防救科技中心 3D 災害潛勢地圖</a> 查詢（各區「概況」也有「淹水潛勢」按鈕）。</p>${chk("hires", "放大時載入高解析衛星影像（較耗流量）")}
     ${chk("lines", "捷運、輕軌、高鐵（營運中與規劃）")}${chk("markers", "開發案與情資（菱形）")}${chk("landmarks", "知名地標 3D")}${chk("projects", "重大建設 3D")}${chk("roads", "路段房價（選了行政區才畫）")}${chk("labels", "名稱標籤")}
     <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option></select></div>
     <h3>篩選</h3>
@@ -918,7 +1070,7 @@ function renderMenu() {
     <p class="muted">不符合預算或通勤範圍的行政區，柱子會縮成灰色小方塊。</p>
     <h3>資料</h3><p class="muted">${esc(D.meta.describe)}；成交 ${L.fmtNum(D.meta.tx_count)} 筆；整理於 ${esc(D.meta.built)}。<br>
     房價：內政部實價登錄開放資料。道路位置：© OpenStreetMap 貢獻者。影像與行政區界：內政部國土測繪中心。
-    土壤液化：經濟部地質調查及礦業管理中心。重大建設整理自新聞與官方公告。統計值為中位數，僅供看屋參考，不構成投資或購屋建議。</p>
+    土壤液化、山崩與地滑、活動斷層：經濟部地質調查及礦業管理中心。捷運與高鐵路線：© OpenStreetMap 貢獻者。重大建設整理自新聞與官方公告。統計值為中位數，僅供看屋參考，不構成投資或購屋建議。</p>
     <p class="muted">這個網頁的所有計算都在你的裝置上完成；設定與看屋清單只存在這台裝置的瀏覽器裡。<br>
     手機瀏覽器選單裡的「加到主畫面」，之後可以像 App 一樣開啟。</p>
     ${problemSection()}`;
@@ -940,7 +1092,7 @@ function problemSection() {
 function onSetting(el) {
   const k = el.dataset.set, v = el.type === "checkbox" ? el.checked : el.value;
   S.settings[k] = v; saveStore();
-  view.layerOn = { town: S.settings.town, liq: S.settings.liq, fault: S.settings.fault };
+  view.layerOn = { town: S.settings.town, liq: S.settings.liq, slide: S.settings.slide, fault: S.settings.fault };
   view.show.hires = S.settings.hires; view.show.lines = S.settings.lines; view.show.labels = S.settings.labels;
   if (["budget", "work", "workKm", "commuteMin", "mode", "color"].includes(k)) { refreshBars(); refreshPins(); renderPanel(); }
   if (["landmarks", "projects", "markers"].includes(k)) refreshModels();
@@ -1066,6 +1218,8 @@ function bindUI() {
       return;
     }
     if (tr && tr.dataset.watch) { S.watchSel = tr.dataset.watch; renderPanel(); const it = S.watch.find(w => w.id === S.watchSel); if (it && it.lat != null) view.flyTo(it.lat, it.lng, Math.max(view.zoom, 60)); return; }
+    const cdel = t.closest("[data-cmpdel]");
+    if (cdel) { e.preventDefault(); const l = cmpList(); l.splice(+cdel.dataset.cmpdel, 1); S.settings.cmp = l; saveStore(); renderPanel(); return; }
     const act = t.closest("[data-act]")?.dataset.act;
     const it = S.watch.find(w => w.id === S.watchSel);
     if (act === "report") { if (S.current === L.CITY) toast("先選一個行政區或搜尋地址，再產生報告。"); else reportDialog(); return; }
@@ -1080,7 +1234,18 @@ function bindUI() {
     if (act === "bldg-back") { S.bldg = null; S.pin = null; refreshPins(); renderPanel(); return; }
     if (act === "clear-road") { S.roadFilter = null; S.addr = null; S.pin = null; refreshPins(); view.select(S.current === L.CITY ? null : "district", S.current); renderPanel(); }
     if (act === "watch-add") watchDialog(null);
+    if (act === "cmp-add") { cmpAdd(); return; }
+    if (act === "watch-seen" && it) {
+      it.seen = D.txs.reduce((m, x) => x.date > m ? x.date : m, it.seen || ""); S.watchNews[it.id] = []; saveStore(); renderPanel(); return;
+    }
+    if (act === "cmp-clear") { S.settings.cmp = []; saveStore(); renderPanel(); return; }
     if (act === "watch-edit" && it) watchDialog(it);
+    if (act === "watch-value" && it) {
+      const cat = TYPE_CAT[it.type] === "house" ? "house" : it.type === "預售屋" ? "presale" : "apt";
+      S.settings.val = { dist: it.district, cat, ping: it.ping ?? "", age: it.age ?? "", addr: it.address || "", price: it.price ?? "" }; saveStore();
+      if (it.district !== S.current && D.dmap[it.district]) selectDistrict(it.district);
+      S.tab = "value"; renderPanel(); return;
+    }
     if (act === "watch-del" && it && confirm(`要把「${it.name}」從看屋清單刪除嗎？`)) { S.watch = S.watch.filter(w => w !== it); S.watchSel = null; saveStore(); refreshPins(); renderPanel(); }
     if (act === "watch-map" && it) view.flyTo(it.lat, it.lng, Math.max(view.zoom, 60));
     if (act === "watch-pin" && it) {
@@ -1096,6 +1261,10 @@ function bindUI() {
   });
   body.addEventListener("change", e => {
     if (e.target.dataset && e.target.dataset.set) { onSetting(e.target); renderPanel(); return; }
+    if (e.target.dataset && e.target.dataset.val) {
+      S.settings.val = Object.assign(valState(), { [e.target.dataset.val]: e.target.value.trim() }); saveStore();
+      const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; return;
+    }
     if (e.target.id === "watch-import") {
       const f = e.target.files[0]; if (!f) return;
       f.text().then(txt => {
@@ -1151,13 +1320,24 @@ function enterNation(fly = true) {
   if (fly) view.flyHome();
   refreshAll();
 }
+// 各縣市的統計與行政區（比較功能會同時用到好幾個縣市，讀過的留著）
+const COUNTY_CACHE = new Map();
+function countyData(code) {
+  if (!COUNTY_CACHE.has(code)) {
+    const base = `data/tw/${code}/`;
+    COUNTY_CACHE.set(code, Promise.all([getJSON(base + "book.json"), getJSON(base + "districts.json")])
+      .then(([raw, dd]) => ({ raw, dd, book: new L.Book(raw), dmap: Object.fromEntries(dd.districts.map(d => [d.name, d])) }))
+      .catch(e => { COUNTY_CACHE.delete(code); throw e; }));
+  }
+  return COUNTY_CACHE.get(code);
+}
 async function enterCounty(code, fly = true) {
   const c = D.tw.counties.find(x => x.code === code);
   if (!c) return false;
   if (!c.has_data) { toast(`${c.short}的資料還在準備中（每次自動更新會補上）。`); return false; }
   const base = `data/tw/${code}/`;
   let book, dd;
-  try { [book, dd] = await Promise.all([getJSON(base + "book.json"), getJSON(base + "districts.json")]); }
+  try { ({ raw: book, dd } = await countyData(code)); }
   catch (e) { logError(`載入${c.short}資料`, e); toast(`${c.short}的資料載入失敗，請檢查網路後再試。`); return false; }
   D.county = c;
   L.setCity(c.short, c.short);
@@ -1165,7 +1345,7 @@ async function enterCounty(code, fly = true) {
   D.districts = dd.districts; D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
   D.meta = { ...D.tw, describe: D.tw.describe, tx_count: c.tx_count || 0, road_districts: c.roads || [] };
   D.txs = null;
-  D.txPromise = getJSON(base + "tx.json").then(raw => { if (D.county === c) { D.txs = L.decodeTx(raw); refreshRoads(); renderPanel(); } })
+  D.txPromise = getJSON(base + "tx.json").then(raw => { if (D.county === c) { D.txs = L.decodeTx(raw); refreshRoads(); checkWatchNews(); renderPanel(); } })
     .catch(e => { logError("載入成交資料", e); toast("成交資料載入失敗，請檢查網路後重新整理。"); });
   S.current = L.CITY; resetSelection();
   view.setExtent(extentOf(D.districts));
@@ -1199,7 +1379,7 @@ async function main() {
     getJSON("data/tw/transit.json").then(t => { D.transit = t.lines || []; view.lines = mrt.lines.concat(D.transit); view.request(); })
       .catch(() => { D.transit = []; });
   }
-  view.layerOn = { town: S.settings.town, liq: S.settings.liq, fault: S.settings.fault };
+  view.layerOn = { town: S.settings.town, liq: S.settings.liq, slide: S.settings.slide, fault: S.settings.fault };
   Object.assign(view.show, { hires: S.settings.hires, lines: S.settings.lines, labels: S.settings.labels });
   if (tw) {
     view.tileLayers = tw.layers;
@@ -1218,7 +1398,7 @@ async function main() {
   } else {
     refreshAll();
     // 逐筆成交比較大（壓縮後約 0.6MB），畫面先出來再載入
-    D.txPromise = getJSON("data/tx.json").then(raw => { D.txs = L.decodeTx(raw); refreshRoads(); renderPanel(); })
+    D.txPromise = getJSON("data/tx.json").then(raw => { D.txs = L.decodeTx(raw); refreshRoads(); checkWatchNews(); renderPanel(); })
       .catch(e => { logError("載入成交資料", e); toast("成交資料載入失敗，請檢查網路後重新整理。"); });
   }
   if (params.get("q")) { $("#q").value = params.get("q"); const wait = () => (D.tw || D.txs) ? search(params.get("q")) : setTimeout(wait, 200); wait(); }

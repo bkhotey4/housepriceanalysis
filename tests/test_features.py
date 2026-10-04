@@ -195,6 +195,7 @@ class LayerTest(unittest.TestCase):
             return self.png((230, 30, 30, 255), size=(1024, 880))
         plvr.fetch = fake
         bm = basemap.download(layer="fault")
+        urls = [u for u in urls if "mapagent" in u]          # 前一項測試的背景圖磚執行緒可能還在跑，只看斷層 WMS 的請求
         self.assertEqual(len(urls), 2)
         self.assertIn("BBOX=120.02,22.87,120.66,23.42", urls[0])
         self.assertIn("25K_Geomap_fault_2021", urls[0])
@@ -275,8 +276,9 @@ class LayerTest(unittest.TestCase):
         stack._last_plan.clear()
         stack.patches.clear()
         stack.request_detail(200.0, box)
-        for _ in range(200):
-            if stack.poll() or not stack.loader.busy:
+        for _ in range(500):                     # 慢的電腦上背景執行緒比較晚開始：等到真的連過網、而且做完
+            stack.poll()
+            if calls and not stack.loader.busy:
                 break
             time.sleep(0.02)
         self.assertEqual([u for u in calls if "PHOTO2" in u], [])

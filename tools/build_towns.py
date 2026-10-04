@@ -22,6 +22,15 @@ from core import geo, plvr, roads  # noqa: E402
 from core.taiwan import COUNTIES, TOWNS_PATH  # noqa: E402
 
 SUFFIX = ("區", "鄉", "鎮", "市")
+# OpenStreetMap 界線中心不能用的區：旗津區的界線包含東沙、南沙，中心算到南海去了。改用本島上的位置。
+FIXES = {"E": {"旗津區": (22.598, 120.278)}}
+
+
+def apply_fixes(towns):
+    for code, fixes in FIXES.items():
+        for t in towns.get(code, []):
+            if t["name"] in fixes:
+                t["lat"], t["lng"] = fixes[t["name"]]
 
 
 def query(county_name):
@@ -94,6 +103,7 @@ def main():
             failed.append(c["name"])
             print("%s：沒有抓到鄉鎮市區" % c["name"], flush=True)
         time.sleep(3)
+    apply_fixes(out["towns"])
     out["built"] = datetime.date.today().isoformat()
     os.makedirs(os.path.dirname(TOWNS_PATH), exist_ok=True)
     with open(TOWNS_PATH, "w", encoding="utf-8") as f:

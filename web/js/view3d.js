@@ -30,7 +30,7 @@ export class View3D {
     this.tileLayers = null;          // 全台版：{ photo: {tiles, max_z}, town: …, liq: …, fault: {wms} }
     this.inset = { left: 0, bottom: 0, top: 0, right: 0 };    // 被面板蓋住的區域（像素）
     this.bars = []; this.lines = []; this.markers = []; this.models = []; this.roads = []; this.pins = []; this.rings = []; this.pois = [];
-    this.layers = {}; this.layerOn = { town: true }; this.layerOpacity = { liq: 0.55, fault: 1, town: 1 };
+    this.layers = {}; this.layerOn = { town: true }; this.layerOpacity = { liq: 0.55, slide: 0.5, fault: 1, town: 1 };
     this.selected = null; this.show = { labels: true, lines: true, markers: true, hires: true };
     this.modelFaces = opts.models || {};
     this.onPick = null; this.onViewChange = null;
@@ -245,7 +245,7 @@ export class View3D {
     if (base) this._drawImageGeo(this._layerImage(base), base.meta.west, base.meta.east, base.meta.north, base.meta.south);
     if (this.tileLayers) {
       this._drawTiles("photo", !fast);
-      for (const id of ["liq", "fault", "town"]) if (this.layerOn[id]) this._drawTiles(id, !fast);
+      for (const id of ["slide", "liq", "fault", "town"]) if (this.layerOn[id]) this._drawTiles(id, !fast);
     } else if (!fast) this._drawTiles();
     for (const id of ["liq", "fault", "town"]) {
       const L = this.layers[id];

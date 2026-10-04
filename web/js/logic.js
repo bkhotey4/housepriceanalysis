@@ -582,3 +582,57 @@ export function mortgage(priceWan, downPct, ratePct, years, grace = 0) {
   return { loan: loan / 10000, down: priceWan * downPct / 100, graceMonthly, monthly, totalInterest: (total - loan) / 10000,
     income: monthly * 3 };     // 一般建議月付不超過月收入的三分之一
 }
+
+// ------------------------------------------------------------------ 合理價估算：從實價登錄找條件相近的成交
+// q: {dist, cat("house"|"apt"|"presale"|"all"), ping, age(屋齡，年), road, lane, alley, num, todayYm}
+// 相似度＝坪數接近 × 屋齡接近 × 越新的成交越重要 × 位置（同一棟 > 同巷 > 同路 > 同區），
+// 用加權分位數算單價區間（25%～75%），再乘上坪數得到總價區間。
+const ymIndex = ym => +ym.slice(0, 4) * 12 + (+ym.slice(5, 7)) - 1;
+function wQuantile(pairs, q) {        // pairs: [[value, weight]]，已排序
+  const tot = pairs.reduce((s, p) => s + p[1], 0);
+  let acc = 0;
+  for (const [v, w] of pairs) { acc += w; if (acc >= q * tot) return v; }
+  return pairs.length ? pairs[pairs.length - 1][0] : null;
+}
+export function estimate(txs, q) {
+  const now = ymIndex(q.todayYm || new Date().toISOString().slice(0, 7));
+  const year = +(q.todayYm || new Date().toISOString()).slice(0, 4);
+  const sameRoad = x => q.road && x.road === q.road;
+  const level = x => !sameRoad(x) ? 0 : q.lane != null && x.lane === q.lane ? (q.num != null && x.num === q.num && (x.alley ?? null) === (q.alley ?? null) ? 3 : 2) : 1;
+  const tries = [[24, 0.5, 12], [36, 0.7, 20], [60, 1.2, 99]];      // [月數, 坪數容許比例, 屋齡容許年]，找不到夠多就放寬
+  let pool = [], used = null;
+  for (const [months, pTol, aTol] of tries) {
+    pool = [];
+    for (const x of txs) {
+      if (x.dist !== q.dist || !inCat(x, q.cat) || !(x.u > 0)) continue;
+      const ago = now - ymIndex(x.ym);
+      if (ago < 0 || ago > months) continue;
+      if (q.ping && x.ping && Math.abs(Math.log(x.ping / q.ping)) > Math.log(1 + pTol)) continue;
+      const age = x.built ? Math.max(0, +x.date.slice(0, 4) - x.built) : null;
+      if (q.age != null && !q.presale && age != null && Math.abs(age - q.age) > aTol) continue;
+      const lv = level(x);
+      let w = Math.exp(-ago / 18) * [1, 1.6, 2.4, 3.5][lv];
+      if (q.ping && x.ping) w *= Math.exp(-Math.pow(Math.log(x.ping / q.ping) / 0.3, 2));
+      if (q.age != null && age != null) w *= Math.exp(-Math.pow((age - q.age) / 8, 2));
+      pool.push({ x, w, lv, age, ago });
+    }
+    used = { months, pTol, aTol };
+    if (pool.length >= 8) break;
+  }
+  if (pool.length < 3) return { n: pool.length, ok: false };
+  const pairs = pool.map(p => [p.x.u, p.w]).sort((a, b) => a[0] - b[0]);
+  const lo = wQuantile(pairs, 0.25), mid = wQuantile(pairs, 0.5), hi = wQuantile(pairs, 0.75);
+  const best = Math.max(...pool.map(p => p.lv));
+  const comps = pool.slice().sort((a, b) => b.w - a.w).slice(0, 12)
+    .map(p => ({ ...p.x, age: p.age, level: p.lv, weight: p.w }));
+  const r1 = v => Math.round(v * 10) / 10;
+  return { ok: true, n: pool.length, months: used.months, uLo: r1(lo), uMid: r1(mid), uHi: r1(hi),
+    tLo: q.ping ? Math.round(lo * q.ping) : null, tMid: q.ping ? Math.round(mid * q.ping) : null, tHi: q.ping ? Math.round(hi * q.ping) : null,
+    level: ["同區", "同一條路", "同一條巷", "同一棟"][best], nearN: pool.filter(p => p.lv === best).length, comps, year };
+}
+// 開價和合理區間比：回傳 {pos: "低於"|"區間內"|"高於", pct}
+export function judgePrice(est, priceWan) {
+  if (!est || !est.ok || !priceWan || !est.tMid) return null;
+  const pct = (priceWan - est.tMid) / est.tMid * 100;
+  return { pct, pos: priceWan < est.tLo ? "低於" : priceWan > est.tHi ? "高於" : "區間內" };
+}

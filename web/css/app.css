@@ -136,3 +136,12 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
 .loan-f span { min-width: 3.5em; color: #5b6168; }
 .loan-f input { width: 100%; min-width: 0; padding: 5px 6px; border: 1px solid #cfd5db; border-radius: 6px; font-size: 14px; }
 .loan-f small { color: #5b6168; }
+
+/* 合理價估算表單 */
+.valform { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; margin: 6px 0 10px; font-size: 14px; }
+.valform input, .valform select { width: 100%; min-width: 0; padding: 6px; border: 1px solid #cfd5db; border-radius: 6px; font-size: 14px; }
+/* 區域比較表：手機上也要塞得下 3 欄 */
+.list.cmp { table-layout: fixed; width: 100%; font-size: 13px; }
+.list.cmp th:first-child, .list.cmp td:first-child { width: 26%; color: #5b6168; }
+.list.cmp th, .list.cmp td { white-space: normal; word-break: break-word; overflow-wrap: anywhere; vertical-align: top; }
+.pill.new { background: #d81b60; color: #fff; font-size: 11px; padding: 1px 6px; border-radius: 9px; }

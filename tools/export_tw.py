@@ -35,6 +35,8 @@ LAYERS = {
              "max_z": 17, "attribution": "行政區界：內政部國土測繪中心"},
     "liq": {"tiles": "https://wmts.nlsc.gov.tw/wmts/SoilLiquefaction/default/GoogleMapsCompatible/{z}/{y}/{x}",
             "max_z": 15, "opacity": 0.55, "attribution": "土壤液化潛勢：經濟部地質調查及礦業管理中心（圖磚：國土測繪中心）"},
+    "slide": {"tiles": "https://wmts.nlsc.gov.tw/wmts/GeoSensitive2/default/GoogleMapsCompatible/{z}/{y}/{x}",
+              "max_z": 16, "opacity": 0.5, "attribution": "地質敏感區（山崩與地滑）：經濟部地質調查及礦業管理中心（圖磚：國土測繪中心）"},
     "fault": {"wms": ("https://geomap.gsmma.gov.tw/mapguide/mapagent/mapagent.fcgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap"
                       "&LAYERS=WMS/25K_Geomap_fault_2021,WMS/Sensitive_area_fault&STYLES=&SRS=EPSG:4326"
                       "&BBOX={w},{s},{e},{n}&WIDTH=256&HEIGHT=256&FORMAT=image/png&TRANSPARENT=TRUE"),
