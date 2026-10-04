@@ -1643,6 +1643,61 @@
    "note": "中職與國際賽事主場之一，位於洲際棒球場園區。",
    "params": {},
    "county": "B"
+  },
+  {
+   "name": "美麗島站（光之穹頂）",
+   "model": "dome",
+   "lat": 22.6313,
+   "lng": 120.302,
+   "rank": 2,
+   "district": "新興區",
+   "note": "高雄捷運紅橘線交會站，站內的「光之穹頂」彩繪玻璃是代表性的公共藝術。",
+   "params": {},
+   "county": "E"
+  },
+  {
+   "name": "夢時代購物中心",
+   "model": "themepark",
+   "lat": 22.5953,
+   "lng": 120.3069,
+   "rank": 2,
+   "district": "前鎮區",
+   "note": "大型購物中心，頂樓有摩天輪，鄰近亞洲新灣區與輕軌。",
+   "params": {},
+   "county": "E"
+  },
+  {
+   "name": "打狗英國領事館文化園區",
+   "model": "fort",
+   "lat": 22.619,
+   "lng": 120.266,
+   "rank": 2,
+   "district": "鼓山區",
+   "note": "西子灣山丘上的紅磚洋樓，國定古蹟，可眺望高雄港。",
+   "params": {},
+   "county": "E"
+  },
+  {
+   "name": "高雄展覽館",
+   "model": "waveroof",
+   "lat": 22.6083,
+   "lng": 120.2967,
+   "rank": 2,
+   "district": "前鎮區",
+   "note": "亞洲新灣區的會展中心，波浪造型屋頂。",
+   "params": {},
+   "county": "E"
+  },
+  {
+   "name": "高雄港旅運中心",
+   "model": "tower",
+   "lat": 22.6127,
+   "lng": 120.288,
+   "rank": 2,
+   "district": "苓雅區",
+   "note": "亞洲新灣區港邊的郵輪客運大樓。",
+   "params": {},
+   "county": "E"
   }
  ]
 }

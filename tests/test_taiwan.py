@@ -144,7 +144,7 @@ class TransitTest(unittest.TestCase):
         self.assertEqual(len(ln["segments"]), 1)                 # 兩段頭尾相接 → 一條
         self.assertEqual(sorted(s[0] for s in ln["stations"]), ["中山站", "台北101/世貿站"])
         greens = [x for x in lines if "綠線" in x["name"]]
-        self.assertEqual(sorted(x["name"] for x in greens), ["臺中捷運綠線", "臺北捷運綠線"])   # 撞名時用全名
+        self.assertEqual(sorted(x["name"] for x in greens), ["臺中捷運綠線"])     # 台北的假「綠線」沒有車站、又不認得：略過
         tc = next(x for x in lines if x["counties"] == ["B"])
         self.assertTrue(tc["color"].startswith("#") and len(tc["color"]) == 7)   # 顏色格式不對就用預設
         self.assertEqual(tc["kind"], "輕軌")
@@ -156,6 +156,27 @@ class TransitTest(unittest.TestCase):
         self.assertEqual(k({"name": "台北捷運中和新蘆線(蘆洲逆向)"}), k({"name": "台北捷運中和新蘆線(迴龍順向)"}))
         self.assertEqual(build_transit.short_name(k({"name": "台北捷運松山新店線(順向)"})), "松山新店線")
         self.assertEqual(build_transit.short_name(k({"name": "南港-板橋-土城線"})), "板南線")
+        # OSM 上實際的各種寫法都要歸到同一條線
+        same = {
+            "淡水信義線": ["臺北捷運 淡水線-信義線 (南向)", "淡水信義線", "臺北捷運淡水信義線：象山 → 淡水"],
+            "松山新店線": ["台北捷運松山新店線(順向)", "台電大樓 => 松山", "松山 => 台電大樓"],
+            "環狀線": ["臺北捷運環狀線（大坪林->新北產業園區）", "新北捷運環狀線（新北產業園區->大坪林）"],
+            "桃園機場捷運": ["桃園機場捷運 普通車 台北車站 → 老街溪", "桃園國際機場捷運 直達車 機場第二航廈 → 台北車站"],
+            "高雄捷運紅線": ["高雄捷運紅線 小港-岡山車站", "高雄捷運紅線 岡山車站-小港"],
+            "高雄環狀輕軌": ["高雄環狀輕軌 (順行)", "高雄環狀輕軌 (逆行)"],
+            "台灣高鐵": ["台灣高鐵 603 南港->左營", "台灣高鐵 1602 左營->南港", "台灣高鐵 598 左營->台中"],
+            "新北投支線": ["捷運紅線 (新北投支線) MRT red line (Xinbeitou Branch Line)"],
+            "淡海輕軌": ["淡海輕軌藍海線", "淡海輕軌 紅樹林-崁頂 (上行)"],
+            "安坑輕軌": ["安坑輕軌(東向)", "安坑輕軌(西向)"],
+            "臺中捷運綠線": ["臺中捷運綠線高鐵台中站方向", "臺中捷運綠線北屯總站方向"],
+        }
+        for want, names in same.items():
+            for n in names:
+                self.assertEqual(build_transit.short_name(k({"name": n})), want, n)
+        # 觀光五分車不算高鐵
+        raw = {"elements": [{"type": "relation", "id": 9, "tags": {"route": "train", "name": "蒜頭蔗埕文化園區五分車 (五分車高鐵站方向)"},
+                             "members": [{"type": "way", "ref": 99, "role": "", "geometry": [{"lat": 23.5, "lon": 120.3}, {"lat": 23.51, "lon": 120.31}]}]}]}
+        self.assertEqual(build_transit.build(raw, towns), [])
 
 
 class TownListTest(unittest.TestCase):

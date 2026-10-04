@@ -283,10 +283,17 @@ class MapTab(tk.Frame):
                            quality=self.app.settings.get("quality", 2 if kit.IS_ANDROID else 1))
         self.view.pack(fill="both", expand=True)
         if self.app.county != "D":
-            # 其他縣市：總覽中心放在縣市範圍正中央（原點），範圍依縣市大小
+            # 其他縣市：總覽以成交集中的區為主（佔近一年成交 85% 的那幾區），山區、離島可以拖過去看
             t = self.app.terrain
             self.view.set_home(0.0, 0.0, (t.east - t.west) * geo.KM_PER_DEG_LNG * 1.0,
                                (t.north - t.south) * geo.KM_PER_DEG_LAT * 1.0)
+            core = self._core_districts()
+            if core:
+                xs, ys = zip(*[geo.to_xy(d["lat"], d["lng"]) for d in core])
+                keep = self.view.MIN_ZOOM                  # 最小縮放仍以整個縣市為準，才拉得遠看全縣
+                self.view.set_home((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2,
+                                   max(xs) - min(xs) + 10, max(ys) - min(ys) + 10)
+                self.view.MIN_ZOOM = keep
         self.view.on_pick = self.on_pick
         self.view.on_status = lambda text: self.lbl_source.config(text=text)
         self.view.show["legend"] = self.show_legend.get()
@@ -1790,6 +1797,24 @@ class MapTab(tk.Frame):
         self.view.fly_to(lat, lng, zoom=max(self.view.zoom, zoom))
         if kind:
             self.view.select(kind, ident)
+
+    def _core_districts(self):
+        """近一年成交佔 85% 的那幾區（至少 3 區）；行政區少或沒有成交資料時回傳 []（用整個縣市）。"""
+        ds = self.app.districts
+        def n(d):
+            c = self.app.book.cell(d["name"], "all")
+            return c["y12"][0] if c and c.get("y12") else 0
+        ranked = sorted(((n(d), d) for d in ds), key=lambda x: -x[0])
+        total = sum(k for k, _ in ranked)
+        if not total or len(ds) <= 6:
+            return []
+        core, acc = [], 0
+        for k, d in ranked:
+            core.append(d)
+            acc += k
+            if acc >= total * 0.85 and len(core) >= 3:
+                break
+        return core
 
     def busy(self):
         """有下載正在進行（實價登錄、底圖、道路）。切換縣市前要先等它做完。"""

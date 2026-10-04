@@ -461,7 +461,9 @@ export class View3D {
       const [x, y] = toXY(p.lat, p.lng), [sx, sy, dp] = this.project(x, y);
       if (this._onScreen(sx, sy, 60)) items.push({ depth: p.kind === "search" ? -1e9 : dp, kind: 2, o: p, g: [sx, sy] });
     }
-    items.sort((A, B) => B.depth - A.depth);
+    // 地標與建設圖案畫在房價柱之後（不會被柱子擋住，市區地標才看得到），圖釘永遠在最上層
+    const layer = it => it.kind === 2 ? 2 : it.kind === 3 ? 1 : 0;
+    items.sort((A, B) => layer(A) - layer(B) || B.depth - A.depth);
     for (const it of items) {
       const o = it.o;
       if (it.kind === 0) {

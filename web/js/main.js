@@ -105,7 +105,7 @@ function toast(msg, ms = 4200) {
 
 // ------------------------------------------------------------------ 錯誤紀錄（存在這台裝置；「☰ → 問題回報」可以一鍵到 GitHub 回報）
 // 記在手機上，並匿名送到維護者的 Google 表單（可在設定關閉）；也可以按一下帶著內容開 GitHub Issue（需要登入 GitHub）
-const ERR_KEY = "dth_errors", APP_VER = "2026-10-05b";
+const ERR_KEY = "dth_errors", APP_VER = "2026-10-05c";
 function loadErrors() { try { return JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); } catch { return []; } }
 function logError(where, err, quiet = false) {
   const e = { t: new Date().toLocaleString("sv-SE").slice(0, 19), where, msg: String((err && err.message) || err || "").slice(0, 300),
@@ -1301,6 +1301,16 @@ function extentOf(points, padKm = 4, minKm = 16) {
   const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
   return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 - 2, w: Math.max(minKm, x1 - x0 + 2 * padKm), h: Math.max(minKm * 0.75, y1 - y0 + 2 * padKm) };
 }
+// 縣市總覽的取景：以成交集中的區為主（佔近一年成交 85% 的那幾區），山區、離島可以拖過去看。
+// 例如高雄市含桃源、那瑪夏，整個縣市框進手機畫面時市區會被擠到邊緣、地標也疊在一起看不到。
+function coreExtent(districts, book) {
+  const n = d => { const c = book.cell(d.name, "all"); return c && c.y12 ? c.y12[0] : 0; };
+  const ranked = districts.map(d => [d, n(d)]).sort((a, b) => b[1] - a[1]), total = ranked.reduce((s, x) => s + x[1], 0);
+  if (!total || districts.length <= 6) return extentOf(districts);
+  const core = []; let acc = 0;
+  for (const [d, k] of ranked) { core.push(d); acc += k; if (acc >= total * 0.85 && core.length >= 3) break; }
+  return extentOf(core, 5);
+}
 function resetSelection() {
   S.roadFilter = null; S.addr = null; S.pin = null; S.bldg = null; S.picked = null; S.pendingAddr = null; S.roadKw = ""; S.bldgKw = "";
   if (S.poi) { S.poi = null; refreshPois(); }
@@ -1349,7 +1359,7 @@ async function enterCounty(code, fly = true) {
   D.txPromise = getJSON(base + "tx.json").then(raw => { if (D.county === c) { D.txs = L.decodeTx(raw); refreshRoads(); checkWatchNews(); renderPanel(); } })
     .catch(e => { logError("載入成交資料", e); toast("成交資料載入失敗，請檢查網路後重新整理。"); });
   S.current = L.CITY; resetSelection();
-  view.setExtent(extentOf(D.districts));
+  view.setExtent(coreExtent(D.districts, D.book));
   S.settings.lastCounty = code; saveStore();
   view.select(null);
   if (fly) view.flyHome(); else { view.stop(); view.autoZoom = true; view.fitZoom(); view.tx = view.extent.cx; view.ty = view.extent.cy; }

@@ -921,7 +921,8 @@ class View3D(tk.Canvas):
             if -30 <= sx <= w + 30 and -30 <= sy <= h + 60:
                 # 搜尋／點選的門牌圖釘永遠畫在最上面，不會被房價柱擋住
                 items.append((-1e9 if pin.get("kind") == "search" else depth, 2, pin, (sx, sy)))
-        items.sort(key=lambda it: -it[0])
+        # 地標與建設圖案畫在房價柱之後（不被柱子擋住）；圖釘最上層
+        items.sort(key=lambda it: ({2: 2, 3: 1}.get(it[1], 0), -it[0]))
 
         labels = []
         for depth, kind, obj, geo in items:

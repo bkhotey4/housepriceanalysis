@@ -30,7 +30,7 @@ from core.taiwan import COUNTIES, load_towns  # noqa: E402
 OUT = os.path.join(ROOT, "data", "tw", "transit.json")
 WEB_OUT = os.path.join(ROOT, "web", "data", "tw", "transit.json")
 MAX_AGE_DAYS = 30
-VERSION = 2          # 格式或抓法改了就加 1：舊檔案即使還沒滿 30 天也會重抓
+VERSION = 3          # 格式或抓法改了就加 1：舊檔案即使還沒滿 30 天也會重抓
 REPORT = os.path.join(ROOT, "web", "data", "tw", "transit_report.json")   # 每條 relation 的明細（網站上看得到，方便查漏抓）
 # 一次查全台太大，Overpass 會中途停掉（回傳一部分＋remark 錯誤訊息）：分區、分類各查一次再合併
 AREAS = [("北部", "24.55,120.9,25.35,122.1"), ("中部", "23.75,120.2,24.55,121.4"), ("南部", "21.8,120.0,23.75,121.0"),
@@ -63,29 +63,56 @@ def ask(ql):
     raise RuntimeError("Overpass 查詢失敗：%s" % last)
 
 
+# 已知路線：OSM 上同一條線常拆成好幾個 relation（各方向、各班次、支線、普通車／直達車，名稱寫法也不統一），
+# 依關鍵字直接歸到同一條。順序有意義（先比對較特定的）。
+CANON = [
+    (r"新北投", "新北投支線"), (r"小碧潭", "小碧潭支線"), (r"文湖", "文湖線"), (r"淡水|信義線", "淡水信義線"),
+    (r"松山|新店|台電大樓", "松山新店線"), (r"中和|新蘆", "中和新蘆線"), (r"板南|南港-板橋-土城", "板南線"),
+    (r"三鶯", "三鶯線"), (r"機場捷運|機場第二航廈", "桃園機場捷運"), (r"淡海輕軌", "淡海輕軌"), (r"安坑", "安坑輕軌"),
+    (r"(臺北|台北|新北)捷運環狀線|新北捷運環狀|^臺北捷運環狀線", "環狀線"),
+    (r"(臺中|台中)捷運綠線", "臺中捷運綠線"), (r"高雄捷運紅線", "高雄捷運紅線"), (r"高雄捷運橘線", "高雄捷運橘線"),
+    (r"環狀輕軌", "高雄環狀輕軌"), (r"台灣高鐵|臺灣高鐵|高速鐵路", "台灣高鐵"),
+]
+CANONICAL = {c for _, c in CANON}
+
+
+def canon_name(name):
+    for pat, c in CANON:
+        if re.search(pat, name or ""):
+            return c
+    return None
+
+
 def line_key(tags):
-    """同一條線不同方向的 relation 合併用：去掉「：起站→迄站」與方向字樣。"""
+    """同一條線不同方向的 relation 合併用：先比對已知路線，其餘去掉「：起站→迄站」與方向字樣。"""
     name = tags.get("name") or tags.get("name:zh") or tags.get("ref") or ""
+    c = canon_name(name)
+    if c:
+        return c
     name = re.split(r"[：:]", name)[0].strip()
     # 方向、支線的括號：「(順向)」「(蘆洲逆向)」「（往淡水）」…都去掉，同一條線的各個方向、分支合成一條
     name = re.sub(r"\s*[（(][^）)]*(往|下行|上行|北上|南下|順行|逆行|順向|逆向|方向|direction)[^）)]*[）)]\s*$", "", name).strip()
+    name = re.sub(r"\s*[（(][^）)]*(南向|北向|東向|西向|->|→)[^）)]*[）)]\s*$", "", name).strip()
     net = (tags.get("network") or "").strip()
-    if net and name and not name.startswith(net[:2]):     # 只寫「綠線」的：補上路網名稱，免得台北、台中的綠線被併成一條
+    if net and name and not name.replace("臺", "台").startswith(net[:2].replace("臺", "台")):     # 只寫「綠線」的：補上路網名稱，免得台北、台中的綠線被併成一條
         name = net + name
     return name
 
 
 ALIASES = {"南港-板橋-土城線": "板南線"}
 # OSM 沒標顏色時用官方路線色（依名稱比對）
-KNOWN_COLORS = {"文湖線": "#c48c31", "淡水信義線": "#e3002c", "松山新店線": "#008659", "中和新蘆線": "#f8b61c",
-                "板南線": "#0070bd", "環狀線": "#ffdb00", "機場": "#8246af", "高雄捷運紅線": "#e20b65", "高雄捷運橘線": "#faa73f",
-                "綠線": "#8ec31f"}
+KNOWN_COLORS = {"文湖線": "#c48c31", "淡水信義線": "#e3002c", "新北投支線": "#f8a5b8", "松山新店線": "#008659",
+                "小碧潭支線": "#cedc00", "中和新蘆線": "#f8b61c", "板南線": "#0070bd", "環狀線": "#ffdb00",
+                "桃園機場捷運": "#8246af", "高雄捷運紅線": "#e20b65", "高雄捷運橘線": "#faa73f", "臺中捷運綠線": "#8ec31f",
+                "台灣高鐵": "#e36f1e"}
 
 
 def short_name(full):
     """「臺北捷運淡水信義線」→「淡水信義線」；「高雄捷運紅線」→「紅線」（網路名稱另外存在 network）。"""
     if full in ALIASES:
         return ALIASES[full]
+    if full in CANONICAL:
+        return full
     for pre in ("臺北捷運", "台北捷運", "新北捷運", "桃園捷運", "臺中捷運", "台中捷運", "高雄捷運", "高雄輕軌", "淡海輕軌",
                 "安坑輕軌", "臺北都會區大眾捷運系統", "台北都會區大眾捷運系統"):
         if full.startswith(pre) and len(full) > len(pre) + 1:
@@ -132,6 +159,10 @@ def build(raw, towns=None):
         key = line_key(t)
         if not key:
             continue
+        if t.get("route") == "train" and key != "台灣高鐵":
+            continue                                   # 觀光小火車（例如糖廠五分車）不算
+        if key not in CANONICAL and not any(str(m.get("role", "")).startswith("stop") for m in e.get("members") or []):
+            continue                                   # 不認得、又沒有車站的路線（多半是調車或未完工路段）
         g = groups.setdefault(key, {"tags": t, "ways": {}, "stops": {}})
         for m in e.get("members") or []:
             if m.get("type") == "way" and m.get("geometry") and m.get("role", "") in ("", "route", "forward", "backward"):
@@ -154,7 +185,9 @@ def build(raw, towns=None):
         pts = [(s[1], s[2]) for s in stations] or [tuple(ch[0]) for ch in chains]
         counties = sorted({_nearest_county(la, lo, towns) for la, lo in pts})
         color = t.get("colour") or t.get("color") or DEFAULT_COLORS.get(t.get("route"), "#2a78d6")
-        if not (t.get("colour") or t.get("color")):
+        if key in KNOWN_COLORS:
+            color = KNOWN_COLORS[key]                  # 已知路線一律用官方路線色（各 relation 標的顏色常不一致）
+        elif not (t.get("colour") or t.get("color")):
             color = next((c for k, c in KNOWN_COLORS.items() if k in key or k in short_name(key)), color)
         if not re.match(r"^#[0-9a-fA-F]{6}$", color):
             color = DEFAULT_COLORS.get(t.get("route"), "#2a78d6")
