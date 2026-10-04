@@ -289,6 +289,14 @@ def _make_tw_fixture(root):
         if c["code"] == "A":
             c.update(has_data=True, towns=3, town_names=[t["name"] for t in towns], roads=["大安區"], tx_count=len(txs))
     export_tw._dump("index.json", index)
+    from tools import build_transit                 # 營運中的捷運：用 test_taiwan 的假 Overpass 回傳
+    try:
+        from test_taiwan import _transit_fixture
+    except ImportError:
+        from tests.test_taiwan import _transit_fixture
+    tl = build_transit.build(_transit_fixture(), {"A": [{"name": "信義區", "lat": 25.033, "lng": 121.567}]})
+    with open(os.path.join(web, "data", "tw", "transit.json"), "w", encoding="utf-8") as f:
+        json.dump({"as_of": "2026-10-04", "lines": tl}, f, ensure_ascii=False)
     return web
 
 
@@ -329,6 +337,12 @@ class TaiwanWebTest(unittest.TestCase):
         pg.wait_for_function("window.__app && __app.D.tw")
         self.assertEqual(pg.evaluate("__app.S.current"), "全台")
         self.assertEqual(pg.evaluate("__app.D.districts.length"), 22)
+        # 全台營運中的捷運：畫在地圖上，點車站看得到路線名稱
+        pg.wait_for_function("__app.D.transit && __app.D.transit.length")
+        self.assertIn("淡水信義線", pg.evaluate("__app.view.lines.map(l => l.name)"))
+        pg.evaluate("__app.pick(['station', ['淡水信義線', '中山站']])")
+        pg.wait_for_timeout(200)
+        self.assertIn("營運中", pg.inner_text("#tab-body"))
         self.assertIn("先在地圖上點一個縣市", pg.evaluate("(() => { __app.S.tab = 'tx'; return 'x'; })()") and
                       (pg.click("#tabs button[data-tab='tx']") or pg.inner_text("#tab-body")))
         # 地址有縣市：自動切到臺北市、插圖釘

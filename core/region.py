@@ -19,6 +19,7 @@ DEFAULT = "D"
 CODE = DEFAULT
 COUNTY_CACHE = os.path.join(geo.DATA_DIR, "cache", "county")
 WEB_TW = os.path.join(geo.BASE_DIR, "web", "data", "tw")
+TRANSIT_PATH = os.path.join(geo.DATA_DIR, "tw", "transit.json")
 # 各縣市大致半徑（公里），沒有鄉鎮位置資料時用來決定地圖範圍（與 core/datacheck.py 相同）
 _KM = {"U": 120, "V": 130, "M": 75, "F": 60, "G": 55, "E": 75, "T": 95, "Q": 60, "B": 60, "J": 50, "K": 50,
        "H": 45, "N": 45, "P": 50, "A": 18, "C": 15, "O": 15, "I": 10, "X": 50, "W": 25, "Z": 65}
@@ -228,3 +229,26 @@ def strip_city(addr):
     """門牌去掉開頭的縣市名稱（交易明細表用）。"""
     from .taiwan import strip_county
     return strip_county(addr or "")
+
+
+def transit_lines(code=None):
+    """目前縣市營運中的捷運、輕軌、高鐵（data/tw/transit.json，GitHub Actions 由 OpenStreetMap 整理，git pull 就有）。
+    轉成和 mrt_data.MRT_LINES 一樣的格式：{名稱: {color, approved, operating, status, segments: [{points}], stations}}。"""
+    code = code or CODE
+    try:
+        with open(TRANSIT_PATH, encoding="utf-8") as f:
+            lines = json.load(f).get("lines") or []
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for ln in lines:
+        if code not in (ln.get("counties") or []):
+            continue
+        segs = [{"points": [(seg[i], seg[i + 1]) for i in range(0, len(seg) - 1, 2)]} for seg in ln.get("segments") or []]
+        out[ln["name"]] = {"full_name": ln.get("full_name", ln["name"]), "color": ln.get("color", "#2a78d6"),
+                           "approved": True, "operating": True, "kind": ln.get("kind", "捷運"),
+                           "network": ln.get("network", ""), "status": "營運中（%s）" % ln.get("kind", "捷運"),
+                           "construction_start": "—", "estimated_completion": "已通車",
+                           "segments": [s for s in segs if len(s["points"]) >= 2],
+                           "stations": [tuple(st) for st in ln.get("stations") or []]}
+    return out

@@ -36,3 +36,4 @@ logs/app_errors.log*
 logs/ci/raw/
 logs/ci/steps.tsv
 web/data/status.json
+web/data/tw/transit.json

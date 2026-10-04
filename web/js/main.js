@@ -43,6 +43,7 @@ function saveStore() {
 
 // ------------------------------------------------------------------ 資料
 const D = { roads: new Map() };
+const allLines = () => (D.mrt ? D.mrt.lines : []).concat(D.transit || []);
 async function getJSON(path) {
   const r = await fetch(path);
   if (!r.ok) throw new Error(path + " " + r.status);
@@ -102,7 +103,7 @@ function toast(msg, ms = 4200) {
 
 // ------------------------------------------------------------------ 錯誤紀錄（存在這台裝置；「☰ → 問題回報」可以一鍵到 GitHub 回報）
 // 記在手機上，並匿名送到維護者的 Google 表單（可在設定關閉）；也可以按一下帶著內容開 GitHub Issue（需要登入 GitHub）
-const ERR_KEY = "dth_errors", APP_VER = "2026-10-03d";
+const ERR_KEY = "dth_errors", APP_VER = "2026-10-04a";
 function loadErrors() { try { return JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); } catch { return []; } }
 function logError(where, err, quiet = false) {
   const e = { t: new Date().toLocaleString("sv-SE").slice(0, 19), where, msg: String((err && err.message) || err || "").slice(0, 300),
@@ -540,7 +541,7 @@ function pick(hit, latlng) {
   let ll = null;
   if (kind === "landmark") { const l = D.landmarks.find(x => x.id === id); ll = [l.lat, l.lng]; }
   else if (kind === "project" || kind === "marker") { const it = D.intel[id]; ll = [it.lat, it.lng]; }
-  else if (kind === "station") { const ln = D.mrt.lines.find(l => l.name === id[0]); const st = ln && ln.stations.find(s => s[0] === id[1]); if (st) ll = [st[1], st[2]]; }
+  else if (kind === "station") { const ln = allLines().find(l => l.name === id[0]); const st = ln && ln.stations.find(s => s[0] === id[1]); if (st) ll = [st[1], st[2]]; }
   else if (kind === "pin" && id === "work") { const w = workPlace(); if (w) ll = [w.lat, w.lng]; }
   if (ll) view.flyTo(ll[0], ll[1], Math.max(view.zoom, ZOOM.point));
   renderPanel(); sheet("half");
@@ -801,7 +802,11 @@ function tabDetail() {
   }
   if (kind === "project" || kind === "marker") return writeIntel(D.intel[id]);
   if (kind === "station") {
-    const ln = D.mrt.lines.find(l => l.name === id[0]);
+    const ln = allLines().find(l => l.name === id[0]);
+    if (!ln) return "";
+    if (ln.operating) return `<h2 style="margin-top:2px">${esc(id[1])}</h2><p><span class="pill" style="background:${esc(ln.color)};color:#fff">${esc(ln.kind || "捷運")}</span> ${esc(ln.full_name || ln.name)}｜營運中</p>` +
+      `<p class="muted">${esc(ln.network || "")}</p><p><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/${encodeURIComponent(id[1] + " " + (ln.kind || ""))}">在 Google 地圖查看</a></p>` +
+      `<p class="muted">路線與車站位置取自 OpenStreetMap。</p>`;
     return `<h2 style="margin-top:2px">${esc(id[0])}｜${esc(id[1])}</h2><p>${esc(ln.status)}</p><p class="muted">預計動工：${esc(ln.construction_start)}｜預計通車：${esc(ln.estimated_completion)}</p>` +
       (ln.sources || []).map(s => `<p class="muted">· <a target="_blank" rel="noopener" href="${esc(s.url)}">${esc(s.title)}</a></p>`).join("") +
       `<p class="muted">站位依路口與地標估算，誤差可能達數百公尺。</p>`;
@@ -883,7 +888,7 @@ function renderMenu() {
   const s = S.settings, chk = (k, t) => `<label class="chk"><input type="checkbox" data-set="${k}"${s[k] ? " checked" : ""}> ${t}</label>`;
   $("#menu-body").innerHTML = `
     <h3>地圖圖層</h3>${chk("town", "行政區界")}${chk("liq", "土壤液化潛勢")}${chk("fault", "活動斷層")}${chk("hires", "放大時載入高解析衛星影像（較耗流量）")}
-    ${chk("lines", "捷運規劃路線")}${chk("markers", "開發案與情資（菱形）")}${chk("landmarks", "知名地標 3D")}${chk("projects", "重大建設 3D")}${chk("roads", "路段房價（選了行政區才畫）")}${chk("labels", "名稱標籤")}
+    ${chk("lines", "捷運、輕軌、高鐵（營運中與規劃）")}${chk("markers", "開發案與情資（菱形）")}${chk("landmarks", "知名地標 3D")}${chk("projects", "重大建設 3D")}${chk("roads", "路段房價（選了行政區才畫）")}${chk("labels", "名稱標籤")}
     <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option></select></div>
     <h3>篩選</h3>
     <div class="row"><span>總價預算</span><input type="text" inputmode="decimal" data-set="budget" value="${esc(s.budget)}" placeholder="萬，例 1500"></div>
@@ -1165,6 +1170,10 @@ async function main() {
   }
   view = new View3D($("#map"), { models });
   view.lines = mrt.lines;
+  if (tw) {     // 全台營運中的捷運、輕軌、高鐵（GitHub Actions 由 OpenStreetMap 整理）；沒有這個檔就只畫台南的規劃線
+    getJSON("data/tw/transit.json").then(t => { D.transit = t.lines || []; view.lines = mrt.lines.concat(D.transit); view.request(); })
+      .catch(() => { D.transit = []; });
+  }
   view.layerOn = { town: S.settings.town, liq: S.settings.liq, fault: S.settings.fault };
   Object.assign(view.show, { hires: S.settings.hires, lines: S.settings.lines, labels: S.settings.labels });
   if (tw) {

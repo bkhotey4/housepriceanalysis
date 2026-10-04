@@ -68,7 +68,8 @@ class App:
         self.rail_projects = RAIL_PROJECTS
         self.mrt_as_of = MRT_AS_OF
         # 地圖、比較、報告只用目前縣市的軌道資料（捷運資料目前只有臺南；其他縣市的捷運之後補）
-        self.map_mrt = self.mrt_lines if self.county == "D" else {}
+        self.map_mrt = dict(self.mrt_lines) if self.county == "D" else {}
+        self.map_mrt.update(region.transit_lines())      # 營運中的捷運、輕軌、高鐵（有 data/tw/transit.json 才有）
         self.map_rail = self.rail_projects if self.county == "D" else []
         intel = geo.load_json("intel.json")
         self.intel_as_of = intel.get("as_of", "")
@@ -122,6 +123,10 @@ class App:
 
     # ------------------------------------------------------------------ 跨分頁
     def show_mrt(self, name):
+        if name not in self.mrt_lines:          # 營運中的路線（OpenStreetMap）沒有進度資料：在地圖上標出來就好
+            self.nb.select(self.map_tab)
+            self.map_tab.view.select("line", name)
+            return
         self.nb.select(self.mrt_tab)
         self.mrt_tab.show(name)
 

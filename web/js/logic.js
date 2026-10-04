@@ -475,7 +475,7 @@ export const POI_CATS = [
   { key: "hosp", label: "醫院", ch: "醫", color: "#c0302f", group: "good", r: 2000, q: ['nwr["amenity"="hospital"]'], t: t => t.amenity === "hospital" },
   { key: "clinic", label: "診所／藥局", ch: "診", color: "#c0302f", group: "good", r: 500, q: ['nwr["amenity"~"^(clinic|doctors|pharmacy|dentist)$"]'], t: t => /^(clinic|doctors|pharmacy|dentist)$/.test(t.amenity || "") },
   { key: "park", label: "公園", ch: "園", color: "#008300", group: "good", r: 500, q: ['nwr["leisure"="park"]'], t: t => t.leisure === "park" },
-  { key: "station", label: "火車站", ch: "站", color: "#4a3aa7", group: "good", r: 2000, q: ['nwr["railway"="station"]'], t: t => t.railway === "station" },
+  { key: "station", label: "火車／捷運站", ch: "站", color: "#4a3aa7", group: "good", r: 2000, q: ['nwr["railway"="station"]'], t: t => t.railway === "station" },
   { key: "bus", label: "公車站", ch: "公", color: "#4a3aa7", group: "good", r: 500, q: ['node["highway"="bus_stop"]'], t: t => t.highway === "bus_stop" },
   { key: "grave", label: "墓地／納骨塔", ch: "墓", color: "#5b6168", group: "bad", r: 1000, q: ['nwr["landuse"="cemetery"]', 'nwr["amenity"~"^(grave_yard|crematorium)$"]'], t: t => t.landuse === "cemetery" || /^(grave_yard|crematorium)$/.test(t.amenity || "") },
   { key: "funeral", label: "殯儀館／禮儀社", ch: "殯", color: "#5b6168", group: "bad", r: 500, q: ['nwr["amenity"="funeral_hall"]', 'nwr["shop"="funeral_directors"]'], t: t => t.amenity === "funeral_hall" || t.shop === "funeral_directors" },

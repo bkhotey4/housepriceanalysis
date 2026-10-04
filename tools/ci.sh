@@ -26,6 +26,8 @@ if [ "$EVENT" = "push" ]; then ROAD_MIN=10; else ROAD_MIN=45; fi
 step towns   "全台鄉鎮市區清單"           0 python tools/build_towns.py
 step static  "情資、捷運、地標"           1 python tools/export_web.py --no-images
 step plvr    "全台實價登錄"               0 python tools/export_tw.py --update
+step transit "捷運與高鐵路線"             0 python tools/build_transit.py
+git add data/tw/transit.json 2>/dev/null || true     # 和鄉鎮清單一起存回專案（每 30 天重抓一次）
 step roads   "各區道路位置（逐步補抓）"    0 python tools/fetch_roads_tw.py --minutes "$ROAD_MIN"
 if [ -f web/data/tw/index.json ]; then
   step index "更新道路清單"               0 python tools/export_tw.py --refresh-roads

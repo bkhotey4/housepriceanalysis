@@ -108,6 +108,51 @@ class NationalDownloadTest(unittest.TestCase):
         self.assertTrue(any("Download?type=zip" in u for u in again))
 
 
+def _transit_fixture():
+    """假的 Overpass 回傳：同一條線兩個方向（兩段路線接起來）＋另一個城市同名的「綠線」。"""
+    g1 = [{"lat": 25.033, "lon": 121.565}, {"lat": 25.041, "lon": 121.557}, {"lat": 25.052, "lon": 121.544}]
+    g2 = [{"lat": 25.052, "lon": 121.544}, {"lat": 25.063, "lon": 121.526}]
+    els = [
+        {"type": "relation", "id": 1, "tags": {"route": "subway", "name": "臺北捷運淡水信義線：象山 → 淡水", "colour": "#E3002C", "network": "臺北捷運"},
+         "members": [{"type": "way", "ref": 11, "role": "", "geometry": g1}, {"type": "way", "ref": 12, "role": "", "geometry": g2},
+                     {"type": "node", "ref": 101, "role": "stop", "lat": 25.033, "lon": 121.565},
+                     {"type": "node", "ref": 102, "role": "stop_entry_only", "lat": 25.063, "lon": 121.526}]},
+        {"type": "relation", "id": 2, "tags": {"route": "subway", "name": "臺北捷運淡水信義線：淡水 → 象山", "colour": "#E3002C"},
+         "members": [{"type": "way", "ref": 12, "role": "", "geometry": g2[::-1]}, {"type": "node", "ref": 101, "role": "stop", "lat": 25.033, "lon": 121.565}]},
+        {"type": "relation", "id": 3, "tags": {"route": "subway", "name": "綠線", "network": "臺北捷運"},
+         "members": [{"type": "way", "ref": 21, "role": "", "geometry": g1}]},
+        {"type": "relation", "id": 4, "tags": {"route": "light_rail", "name": "綠線", "network": "臺中捷運", "colour": "bad"},
+         "members": [{"type": "way", "ref": 31, "role": "", "geometry": [{"lat": 24.16, "lon": 120.64}, {"lat": 24.17, "lon": 120.66}]},
+                     {"type": "node", "ref": 301, "role": "stop", "lat": 24.16, "lon": 120.64}]},
+        {"type": "node", "id": 101, "tags": {"name": "台北101/世貿"}},
+        {"type": "node", "id": 102, "tags": {"name": "中山站"}},
+        {"type": "node", "id": 301, "tags": {"name": "北屯總站"}},
+    ]
+    return {"elements": els}
+
+
+class TransitTest(unittest.TestCase):
+    def test_build_merges_directions(self):
+        from tools import build_transit
+        towns = {"A": [{"name": "信義區", "lat": 25.033, "lng": 121.567}], "B": [{"name": "北屯區", "lat": 24.18, "lng": 120.69}]}
+        lines = build_transit.build(_transit_fixture(), towns)
+        names = [ln["name"] for ln in lines]
+        self.assertIn("淡水信義線", names)                       # 兩個方向合併成一條，名稱去掉「臺北捷運」與起迄站
+        ln = next(x for x in lines if x["name"] == "淡水信義線")
+        self.assertEqual(ln["color"], "#e3002c")
+        self.assertEqual(ln["counties"], ["A"])
+        self.assertEqual(len(ln["segments"]), 1)                 # 兩段頭尾相接 → 一條
+        self.assertEqual(sorted(s[0] for s in ln["stations"]), ["中山站", "台北101/世貿站"])
+        greens = [x for x in lines if "綠線" in x["name"]]
+        self.assertEqual(sorted(x["name"] for x in greens), ["臺中捷運綠線", "臺北捷運綠線"])   # 撞名時用全名
+        tc = next(x for x in lines if x["counties"] == ["B"])
+        self.assertTrue(tc["color"].startswith("#") and len(tc["color"]) == 7)   # 顏色格式不對就用預設
+        self.assertEqual(tc["kind"], "輕軌")
+        for x in lines:
+            for seg in x["segments"]:
+                self.assertEqual(len(seg) % 2, 0)
+
+
 class TownListTest(unittest.TestCase):
     def test_town_list_adds_missing_and_uses_tx_spelling(self):
         county = taiwan.BY_CODE["V"]

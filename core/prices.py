@@ -312,6 +312,9 @@ class PriceBook:
         return (p["value"] - a["value"]) / a["value"] * 100.0
 
     def describe_source(self):
+        if self.source == "none":
+            return "%s：還沒有實價登錄資料，按右下角「更新實價登錄」下載全國檔（下載一次，22 縣市共用）" % (
+                self.note.replace("尚未下載", "").replace("的實價登錄", "") or "這個縣市")
         if self.source == "snapshot":
             return "內建快照 | 資料截至 %s 發布 | 完整月份到 %s" % (self.as_of, self.complete_through)
         return "已更新資料 | %s 下載 | 完整月份到 %s" % (self.as_of, self.complete_through)

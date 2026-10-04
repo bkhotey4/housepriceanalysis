@@ -1443,7 +1443,7 @@ class UiSmokeTest(unittest.TestCase):
             plvr.has_live_cache = lambda: True
             plvr.needs_update = lambda today=None: True
             plvr.update = lambda progress=None, insecure=False: (progress(1, 2, "下載本期檔 …"), (a.book, 123))[1]
-            today = dt.date(2026, 10, 2)
+            today = dt.date.today()          # 失敗時程式記的是「今天」，測試也要用今天（寫死日期隔天就會失敗）
             self.assertTrue(m.check_auto_update(today))
             for _ in range(40):
                 self.pump(1, 0.03)
@@ -1555,7 +1555,7 @@ class UiSmokeTest(unittest.TestCase):
         """電腦版選縣市：切到台北市（假的全國快取），行政區、房價柱、情資、地標都換成台北；再切回台南一切照舊。"""
         from core import plvr_tw, region, taiwan
         a = self.app
-        saved = (plvr_tw.CACHE, region.COUNTY_CACHE, taiwan.TOWNS_PATH, region.WEB_TW)
+        saved = (plvr_tw.CACHE, region.COUNTY_CACHE, taiwan.TOWNS_PATH, region.WEB_TW, region.TRANSIT_PATH)
         cache = os.path.join(self.tmp_dir, "plvr_tw")
         os.makedirs(os.path.join(cache, "cur"))
         with open(os.path.join(ROOT, "tests", "fixture_d_lvr_land_a.csv"), encoding="utf-8-sig") as f:
@@ -1575,6 +1575,14 @@ class UiSmokeTest(unittest.TestCase):
             json.dump(towns, f, ensure_ascii=False)
         plvr_tw.CACHE, region.COUNTY_CACHE, taiwan.TOWNS_PATH = cache, os.path.join(self.tmp_dir, "county"), tp
         region.WEB_TW = os.path.join(self.tmp_dir, "web_tw")
+        from tools import build_transit
+        try:
+            from test_taiwan import _transit_fixture
+        except ImportError:
+            from tests.test_taiwan import _transit_fixture
+        region.TRANSIT_PATH = os.path.join(self.tmp_dir, "transit.json")
+        with open(region.TRANSIT_PATH, "w", encoding="utf-8") as f:
+            json.dump({"lines": build_transit.build(_transit_fixture(), towns["towns"])}, f, ensure_ascii=False)
         try:
             b = a.switch_county("A"); self.pump(10)
             self.assertEqual(b.county, "A")
@@ -1586,7 +1594,11 @@ class UiSmokeTest(unittest.TestCase):
             self.assertTrue(b.book.best("大安區", "apt")["n"] >= 1 or b.book.best("大安區", "house")["n"] >= 1)
             self.assertTrue(all(it.get("county") == "A" for it in b.intel))
             self.assertTrue(b.landmarks and all(lm["county"] == "A" for lm in b.landmarks))
-            self.assertEqual(b.map_mrt, {})
+            self.assertIn("淡水信義線", b.map_mrt)                          # 營運中的捷運（OpenStreetMap）
+            self.assertNotIn("藍線（第一期）", b.map_mrt)                   # 台南的規劃線不畫在台北
+            self.assertIn("淡水信義線", [ln["name"] for ln in b.map_tab.view.lines])
+            b.map_tab.on_pick("station", ("淡水信義線", "中山站")); self.pump()
+            b.show_mrt("淡水信義線"); self.pump()
             self.assertTrue(b.map_tab.view.bars)                              # 房價柱畫出來了
             from core import geo, prices, roads
             self.assertAlmostEqual(geo.LAT0, 25.03, delta=0.1)
@@ -1606,7 +1618,7 @@ class UiSmokeTest(unittest.TestCase):
             self.assertIn("永康區", c.dmap)
             self.assertTrue(c.map_mrt)
         finally:
-            plvr_tw.CACHE, region.COUNTY_CACHE, taiwan.TOWNS_PATH, region.WEB_TW = saved
+            plvr_tw.CACHE, region.COUNTY_CACHE, taiwan.TOWNS_PATH, region.WEB_TW, region.TRANSIT_PATH = saved
 
 
 if __name__ == "__main__":

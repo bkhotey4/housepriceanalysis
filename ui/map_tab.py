@@ -1272,10 +1272,10 @@ class MapTab(tk.Frame):
         else:
             d = app.dmap[name]
             t.line("%s 的交通與開發" % name, "h1")
-            t.line("規劃中的捷運站（距區中心 %d 公里內）" % NEAR_KM, "h2")
+            t.line("捷運站（營運中與規劃，距區中心 %d 公里內）" % NEAR_KM, "h2")
             near = self._nearby_transit(d)
             if not near:
-                t.line("附近目前沒有已公布站位的捷運規劃線。", "muted")
+                t.line("附近沒有營運中或已公布站位的捷運。", "muted")
             for km, lname, sname, ln in near:
                 t.add("· ")
                 t.link(lname, lambda n=lname: app.show_mrt(n))
@@ -1695,7 +1695,7 @@ class MapTab(tk.Frame):
             t.line()
         elif kind == "station":
             lname, sname = ident
-            ln = app.mrt_lines[lname]
+            ln = app.mrt_lines.get(lname) or app.map_mrt[lname]
             self.view.select("line", lname)
             for st_name, st_lat, st_lng in ln["stations"]:
                 if st_name == sname:
@@ -1703,11 +1703,19 @@ class MapTab(tk.Frame):
                     break
             t.line("%s | %s" % (lname, sname), "h1")
             t.line(ln["status"])
-            t.line("預計動工：%s | 預計通車：%s" % (ln["construction_start"], ln["estimated_completion"]), "muted")
-            t.line()
-            t.link("查看這條路線的完整進度", lambda: app.show_mrt(lname))
-            t.line()
-            t.line("站位為依路口與地標估算，誤差可能達數百公尺。", "muted")
+            if ln.get("operating"):
+                if ln.get("network"):
+                    t.line(ln["network"], "muted")
+                t.line()
+                t.link("在 Google 地圖查看", geo.google_search_url("%s %s" % (sname, ln.get("kind", ""))))
+                t.line()
+                t.line("路線與車站位置取自 OpenStreetMap。", "muted")
+            else:
+                t.line("預計動工：%s | 預計通車：%s" % (ln["construction_start"], ln["estimated_completion"]), "muted")
+                t.line()
+                t.link("查看這條路線的完整進度", lambda: app.show_mrt(lname))
+                t.line()
+                t.line("站位為依路口與地標估算，誤差可能達數百公尺。", "muted")
         elif kind == "pin":
             k = work_keys.index(ident)
             w = self.work_place(k)

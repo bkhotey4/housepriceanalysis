@@ -1,5 +1,5 @@
 // 離線快取：程式本身先用快取（有新版本時背景更新），資料檔先抓網路、抓不到再用快取。
-const VERSION = "v7";
+const VERSION = "v8";
 const SHELL = ["./", "index.html", "css/app.css", "js/main.js", "js/logic.js", "js/view3d.js", "js/report.js", "manifest.webmanifest", "img/icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open("shell-" + VERSION).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
