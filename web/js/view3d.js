@@ -3,6 +3,7 @@
 // 滑鼠：左鍵拖曳平移、右鍵（或 Shift）拖曳旋轉、滾輪對著游標縮放。
 import { toXY, toLatLng, LAT0, LNG0, KM_LAT, KM_LNG } from "./logic.js";
 
+export const WATERMARK = "全台房價即時動態分析｜bkhotey4.github.io/housepriceanalysis";
 const INK = "#1f2328", MUTED = "#5b6168", BG = "#e9edf1";
 const MIN_ZOOM = 3, MAX_ZOOM = 2600;
 const TILE_URL = "https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}";
@@ -259,6 +260,7 @@ export class View3D {
     if (this.show.labels && !fast) this._drawLabels(labels.concat(this._roadLabels || [], this._stationLabels || []));
     else this._drawLabels(labels.filter(l => l.prio === 2).concat((this._roadLabels || []).filter(l => l.prio === 2)));
     this._drawCompass();
+    this._drawWatermark();
   }
   _onScreen(sx, sy, m = 40) { return sx > -m && sx < this.W + m && sy > -m && sy < this.H + m; }
 
@@ -541,6 +543,13 @@ export class View3D {
       c.fillText(L.text, x, L.y - 4.5);
       if (L.id != null && L.kind !== "station") this.hits.push({ kind: L.kind, id: L.id, x0: box[0], y0: box[1], x1: box[2], y1: box[3], depth: -2000 });
     }
+  }
+  _drawWatermark() {
+    // 版權浮水印：畫在地圖畫布上，截圖也會帶著
+    const c = this.ctx, small = this.W < 600, x = this.W - 10 - this.inset.right, y = this.H - this.inset.bottom - (small ? 44 : 8);   // 手機上左下的資料來源標示有兩行，浮水印排在它上面
+    c.font = `600 ${small ? 10 : 12}px system-ui, sans-serif`; c.textAlign = "right"; c.textBaseline = "bottom";
+    c.lineWidth = 3; c.strokeStyle = "rgba(255,255,255,0.75)"; c.strokeText(WATERMARK, x, y);
+    c.fillStyle = "rgba(20,60,56,0.62)"; c.fillText(WATERMARK, x, y);
   }
   _drawCompass() {
     const c = this.ctx, cx = this.W - 30 - this.inset.right, cy = this.inset.top + 30, r = 18;

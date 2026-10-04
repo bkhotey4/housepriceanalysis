@@ -105,7 +105,7 @@ function toast(msg, ms = 4200) {
 
 // ------------------------------------------------------------------ 錯誤紀錄（存在這台裝置；「☰ → 問題回報」可以一鍵到 GitHub 回報）
 // 記在手機上，並匿名送到維護者的 Google 表單（可在設定關閉）；也可以按一下帶著內容開 GitHub Issue（需要登入 GitHub）
-const ERR_KEY = "dth_errors", APP_VER = "2026-10-05a";
+const ERR_KEY = "dth_errors", APP_VER = "2026-10-05b";
 function loadErrors() { try { return JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); } catch { return []; } }
 function logError(where, err, quiet = false) {
   const e = { t: new Date().toLocaleString("sv-SE").slice(0, 19), where, msg: String((err && err.message) || err || "").slice(0, 300),
@@ -1071,6 +1071,7 @@ function renderMenu() {
     <h3>資料</h3><p class="muted">${esc(D.meta.describe)}；成交 ${L.fmtNum(D.meta.tx_count)} 筆；整理於 ${esc(D.meta.built)}。<br>
     房價：內政部實價登錄開放資料。道路位置：© OpenStreetMap 貢獻者。影像與行政區界：內政部國土測繪中心。
     土壤液化、山崩與地滑、活動斷層：經濟部地質調查及礦業管理中心。捷運與高鐵路線：© OpenStreetMap 貢獻者。重大建設整理自新聞與官方公告。統計值為中位數，僅供看屋參考，不構成投資或購屋建議。</p>
+    <p class="muted"><b>程式與設計 © 全台房價即時動態分析，保留所有權利。</b>未經授權請勿複製、轉載或改作本網站的程式、介面設計與 3D 造型；房價、行政區、影像等資料依各來源的開放授權使用。</p>
     <p class="muted">這個網頁的所有計算都在你的裝置上完成；設定與看屋清單只存在這台裝置的瀏覽器裡。<br>
     手機瀏覽器選單裡的「加到主畫面」，之後可以像 App 一樣開啟。</p>
     ${problemSection()}`;

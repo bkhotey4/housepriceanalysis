@@ -35,7 +35,7 @@ REPORT = os.path.join(ROOT, "web", "data", "tw", "transit_report.json")   # 每�
 # 一次查全台太大，Overpass 會中途停掉（回傳一部分＋remark 錯誤訊息）：分區、分類各查一次再合併
 AREAS = [("北部", "24.55,120.9,25.35,122.1"), ("中部", "23.75,120.2,24.55,121.4"), ("南部", "21.8,120.0,23.75,121.0"),
          ("東部與離島", "21.8,118.0,26.5,122.2")]
-_Q = '[out:json][timeout:300][maxsize:1073741824][bbox:%s];%s->.r;.r out geom;node(r.r)["name"];out;'
+_Q = '[out:json][timeout:180][bbox:%s];%s->.r;.r out geom;node(r.r)["name"];out;'
 QUERIES = [("%s捷運輕軌" % n, _Q % (b, 'rel["route"~"^(subway|light_rail|monorail)$"]')) for n, b in AREAS[:3]] + [
     ("高鐵", _Q % ("21.8,118.0,26.5,122.2", 'rel["route"="train"]["name"~"高鐵|高速鐵路|High Speed"]'))]
 DEFAULT_COLORS = {"subway": "#2a78d6", "light_rail": "#2ea36b", "monorail": "#8e5bd0", "train": "#e36f1e"}
@@ -58,6 +58,7 @@ def ask(ql):
                     return raw
             except Exception as e:          # 忙線、逾時：換一台或稍後再試
                 last = e
+                print("  %s 第 %d 次：%s" % (base.split("/")[2], attempt + 1, str(e)[:160]), flush=True)
             time.sleep(10 + attempt * 20)
     raise RuntimeError("Overpass 查詢失敗：%s" % last)
 
@@ -189,9 +190,14 @@ def main():
             shutil.copyfile(OUT, WEB_OUT)
             print("路線資料 %d 天前更新過，這次不重抓" % age)
             return
-    elements, seen, report = [], set(), []
+    elements, seen, report, failed = [], set(), [], []
     for label, ql in QUERIES:
-        raw = ask(ql)
+        try:
+            raw = ask(ql)
+        except RuntimeError as e:
+            print("%s：查詢失敗（%s）" % (label, str(e)[:200]), flush=True)
+            failed.append(label)
+            continue
         n_rel = 0
         for e in raw["elements"]:
             k = (e.get("type"), e.get("id"))
@@ -212,6 +218,12 @@ def main():
     os.makedirs(os.path.dirname(REPORT), exist_ok=True)
     with open(REPORT, "w", encoding="utf-8") as f:
         json.dump({"as_of": datetime.date.today().isoformat(), "relations": report}, f, ensure_ascii=False, indent=0)
+    if failed:
+        # 有一區沒抓到：這次不覆蓋，網站繼續用上一次的路線（避免路線突然少一大半），結束代碼 1 讓紀錄看得到
+        if os.path.exists(OUT):
+            os.makedirs(os.path.dirname(WEB_OUT), exist_ok=True)
+            shutil.copyfile(OUT, WEB_OUT)
+        raise SystemExit("有 %d 區查詢失敗（%s），沿用上一次的路線資料，下次更新再試" % (len(failed), "、".join(failed)))
     lines = build({"elements": elements})
     if not lines:
         raise SystemExit("沒有抓到任何路線")

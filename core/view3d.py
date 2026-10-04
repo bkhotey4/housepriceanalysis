@@ -16,6 +16,8 @@ from . import landmarks as landmarks_mod
 from . import geo
 from .geo import to_xy
 
+WATERMARK = "全台房價即時動態分析｜bkhotey4.github.io/housepriceanalysis"   # 版權浮水印
+
 SEA = "#cfdfea"
 BG = "#eef1f4"
 INK = "#1f2328"
@@ -1165,7 +1167,8 @@ class View3D(tk.Canvas):
         """標籤不要蓋到的區塊：指北針、比例尺、影像來源標示。"""
         f = self.font(-1)
         lh = self._line_height(f)
-        boxes = [(w - 72, 0, w, 74), (w - 180, h - lh - 26, w, h)]
+        boxes = [(w - 72, 0, w, 74), (w - 180, h - lh - 26, w, h),
+                 (w - 20 - self.measure(self.font(-1, bold=True), WATERMARK), h - 2 * lh - 44, w, h - lh - 20)]
         tb = self._topbar_box(w)
         if tb is not None:
             boxes.append((tb[0] - 4, 0, tb[0] + tb[2] + 4, tb[1] + tb[3] + 4))
@@ -1201,6 +1204,10 @@ class View3D(tk.Canvas):
         self.create_line(x1, y1 - 5, x1, y1, fill=INK, width=2)
         label = ("%g 公里" % km) if km >= 1 else ("%d 公尺" % (km * 1000))
         self.create_text(x1 - px / 2, y1 - 4, text=label, anchor="s", font=f, fill=INK)
+        # ---- 版權浮水印（右下，比例尺上方）
+        wy = y1 - self._line_height(f) - 14
+        self.create_text(w - 13, wy + 1, text=WATERMARK, anchor="se", font=fb, fill="#ffffff")
+        self.create_text(w - 14, wy, text=WATERMARK, anchor="se", font=fb, fill="#3d6b66")
         # ---- 資料來源標示（左下，每個來源一行）
         x0, packed = self._attribution_lines(w)
         lh = self._line_height(f)

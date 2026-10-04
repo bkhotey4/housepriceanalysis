@@ -197,7 +197,8 @@ def build(book, txs, intel, district, cat, q=None, point=None, agent=None, works
     if agent.get("note"):
         parts.append("<h2>備註</h2><p>%s</p>" % _e(agent["note"]).replace("\n", "<br>"))
     parts.append("<footer>資料來源：內政部不動產交易實價查詢服務網開放資料（由 deep_tainan_house 整理）；"
-                 "重大建設整理自新聞與官方公告。統計值為中位數，僅供參考，不構成投資或購屋建議。</footer>")
+                 "重大建設整理自新聞與官方公告。統計值為中位數，僅供參考，不構成投資或購屋建議。"
+                 "<br>程式與設計 © 全台房價即時動態分析，保留所有權利。 bkhotey4.github.io/housepriceanalysis</footer>")
     return PAGE % {"title": _e(title + " 房價行情報告"), "body": "\n".join(parts)}
 
 

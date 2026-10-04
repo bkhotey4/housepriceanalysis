@@ -91,7 +91,7 @@ export function buildReport(ctx) {
     p.push("</table><p class='muted'>周邊資料來自 OpenStreetMap，可能有缺漏，請以實地查看為準。</p>");
   }
   if (agent.note) p.push(`<h2>備註</h2><p>${e(agent.note).replace(/\n/g, "<br>")}</p>`);
-  p.push("<footer>資料來源：內政部不動產交易實價查詢服務網開放資料；重大建設整理自新聞與官方公告；周邊設施 © OpenStreetMap 貢獻者。統計值為中位數，僅供參考，不構成投資或購屋建議。</footer>");
+  p.push("<footer>資料來源：內政部不動產交易實價查詢服務網開放資料；重大建設整理自新聞與官方公告；周邊設施 © OpenStreetMap 貢獻者。統計值為中位數，僅供參考，不構成投資或購屋建議。<br>程式與設計 © 全台房價即時動態分析，保留所有權利。 bkhotey4.github.io/housepriceanalysis</footer>");
   return PAGE.replace("%TITLE%", e(title + " 房價行情報告")).replace("%BODY%", p.join("\n"));
 }
 
