@@ -129,3 +129,10 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
 .links .btn { text-decoration: none; color: var(--accent-2); }
 #btn-menu.has-err { position: relative; }
 #btn-menu.has-err::after { content: ""; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: #ff6b6b; }
+
+/* 房貸試算 */
+.loan { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px 10px; margin: 4px 0 8px; }
+.loan-f { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.loan-f span { min-width: 3.5em; color: #5b6168; }
+.loan-f input { width: 100%; min-width: 0; padding: 5px 6px; border: 1px solid #cfd5db; border-radius: 6px; font-size: 14px; }
+.loan-f small { color: #5b6168; }

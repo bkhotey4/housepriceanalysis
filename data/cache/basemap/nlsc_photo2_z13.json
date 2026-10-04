@@ -1,0 +1,12 @@
+{
+ "provider": "nlsc_photo2",
+ "attribution": "影像：內政部國土測繪中心",
+ "z": 13,
+ "west": 120.0146484375,
+ "east": 120.673828125,
+ "north": 23.44308893112177,
+ "south": 22.836945920943847,
+ "width": 3840,
+ "height": 3840,
+ "failed_tiles": 0
+}

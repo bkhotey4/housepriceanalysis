@@ -598,6 +598,94 @@ def waveroof():
     return f
 
 
+def grandhotel():
+    """圓山大飯店：白色臺基上的紅柱大樓，頂上金黃琉璃瓦的重簷宮殿屋頂。"""
+    red, gold = "#b8322a", "#e0a62c"
+    f = box(-1.2, -0.6, 0, 1.2, 0.6, 0.15, WHITE, top="#e9e6dd")
+    f += box(-1.0, -0.42, 0.15, 1.0, 0.42, 1.25, red, top="#8f2a22")
+    for z in (0.42, 0.7, 0.98):                                  # 每層樓的白色欄杆
+        f += box(-1.02, -0.44, z, 1.02, 0.44, z + 0.04, "#f1e3c8")
+    f += roof(-1.18, -0.6, 1.18, 0.6, 1.25, -0.85, -0.3, 0.85, 0.3, 1.45, gold)
+    f += box(-0.8, -0.28, 1.45, 0.8, 0.28, 1.6, red)
+    f += roof(-1.02, -0.46, 1.02, 0.46, 1.6, -0.5, 0.0, 0.5, 0.0, 1.98, gold)
+    f += box(-0.25, -0.75, 0.15, 0.25, -0.42, 0.62, red)          # 正門
+    f += roof(-0.36, -0.86, 0.36, -0.36, 0.62, -0.2, -0.61, 0.2, -0.61, 0.8, gold)
+    return f
+
+
+def arena():
+    """臺北小巨蛋：長方形玻璃量體上一片緩拱的銀色屋頂。"""
+    f = box(-1.15, -0.75, 0, 1.15, 0.75, 0.42, GLASS, top="#b9c6d0")
+    f += box(-1.17, -0.77, 0.12, 1.17, 0.77, 0.16, "#8fa6b2")
+    steps = 6
+    for k in range(steps):                                       # 拱形屋頂：沿 y 方向一條條往中間升高
+        y0 = -0.8 + 1.6 * k / steps
+        y1 = -0.8 + 1.6 * (k + 1) / steps
+        z0 = 0.42 + 0.32 * math.sin(math.pi * k / steps)
+        z1 = 0.42 + 0.32 * math.sin(math.pi * (k + 1) / steps)
+        f.append(([(-1.22, y0, z0), (1.22, y0, z0), (1.22, y1, z1), (-1.22, y1, z1)], "#c9d1d8" if k % 2 else "#d8dee3"))
+    f += box(-1.3, -1.05, 0, 1.3, -0.78, 0.03, "#b9b2a6")         # 前廣場
+    return f
+
+
+def rainbowvillage():
+    """彩虹眷村：一排排漆滿彩色圖案的平房。"""
+    colors = ["#e0457b", "#f2b632", "#3fa0d8", "#5cb85c", "#9b59b6", "#ef7d32"]
+    f = disc(0, 0, 1.15, 0.02, 10, "#cfc6b4", squash=0.8)
+    k = 0
+    for y in (-0.5, 0.15):
+        for x in (-0.85, -0.25, 0.35):
+            c = colors[k % len(colors)]
+            f += box(x, y, 0.02, x + 0.52, y + 0.42, 0.34, c, top="#6f757b")
+            f += box(x + 0.05, y - 0.005, 0.08, x + 0.2, y + 0.005, 0.26, colors[(k + 2) % len(colors)])   # 牆上的彩繪
+            f += box(x + 0.3, y - 0.005, 0.12, x + 0.46, y + 0.005, 0.22, colors[(k + 4) % len(colors)])
+            k += 1
+    return f
+
+
+def ballpark():
+    """棒球場：扇形看台圍著綠色球場與紅土內野，四角有照明塔。"""
+    f = []
+    n = 9
+    for k in range(n):                                          # 外野那一圈扇形看台
+        a0 = math.pi * (0.25 + 0.5 * k / n)
+        a1 = math.pi * (0.25 + 0.5 * (k + 1) / n)
+        r0, r1 = 1.05, 1.35
+        p = [(r0 * math.cos(a0), -0.9 + r0 * math.sin(a0)), (r1 * math.cos(a0), -0.9 + r1 * math.sin(a0)),
+             (r1 * math.cos(a1), -0.9 + r1 * math.sin(a1)), (r0 * math.cos(a1), -0.9 + r0 * math.sin(a1))]
+        f.append(([(p[0][0], p[0][1], 0.02), (p[3][0], p[3][1], 0.02), (p[2][0], p[2][1], 0.35), (p[1][0], p[1][1], 0.35)], "#c9cdd2"))
+    fan = [(0, -0.9)] + [(1.05 * math.cos(math.pi * (0.25 + 0.5 * k / 8)), -0.9 + 1.05 * math.sin(math.pi * (0.25 + 0.5 * k / 8)))
+                         for k in range(9)]
+    f += flat(fan, 0.02, "#5fae55")
+    f += flat([(0, -0.9), (0.32, -0.58), (0, -0.26), (-0.32, -0.58)], 0.03, "#c8865a")   # 內野紅土
+    f += flat([(0, -0.84), (0.27, -0.58), (0, -0.32), (-0.27, -0.58)], 0.035, "#6cbf62")
+    for x, y in ((-0.95, -0.3), (0.95, -0.3), (-0.6, 0.35), (0.6, 0.35)):
+        f += box(x - 0.03, y - 0.03, 0, x + 0.03, y + 0.03, 1.05, "#9aa1a8")
+        f += box(x - 0.12, y - 0.04, 1.05, x + 0.12, y + 0.04, 1.2, "#f4f1ea")
+    return f
+
+
+def windmills():
+    """高美濕地：潮間帶濕地、木棧道與一排白色風車。"""
+    f = flat([(-1.4, -1.0), (1.4, -1.0), (1.4, 1.0), (-1.4, 1.0)], 0.01, "#7fb3c9")
+    f += flat([(-1.4, -1.0), (1.4, -1.0), (1.4, -0.35), (-1.4, -0.35)], 0.015, "#a9b98a")
+    f += box(-0.08, -1.0, 0.015, 0.08, 0.2, 0.06, "#a07a52")          # 木棧道
+    for x, y in ((-0.9, 0.55), (-0.2, 0.65), (0.45, 0.55), (0.9, 0.4)):
+        f += prism(x, y, 0.04, 0.0, 0.025, 1.55, 6, "#f4f6f8")
+        f += box(x - 0.05, y - 0.07, 1.5, x + 0.05, y + 0.05, 1.6, "#e6eaee")
+        for a in (math.pi / 2, math.pi / 2 + 2 * math.pi / 3, math.pi / 2 + 4 * math.pi / 3):   # 三片葉片（在 xz 平面）
+            ca, sa = math.cos(a), math.sin(a)
+            nx, nz = -sa * 0.04, ca * 0.04                                # 葉片寬度方向
+            tip, root = 0.62, 0.06
+            p = [(x + root * ca - nx, 1.55 + root * sa - nz), (x + root * ca + nx, 1.55 + root * sa + nz),
+                 (x + tip * ca + nx * 0.4, 1.55 + tip * sa + nz * 0.4), (x + tip * ca - nx * 0.4, 1.55 + tip * sa - nz * 0.4)]
+            yb = y - 0.08
+            front = [(px, yb, pz) for px, pz in p]
+            f.append((front if _normal(front)[1] < 0 else front[::-1], "#ffffff"))      # 朝南的一面
+            f.append((front[::-1] if _normal(front)[1] < 0 else front, "#f2f4f6"))     # 朝北的一面
+    return f
+
+
 # ------------------------------------------------------------------ 重大建設（開發案）的示意圖案
 def tower():
     """商辦／旅館大樓：玻璃塔樓加裙樓。"""
@@ -759,6 +847,7 @@ MODELS = {
     "tulou": tulou, "chapel": chapel, "roundhouse": roundhouse, "heartweir": heartweir, "stonevillage": stonevillage,
     "airport": airport, "lakepagoda": lakepagoda, "palace": palace, "citygate": citygate, "themepark": themepark,
     "forest": forest, "ricefield": ricefield, "woodhouses": woodhouses, "waveroof": waveroof,
+    "grandhotel": grandhotel, "arena": arena, "rainbowvillage": rainbowvillage, "ballpark": ballpark, "windmills": windmills,
 }
 _CACHE = {}
 

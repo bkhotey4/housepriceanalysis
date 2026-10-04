@@ -4,8 +4,17 @@ data/watchlist.json
 data/backup/
 reports/
 
-# 下載的快取（每台電腦會自己抓；網頁版用的資料在 web/data）
-data/cache/
+# 下載的快取：會一直變、每台電腦開程式會自己補抓的不放（實價登錄、高解析圖磚、各縣市統計）
+# 衛星底圖拼圖與道路位置會放進 git：換電腦 clone 下來就有，不用重抓（OpenStreetMap 道路要抓很久）
+data/cache/plvr/
+data/cache/plvr_tw/
+data/cache/tiles/
+data/cache/county/
+data/cache/basemap/tw/
+data/cache/pricebook.json
+data/cache/transactions.json
+data/cache/*.part
+data/cache/**/*.part
 
 # 其他
 __pycache__/
@@ -16,8 +25,8 @@ Claude outputs/
 .DS_Store
 Thumbs.db
 
-# 宣傳短片（檔案大，不放進網站）
-宣傳短片/
+# 宣傳短片：成品 mp4 與製作程式都放進 git（不在 web/ 底下，所以不會放上網站）；錄影的暫存畫面不放
+宣傳短片/製作程式/frames*/
 
 # 雲端硬碟同步暫存、舊版備份
 .tmp.drivedownload/
@@ -37,3 +46,4 @@ logs/ci/raw/
 logs/ci/steps.tsv
 web/data/status.json
 web/data/tw/transit.json
+web/data/tw/transit_report.json

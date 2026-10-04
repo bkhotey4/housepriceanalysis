@@ -103,7 +103,7 @@ function toast(msg, ms = 4200) {
 
 // ------------------------------------------------------------------ 錯誤紀錄（存在這台裝置；「☰ → 問題回報」可以一鍵到 GitHub 回報）
 // 記在手機上，並匿名送到維護者的 Google 表單（可在設定關閉）；也可以按一下帶著內容開 GitHub Issue（需要登入 GitHub）
-const ERR_KEY = "dth_errors", APP_VER = "2026-10-04a";
+const ERR_KEY = "dth_errors", APP_VER = "2026-10-04c";
 function loadErrors() { try { return JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); } catch { return []; } }
 function logError(where, err, quiet = false) {
   const e = { t: new Date().toLocaleString("sv-SE").slice(0, 19), where, msg: String((err && err.message) || err || "").slice(0, 300),
@@ -592,7 +592,7 @@ function trendSVG(series) {
   return s + "</svg>";
 }
 function tabOverview() {
-  const name = S.current, b = D.book;
+  const name = S.current, b = D.book, bt = b.best(name, S.cat, "t");
   let h = `<h2 style="margin-top:2px">${esc(name)}每月中位${S.metric === "u" ? "單價（萬/坪）" : "總價（萬）"}</h2>${trendSVG(b.series(name, S.cat, S.metric))}`;
   h += `<p class="muted">空心點是資料還沒到齊的月份；灰色長條是每月件數。${esc(D.meta.describe)}</p>`;
   if (name !== L.CITY) {
@@ -603,11 +603,32 @@ function tabOverview() {
     if (bits.length) h += `<div class="summary">${bits.join("<br>")}</div>`;
     h += `<div class="row">${reportButton()}<a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a>` +
       (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
+    h += loanSection(bt.value);
   } else {
+    h += loanSection(bt.value);
     h += isNation() ? `<p class="muted">點地圖上的柱子（或「排行」）進入一個縣市，才會下載那個縣市的逐筆成交與路段；也可以直接搜尋「台北市大安區…」這樣的地址。透天厝的單價含土地，看透天請以總價為主。</p>`
       : `<p class="muted">點地圖上的柱子看各區，或在上方搜尋地址。透天厝的單價含土地，看透天請以總價為主。</p>`;
   }
   return h;
+}
+// ---- 房貸試算：總價預設帶入這一區的中位總價，其他條件記在這台裝置
+const LOAN_DEFAULT = { price: "", down: 20, rate: 2.2, years: 30, grace: 0 };
+function loanState() { return Object.assign({}, LOAN_DEFAULT, S.settings.loan || {}); }
+function loanResult(median) {
+  const st = loanState(), price = +st.price || median;
+  const m = price ? L.mortgage(price, +st.down, +st.rate, +st.years, +st.grace) : null;
+  if (!m) return `<p class="muted">輸入總價就能試算。</p>`;
+  const yuan = v => Math.round(v).toLocaleString("zh-TW");
+  return `<div class="summary">總價 ${L.fmtNum(price)} 萬：自備款 ${L.fmtNum(Math.round(m.down))} 萬、貸款 ${L.fmtNum(Math.round(m.loan))} 萬<br>` +
+    (m.graceMonthly ? `寬限期每月只繳利息 <b>${yuan(m.graceMonthly)}</b> 元，之後` : "") + `每月約繳 <b>${yuan(m.monthly)}</b> 元<br>` +
+    `總利息約 ${L.fmtNum(Math.round(m.totalInterest))} 萬｜月付控制在收入三分之一，家庭月收入約需 ${yuan(m.income)} 元</div>`;
+}
+function loanSection(median) {
+  const st = loanState(), num = (k, label, step, unit, ph) =>
+    `<label class="loan-f"><span>${label}</span><input type="number" inputmode="decimal" step="${step}" data-loan="${k}" value="${esc(String(st[k]))}"${ph ? ` placeholder="${esc(ph)}"` : ""}><small>${unit}</small></label>`;
+  return `<h3>房貸試算</h3><div class="loan">${num("price", "總價", 10, "萬", median ? String(Math.round(median)) : "")}${num("down", "自備款", 5, "%")}` +
+    `${num("rate", "年利率", 0.05, "%")}${num("years", "年限", 5, "年")}${num("grace", "寬限期", 1, "年")}</div>` +
+    `<div id="loan-out">${loanResult(median)}</div><p class="muted">本息平均攤還的估算，總價空白就用這一區的中位總價；實際利率、成數與寬限期以銀行核貸為準，這不是貸款建議。</p>`;
 }
 // 上班地點選單：依縣市分組，目前看的縣市排最前面
 function workplaceOptions(sel) {
@@ -1087,6 +1108,10 @@ function bindUI() {
     }
   });
   body.addEventListener("input", e => {
+    if (e.target.dataset.loan) {
+      S.settings.loan = Object.assign(loanState(), { [e.target.dataset.loan]: e.target.value }); saveStore();
+      const out = $("#loan-out"); if (out) out.innerHTML = loanResult(D.book.best(S.current, S.cat, "t").value);
+    }
     if (e.target.id === "commute-min") {
       S.settings.commuteMin = +e.target.value; $("#commute-v").textContent = e.target.value + " 分鐘"; saveStore(); refreshBars(); refreshPins();
       clearTimeout(S._cmT); S._cmT = setTimeout(() => { const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; }, 150);

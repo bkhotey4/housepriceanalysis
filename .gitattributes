@@ -1,0 +1,6 @@
+# 二進位素材：不要做換行轉換
+*.mp4 binary
+*.wav binary
+*.jpg binary
+*.png binary
+*.ttc binary

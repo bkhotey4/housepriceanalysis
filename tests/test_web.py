@@ -81,6 +81,19 @@ class WebAppTest(unittest.TestCase):
                 else:
                     self.assertEqual(jp["precision"], py["precision"], a)
                     self.assertLess(geo.dist_km(py["lat"], py["lng"], jp["lat"], jp["lng"]), 0.02, a)
+        # 房貸試算：和電腦版的 prices.monthly_payment 算出一樣的月付金額
+        for price, down, rate, years in ((1000, 20, 2.2, 30), (1580, 30, 2.06, 40), (600, 0, 0, 20)):
+            js = pg.evaluate("a => __app.L.mortgage(...a)", [price, down, rate, years, 0])
+            self.assertAlmostEqual(js["monthly"], prices.monthly_payment(price * (1 - down / 100), rate, years), places=4)
+        g = pg.evaluate("a => __app.L.mortgage(...a)", [1000, 20, 2.2, 30, 3])
+        self.assertAlmostEqual(g["graceMonthly"], 800 * 10000 * 0.022 / 12, places=4)          # 寬限期只繳利息
+        self.assertAlmostEqual(g["monthly"], prices.monthly_payment(800, 2.2, 27), places=4)   # 之後 27 年攤還
+        # 概況分頁有房貸試算，改利率後結果跟著更新
+        pg.evaluate("__app.selectDistrict('善化區')"); pg.wait_for_timeout(200)
+        self.assertIn("房貸試算", pg.inner_text("#tab-body"))
+        before = pg.inner_text("#loan-out")
+        pg.fill("input[data-loan='rate']", "3"); pg.wait_for_timeout(100)
+        self.assertNotEqual(pg.inner_text("#loan-out"), before)
         if book.source != "live":
             return                      # 這台電腦沒有逐筆成交快取：只比對地址解析與門牌位置
         # 路段行情：善化區近一年各路段的件數與中位價

@@ -568,3 +568,17 @@ export function reduceRoads(raw) {
   for (const [n, segs] of Object.entries(roads)) out[n] = mergeChains(segs).map(ch => ch.flat());
   return { roads: out, places: Object.fromEntries(Object.entries(places).map(([k, v]) => [k, v.slice(0, 2)])), fetched: new Date().toISOString().slice(0, 10) };
 }
+
+// ------------------------------------------------------------------ 房貸試算（本息平均攤還，可設寬限期）
+// priceWan 總價（萬）、downPct 自備款比例（%）、ratePct 年利率（%）、years 貸款年限、grace 寬限期（年，只繳利息）
+export function mortgage(priceWan, downPct, ratePct, years, grace = 0) {
+  const loan = Math.max(0, priceWan * (1 - downPct / 100)) * 10000;
+  const n = Math.round(years * 12), g = Math.min(Math.round(grace * 12), Math.max(0, n - 12));
+  const r = ratePct / 100 / 12;
+  if (!(loan > 0) || !(n > 0)) return null;
+  const pay = m => (m <= 0 ? 0 : r > 0 ? loan * r / (1 - Math.pow(1 + r, -m)) : loan / m);
+  const graceMonthly = g ? loan * r : 0, monthly = pay(n - g);
+  const total = graceMonthly * g + monthly * (n - g);
+  return { loan: loan / 10000, down: priceWan * downPct / 100, graceMonthly, monthly, totalInterest: (total - loan) / 10000,
+    income: monthly * 3 };     // 一般建議月付不超過月收入的三分之一
+}

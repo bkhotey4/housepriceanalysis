@@ -1,5 +1,5 @@
 {
- "as_of": "2026-10-03",
+ "as_of": "2026-10-04",
  "source": "位置取自 OpenStreetMap（Nominatim 查詢）；圖案為示意造型，不是建築物的精確模型。",
  "items": [
   {
@@ -876,7 +876,7 @@
   },
   {
    "name": "高美濕地",
-   "model": "lake",
+   "model": "windmills",
    "county": "B",
    "district": "清水區",
    "lat": 24.312,
@@ -1599,6 +1599,50 @@
    "rank": 2,
    "note": "東引島東端的英式白色燈塔，國定古蹟",
    "params": {}
+  },
+  {
+   "name": "圓山大飯店",
+   "model": "grandhotel",
+   "lat": 25.0786,
+   "lng": 121.5264,
+   "rank": 1,
+   "district": "中山區",
+   "note": "1952年創立、紅柱金瓦的宮殿式大飯店，台北最具代表性的建築之一。",
+   "params": {},
+   "county": "A"
+  },
+  {
+   "name": "臺北小巨蛋",
+   "model": "arena",
+   "lat": 25.0516,
+   "lng": 121.5497,
+   "rank": 2,
+   "district": "松山區",
+   "note": "南京東路上的多功能室內體育館，演唱會與冰上活動場地，緊鄰捷運台北小巨蛋站。",
+   "params": {},
+   "county": "A"
+  },
+  {
+   "name": "彩虹眷村",
+   "model": "rainbowvillage",
+   "lat": 24.1339,
+   "lng": 120.61,
+   "rank": 2,
+   "district": "南屯區",
+   "note": "彩虹爺爺在眷村平房牆上畫滿彩色圖案，台中熱門觀光景點。",
+   "params": {},
+   "county": "B"
+  },
+  {
+   "name": "臺中洲際棒球場",
+   "model": "ballpark",
+   "lat": 24.1999,
+   "lng": 120.6848,
+   "rank": 2,
+   "district": "北屯區",
+   "note": "中職與國際賽事主場之一，位於洲際棒球場園區。",
+   "params": {},
+   "county": "B"
   }
  ]
 }

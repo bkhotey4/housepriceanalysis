@@ -1,0 +1,88 @@
+2026-10-01 23:49:25 善化區 失敗 overpass-api.de POST 11.9 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-01 23:49:36 善化區 失敗 overpass-api.de GET 9.6 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-01 23:50:00 善化區 失敗 overpass.private.coffee POST 22.4 秒：下載失敗：The read operation timed out
+2026-10-01 23:50:22 善化區 失敗 overpass.kumi.systems POST 21.0 秒：下載失敗：The read operation timed out
+2026-10-01 23:54:59 善化區 成功 overpass-api.de POST 0.0 秒，404 條路
+2026-10-02 01:17:32 永康區 成功 overpass-api.de POST 15.1 秒，2389 條路
+2026-10-02 01:17:50 安南區 失敗 overpass-api.de POST 11.2 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:18:25 安南區 失敗 maps.mail.ru POST 46.0 秒：下載失敗：The read operation timed out
+2026-10-02 01:18:29 安南區 失敗 maps.mail.ru GET 2.0 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:18:36 安南區 成功 overpass-api.de GET 9.1 秒，2510 條路
+2026-10-02 01:18:49 東區 成功 overpass-api.de POST 7.4 秒，1081 條路
+2026-10-02 01:19:05 安平區 失敗 overpass-api.de POST 9.6 秒：無法連線到 overpass-api.de：HTTP 429 Too Many Requests（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:19:41 安平區 失敗 maps.mail.ru POST 45.9 秒：下載失敗：The read operation timed out
+2026-10-02 01:19:45 安平區 失敗 maps.mail.ru GET 1.9 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:19:49 安平區 成功 overpass-api.de GET 5.8 秒，423 條路
+2026-10-02 01:20:05 北區 失敗 overpass-api.de POST 9.2 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:20:41 北區 失敗 maps.mail.ru POST 46.0 秒：下載失敗：The read operation timed out
+2026-10-02 01:20:45 北區 失敗 maps.mail.ru GET 1.5 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:20:57 北區 成功 overpass-api.de GET 13.6 秒，1109 條路
+2026-10-02 01:43:25 南區 成功 overpass-api.de POST 7.1 秒，1059 條路
+2026-10-02 01:43:41 仁德區 失敗 overpass-api.de POST 9.5 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:43:48 仁德區 成功 maps.mail.ru POST 16.4 秒，1183 條路
+2026-10-02 01:43:56 中西區 失敗 maps.mail.ru POST 1.6 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:44:05 中西區 失敗 overpass-api.de POST 10.8 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:44:17 中西區 失敗 overpass-api.de GET 10.2 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:44:25 中西區 成功 maps.mail.ru GET 18.3 秒，629 條路
+2026-10-02 01:44:40 歸仁區 失敗 overpass-api.de POST 8.4 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:45:18 歸仁區 失敗 maps.mail.ru POST 46.3 秒：下載失敗：The read operation timed out
+2026-10-02 01:45:38 歸仁區 成功 maps.mail.ru GET 17.8 秒，1166 條路
+2026-10-02 01:45:55 新營區 失敗 overpass-api.de POST 11.1 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:46:03 新營區 成功 maps.mail.ru POST 19.3 秒，641 條路
+2026-10-02 01:46:11 佳里區 失敗 maps.mail.ru POST 1.6 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:46:19 佳里區 失敗 overpass-api.de POST 10.3 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:46:27 佳里區 成功 overpass-api.de GET 5.8 秒，662 條路
+2026-10-02 01:46:35 新市區 失敗 maps.mail.ru POST 1.6 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:46:46 新市區 失敗 overpass-api.de POST 12.5 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:46:54 新市區 成功 overpass-api.de GET 6.2 秒，324 條路
+2026-10-02 01:47:10 安定區 失敗 overpass-api.de POST 9.7 秒：無法連線到 overpass-api.de：HTTP 429 Too Many Requests（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:47:15 安定區 成功 maps.mail.ru POST 14.6 秒，102 條路
+2026-10-02 01:47:33 麻豆區 失敗 overpass-api.de POST 12.1 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:48:07 麻豆區 失敗 maps.mail.ru POST 45.5 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:48:12 麻豆區 成功 overpass-api.de GET 3.8 秒，245 條路
+2026-10-02 01:48:29 西港區 失敗 overpass-api.de POST 10.3 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:48:34 西港區 成功 maps.mail.ru POST 15.6 秒，179 條路
+2026-10-02 01:48:50 鹽水區 失敗 overpass-api.de POST 9.8 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:48:56 鹽水區 成功 maps.mail.ru POST 16.0 秒，161 條路
+2026-10-02 01:49:08 新化區 成功 overpass-api.de POST 5.2 秒，278 條路
+2026-10-02 01:49:23 學甲區 成功 overpass-api.de POST 9.6 秒，148 條路
+2026-10-02 01:49:44 關廟區 成功 maps.mail.ru POST 14.3 秒，618 條路
+2026-10-02 01:50:02 官田區 失敗 overpass-api.de POST 11.9 秒：無法連線到 overpass-api.de：HTTP 429 Too Many Requests（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:50:11 官田區 成功 maps.mail.ru POST 21.1 秒，262 條路
+2026-10-02 01:50:22 六甲區 成功 overpass-api.de POST 4.9 秒，376 條路
+2026-10-02 01:50:32 白河區 成功 overpass-api.de POST 4.0 秒，172 條路
+2026-10-02 01:50:53 玉井區 失敗 overpass-api.de POST 14.8 秒：無法連線到 overpass-api.de：HTTP 429 Too Many Requests（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:51:24 玉井區 失敗 maps.mail.ru POST 46.0 秒：下載失敗：The read operation timed out
+2026-10-02 01:51:29 玉井區 失敗 maps.mail.ru GET 3.1 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:51:36 玉井區 失敗 overpass-api.de GET 9.8 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:51:57 玉井區 失敗 overpass.private.coffee POST 30.6 秒：下載失敗：The read operation timed out
+2026-10-02 01:52:13 東山區 失敗 overpass-api.de POST 10.0 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:52:17 東山區 成功 maps.mail.ru POST 13.5 秒，125 條路
+2026-10-02 01:52:26 柳營區 成功 overpass-api.de POST 3.7 秒，265 條路
+2026-10-02 01:52:34 七股區 失敗 maps.mail.ru POST 1.9 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:52:39 七股區 成功 overpass-api.de POST 6.1 秒，33 條路
+2026-10-02 01:52:59 楠西區 失敗 overpass-api.de POST 14.2 秒：無法連線到 overpass-api.de：HTTP 429 Too Many Requests（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:53:03 楠西區 成功 maps.mail.ru POST 18.0 秒，120 條路
+2026-10-02 01:53:20 下營區 失敗 overpass-api.de POST 11.2 秒：無法連線到 overpass-api.de：HTTP 429 Too Many Requests（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:53:30 下營區 成功 maps.mail.ru POST 21.2 秒，266 條路
+2026-10-02 01:53:54 山上區 失敗 overpass-api.de POST 17.8 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:53:54 山上區 成功 maps.mail.ru POST 17.9 秒，9 條路
+2026-10-02 01:54:02 將軍區 失敗 maps.mail.ru POST 1.6 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:54:11 將軍區 失敗 overpass-api.de POST 10.4 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:54:14 將軍區 失敗 maps.mail.ru GET 1.5 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:54:17 將軍區 成功 overpass-api.de GET 4.2 秒，13 條路
+2026-10-02 01:54:29 後壁區 成功 overpass-api.de POST 5.7 秒，78 條路
+2026-10-02 01:54:45 大內區 失敗 overpass-api.de POST 10.2 秒：無法連線到 overpass-api.de：HTTP 429 Too Many Requests（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:54:49 大內區 成功 maps.mail.ru POST 13.9 秒，25 條路
+2026-10-02 01:54:57 南化區 失敗 maps.mail.ru POST 2.0 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:55:05 南化區 失敗 overpass-api.de POST 10.2 秒：無法連線到 overpass-api.de：HTTP 429 Too Many Requests（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:55:09 南化區 失敗 maps.mail.ru GET 1.5 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:55:17 南化區 失敗 overpass-api.de GET 9.4 秒：無法連線到 overpass-api.de：HTTP 429 Too Many Requests（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:55:38 南化區 失敗 overpass.private.coffee POST 30.6 秒：下載失敗：The read operation timed out
+2026-10-02 01:55:45 左鎮區 失敗 maps.mail.ru POST 1.7 秒：無法連線到 maps.mail.ru：HTTP 504 Gateway Time-out（504 Gateway Time-out       504 Gateway Time-out     nginx）
+2026-10-02 01:56:14 左鎮區 失敗 overpass-api.de POST 30.3 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:56:32 左鎮區 成功 maps.mail.ru GET 16.0 秒，56 條路
+2026-10-02 01:57:00 北門區 成功 maps.mail.ru POST 21.9 秒，44 條路
+2026-10-02 01:57:36 龍崎區 失敗 overpass-api.de POST 29.9 秒：無法連線到 overpass-api.de：HTTP 504 Gateway Timeout（OSM3S Response       The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.    Error : runtime error: open64: ）
+2026-10-02 01:57:54 龍崎區 失敗 maps.mail.ru POST 47.4 秒：下載失敗：The read operation timed out
+2026-10-02 01:58:21 龍崎區 成功 maps.mail.ru GET 25.3 秒，23 條路

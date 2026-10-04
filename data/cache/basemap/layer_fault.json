@@ -1,0 +1,12 @@
+{
+ "layer": "fault",
+ "provider": "fault",
+ "attribution": "活動斷層：經濟部地質調查及礦業管理中心",
+ "z": 0,
+ "west": 120.02,
+ "east": 120.66,
+ "north": 23.42,
+ "south": 22.87,
+ "width": 2048,
+ "height": 1760
+}
