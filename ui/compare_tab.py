@@ -80,7 +80,7 @@ class CompareTab(tk.Frame):
                 if best is None or km < best[0]:
                     best = (km, lname, sname)
         if not best or best[0] > NEAR_KM:
-            return "%d 公里內沒有捷運站" % NEAR_KM
+            return "%d 公里內沒有車站" % NEAR_KM
         return "%s %s，約 %.1f 公里" % (best[1], best[2].split("（")[0][:10], best[0])
 
     def rows(self):
@@ -125,7 +125,7 @@ class CompareTab(tk.Frame):
         for _i, _tag, work, _km in works:
             out.append(("距%s（直線）" % work["name"],
                         each(lambda n, w=work: "%.1f 公里" % geo.dist_km(app.dmap[n]["lat"], app.dmap[n]["lng"], w["lat"], w["lng"]))))
-        out.append(("最近的捷運站", each(lambda n: self._nearest_station(app.dmap[n]))))
+        out.append(("最近的車站（捷運、高鐵、台鐵）", each(lambda n: self._nearest_station(app.dmap[n]))))
         out.append(("影響度 4 以上的開發案", each(devs)))
         return out
 

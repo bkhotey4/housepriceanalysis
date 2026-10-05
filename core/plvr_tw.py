@@ -6,9 +6,9 @@
   2. 前期檔   DownloadHistory?type=history&fileName=20260911                    （本來就是全國 zip）
   3. 本期檔   Download?type=zip&fileName=lvr_landcsv.zip                       （全國 zip；失敗改逐縣市）
 
-下載後一律展開成「一期一個資料夾、每縣市兩個檔」：
-  data/cache/plvr_tw/season_115S2/a_lvr_land_a.csv、a_lvr_land_b.csv、b_lvr_land_a.csv …
-資料夾裡有 _done 檔才算完整；季檔與前期檔不會變，下載過就不再下載；本期檔每次重抓。
+下載後一律展開成「一期一個資料夾、每縣市三個檔」（a 買賣、b 預售屋、c 租賃）：
+  data/cache/plvr_tw/season_115S2/a_lvr_land_a.csv、a_lvr_land_b.csv、a_lvr_land_c.csv、b_lvr_land_a.csv …
+資料夾裡有 _done_v2 檔才算完整（舊版的 _done 仍可讀，但更新時會重抓一次以補上租賃檔）；季檔與前期檔不會變，下載過就不再下載；本期檔每次重抓。
 """
 import datetime
 import io
@@ -23,6 +23,8 @@ from .taiwan import COUNTIES
 CACHE = os.path.join(prices.CACHE_DIR, "plvr_tw")
 BASE_URL = plvr.BASE_URL
 KINDS = ("a", "b")                     # a=不動產買賣、b=預售屋
+FILE_KINDS = ("a", "b", "c")           # 下載時另外帶 c=租賃（租金行情）
+DONE = "_done_v2"                      # v2 起含租賃檔；只有舊標記的資料夾會重抓一次
 CODES = [c["code"].lower() for c in COUNTIES]
 
 
@@ -38,16 +40,16 @@ def _dir(name):
 
 
 def is_done(name):
-    return os.path.exists(os.path.join(_dir(name), "_done"))
+    return os.path.exists(os.path.join(_dir(name), DONE))
 
 
 def _mark_done(name, note=""):
-    with open(os.path.join(_dir(name), "_done"), "w", encoding="utf-8") as f:
+    with open(os.path.join(_dir(name), DONE), "w", encoding="utf-8") as f:
         f.write(note or datetime.datetime.now().isoformat())
 
 
 def _extract_zip(z_bytes, name):
-    """把全國 zip 裡各縣市的買賣檔、預售屋檔展開到資料夾；回傳展開了幾個檔。"""
+    """把全國 zip 裡各縣市的買賣檔、預售屋檔、租賃檔展開到資料夾；回傳展開了幾個買賣檔。"""
     d = _dir(name)
     os.makedirs(d, exist_ok=True)
     n = 0
@@ -55,11 +57,11 @@ def _extract_zip(z_bytes, name):
         for member in z.namelist():
             base = member.split("/")[-1].lower()
             for code in CODES:
-                for kind in KINDS:
+                for kind in FILE_KINDS:
                     if base == "%s_lvr_land_%s.csv" % (code, kind):
                         with open(os.path.join(d, base), "wb") as f:
                             f.write(z.read(member))
-                        n += 1
+                        n += kind == "a"
     return n
 
 
@@ -71,7 +73,7 @@ def _per_county(name, url_for, progress, insecure=False):
     for i, c in enumerate(COUNTIES):
         if i == 3 and got == 0:
             break                          # 前幾個縣市都沒有：這一期根本還沒釋出，不必再問
-        for kind in KINDS:
+        for kind in FILE_KINDS:
             try:
                 b = plvr.fetch(url_for(c["code"], kind.upper()), insecure=insecure)
             except plvr.DownloadError as e:
@@ -167,7 +169,9 @@ def update(progress=None, seasons_wanted=5, insecure=False, today=None):
 def folders():
     if not os.path.isdir(CACHE):
         return []
-    return sorted(n for n in os.listdir(CACHE) if os.path.isdir(_dir(n)) and is_done(n))
+    # 舊版（沒有租賃檔）下載的資料夾也照樣讀，下次更新時才補抓
+    return sorted(n for n in os.listdir(CACHE) if os.path.isdir(_dir(n))
+                  and (is_done(n) or os.path.exists(os.path.join(_dir(n), "_done"))))
 
 
 def load_county(code):
@@ -186,8 +190,26 @@ def load_county(code):
     return prices.dedupe(txs)
 
 
+def load_county_rent(code):
+    """某縣市的所有住宅租賃（已去重）；沒有租賃檔回傳空 list。"""
+    from . import rent
+    code = code.lower()
+    items = []
+    for name in folders():
+        path = os.path.join(_dir(name), "%s_lvr_land_c.csv" % code)
+        if not os.path.exists(path):
+            continue
+        with open(path, "rb") as f:
+            text = f.read().decode("utf-8-sig", "replace")
+        if text.strip():
+            items.extend(rent.parse_rent_csv(text))
+    return rent.dedupe(items)
+
+
 def as_of():
-    p = os.path.join(_dir("cur"), "_done")
+    p = os.path.join(_dir("cur"), DONE)
+    if not os.path.exists(p):
+        p = os.path.join(_dir("cur"), "_done")
     try:
         with open(p, encoding="utf-8") as f:
             return f.read().strip()[:10]

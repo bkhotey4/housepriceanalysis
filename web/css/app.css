@@ -38,7 +38,7 @@ input, select, textarea { font: inherit; color: inherit; }
 #map-tools { right: 8px; display: flex; flex-direction: column; gap: 6px; top: 70px; }
 #map-tools button { width: 40px; height: 40px; border-radius: 10px; border: 0; background: rgba(255,255,255,0.95);
   box-shadow: 0 1px 4px rgba(0,0,0,.18); font-size: 1rem; }
-#map-tools button[data-act="home"] { font-size: 0.78rem; }
+#map-tools button[data-act="home"], #map-tools button[data-act="share"] { font-size: 0.78rem; }
 #legend { left: 8px; top: 52px; cursor: pointer; background: rgba(255,255,255,0.95); border-radius: 8px; padding: 6px 8px; font-size: 0.78rem;
   box-shadow: 0 1px 4px rgba(0,0,0,.18); max-width: 200px; }
 #legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 4px; }
@@ -145,3 +145,12 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
 .list.cmp th:first-child, .list.cmp td:first-child { width: 26%; color: #5b6168; }
 .list.cmp th, .list.cmp td { white-space: normal; word-break: break-word; overflow-wrap: anywhere; vertical-align: top; }
 .pill.new { background: #d81b60; color: #fff; font-size: 11px; padding: 1px 6px; border-radius: 9px; }
+/* 可收合的試算區塊（交屋現金、買房 vs 租房） */
+details.more { border: 1px solid #e3e6ea; border-radius: 8px; padding: 0 10px; margin: 10px 0; }
+details.more > summary { cursor: pointer; padding: 9px 0; font-weight: 600; font-size: 0.95rem; list-style: none; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::before { content: "▸ "; color: var(--muted); }
+details.more[open] > summary::before { content: "▾ "; }
+table.list.cost td .muted { font-size: 0.75rem; margin: 1px 0 0; }
+table.list.cost tr.strong td { font-weight: 600; }
+table.list.cost tr.total td { font-weight: 700; border-top: 2px solid #cfd5db; border-bottom: 0; }

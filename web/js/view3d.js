@@ -290,8 +290,9 @@ export class View3D {
           i ? c.lineTo(sx, sy) : c.moveTo(sx, sy);
         }
         c.lineCap = "round"; c.lineJoin = "round";
-        c.setLineDash([]); c.lineWidth = sel ? 7 : 5; c.strokeStyle = "#ffffff"; c.stroke();
-        c.setLineDash(ln.approved ? [] : [8, 6]); c.lineWidth = sel ? 4.5 : 3; c.strokeStyle = ln.color; c.stroke();
+        const rail = ln.kind === "台鐵";            // 台鐵畫細一點，壓在捷運底下
+        c.setLineDash([]); c.lineWidth = sel ? 7 : rail ? 3.5 : 5; c.strokeStyle = "#ffffff"; c.stroke();
+        c.setLineDash(ln.approved ? [] : [8, 6]); c.lineWidth = sel ? 4.5 : rail ? 2 : 3; c.strokeStyle = ln.color; c.stroke();
         c.setLineDash([]);
       }
       if (fast || this.zoom < 14) continue;

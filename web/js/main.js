@@ -105,7 +105,7 @@ function toast(msg, ms = 4200) {
 
 // ------------------------------------------------------------------ 錯誤紀錄（存在這台裝置；「☰ → 問題回報」可以一鍵到 GitHub 回報）
 // 記在手機上，並匿名送到維護者的 Google 表單（可在設定關閉）；也可以按一下帶著內容開 GitHub Issue（需要登入 GitHub）
-const ERR_KEY = "dth_errors", APP_VER = "2026-10-05c";
+const ERR_KEY = "dth_errors", APP_VER = "2026-10-06a";
 function loadErrors() { try { return JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); } catch { return []; } }
 function logError(where, err, quiet = false) {
   const e = { t: new Date().toLocaleString("sv-SE").slice(0, 19), where, msg: String((err && err.message) || err || "").slice(0, 300),
@@ -410,7 +410,7 @@ async function pinAt(q, what, label, isSearch) {
 
 // ------------------------------------------------------------------ 周邊（OpenStreetMap / Overpass，在使用者裝置上查詢；結果暫存在這台裝置）
 const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter"];
-const POI_CACHE = "dth_poi_v1";
+const POI_CACHE = "dth_poi_v2";      // v2：加了高壓電線、鐵路、快速道路、機場
 function poiCacheGet(k) { try { const c = JSON.parse(localStorage.getItem(POI_CACHE) || "{}"); const e = c[k]; return e && Date.now() - e.t < 30 * 864e5 ? e.d : null; } catch { return null; } }
 function poiCachePut(k, d) {
   try { const c = JSON.parse(localStorage.getItem(POI_CACHE) || "{}"); c[k] = { t: Date.now(), d };
@@ -429,7 +429,11 @@ async function fetchPoiElements(lat, lng) {
                                    headers: { "Content-Type": "application/x-www-form-urlencoded" } });
       if (!r.ok) throw new Error("HTTP " + r.status);
       const j = await r.json();
-      const els = (j.elements || []).map(e => ({ type: e.type, id: e.id, lat: e.lat, lon: e.lon, center: e.center, tags: e.tags }));
+      // 線狀的（電線、鐵路）只留離查詢點最近的那一點，暫存才不會太大
+      const els = (j.elements || []).map(e => {
+        if (Array.isArray(e.geometry) && e.geometry.length) { const [d, la, lo] = L.nearestOnLine(lat, lng, e.geometry); return { type: e.type, id: e.id, lat: la, lon: lo, dLine: d, tags: e.tags }; }
+        return { type: e.type, id: e.id, lat: e.lat, lon: e.lon, center: e.center, tags: e.tags };
+      });
       poiCachePut(k, els);
       return els;
     } catch (e) { last = e; } finally { clearTimeout(timer); }
@@ -510,7 +514,7 @@ function tabPoi() {
   };
   h += block("good", "生活機能") + block("bad", "嫌惡設施");
   h += `<div class="row">${reportButton()}</div>`;
-  h += `<p class="muted">資料來自 OpenStreetMap 志工繪製，可能有缺漏或過時（特別是禮儀社、宮廟、小型工廠），看屋前請實地走一圈。宮廟是否算嫌惡因人而異。高壓電線、鐵路噪音、機場航道尚未納入。</p>`;
+  h += `<p class="muted">資料來自 OpenStreetMap 志工繪製，可能有缺漏或過時（特別是禮儀社、宮廟、小型工廠），看屋前請實地走一圈。宮廟是否算嫌惡因人而異。高壓電線、鐵路、快速道路量的是到線上最近一點的距離；機場看 4 公里內，實際航道噪音請看各機場公告的噪音管制區。</p>`;
   return h;
 }
 
@@ -576,8 +580,51 @@ function renderPanel() {
   body.scrollTop = 0;
   const on = $("#tabs [aria-selected='true']");
   if (on) { const bar = $("#tabs"); if (on.offsetLeft < bar.scrollLeft || on.offsetLeft + on.offsetWidth > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = on.offsetLeft - 16; }
+  syncUrl();
 }
 
+// ------------------------------------------------------------------ 分享連結：網址記住縣市、區域（或地址）、房型、單價／總價、分頁
+// 例：?c=A&d=大安區&cat=apt&tab=rank；比較分頁另外帶 cmp=A:大安區,D:東區。畫面一變就更新網址列，重新整理或加入書籤也會回到同一個畫面。
+const SHARE_TABS = ["overview", "rank", "commute", "roads", "bldg", "tx", "value", "cmp", "projects"];
+function shareParams() {
+  const p = new URLSearchParams(), cur = new URLSearchParams(location.search);
+  if (cur.get("tw") === "0") p.set("tw", "0");
+  if (D.county) p.set("c", D.county.code);
+  if (S.addr && S.addr.road) p.set("q", (D.county ? D.county.short : "") + S.addr.district + L.describe(S.addr).replace(/ /g, ""));
+  else if (S.current !== L.CITY) p.set("d", S.current);
+  if (S.cat !== "all") p.set("cat", S.cat);
+  if (S.metric !== "u") p.set("m", S.metric);
+  if (S.tab !== "overview" && SHARE_TABS.includes(S.tab) && !(S.addr && S.tab === "tx")) p.set("tab", S.tab);
+  if (S.tab === "cmp" && cmpList().length) p.set("cmp", cmpList().map(x => `${x.code}:${x.name}`).join(","));
+  return p;
+}
+function shareUrl() { const q = shareParams().toString(); return location.origin + location.pathname + (q ? "?" + q : ""); }
+function syncUrl() {
+  if (!S.ready) return;            // 啟動還原完成前不要動網址（還要讀裡面的參數）
+  try { const u = shareUrl(); if (u !== location.href) history.replaceState(null, "", u); } catch { /* file:// 等情況 */ }
+}
+async function shareNow() {
+  const url = shareUrl(), name = S.addr ? `${S.addr.district}${L.describe(S.addr).replace(/ /g, "")}` : S.current;
+  const title = `${D.county && name !== L.CITY ? D.county.short : ""}${name}｜房價行情`;
+  if (navigator.share) { try { await navigator.share({ title, text: title, url }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+  try { await navigator.clipboard.writeText(url); toast("已複製連結，貼給家人朋友就能看到同一個畫面。"); }
+  catch { window.prompt("複製這個連結：", url); }
+}
+// 開啟分享連結：在縣市載入後套用區域、房型、分頁、比較清單（地址由 ?q= 交給搜尋處理）
+function applyShared(params) {
+  const cat = params.get("cat"), m = params.get("m"), tab = params.get("tab"), d = params.get("d"), cmp = params.get("cmp");
+  if (cat && L.CAT_LABEL[cat]) S.cat = cat;
+  if (m === "u" || m === "t") S.metric = m;
+  $("#chips").querySelectorAll("button").forEach(x => x.setAttribute("aria-checked", x.dataset.cat ? x.dataset.cat === S.cat : x.dataset.metric === S.metric));
+  if (cmp) {
+    const list = cmp.split(",").map(s => s.split(":")).filter(a => a.length === 2 && a[1]).slice(0, CMP_MAX)
+      .map(([code, name]) => ({ code, name, county: D.tw ? ((D.tw.counties.find(c => c.code === code) || {}).short || "") : L.CITY }));
+    if (list.length) { S.settings.cmp = list; saveStore(); }
+  }
+  if (tab && SHARE_TABS.includes(tab)) S.tab = tab;
+  if (d && D.dmap && D.dmap[d] && !params.get("q")) selectDistrict(d);
+  else refreshAll();
+}
 function trendSVG(series) {
   const pts = series.map((p, i) => ({ ...p, i })), vals = pts.filter(p => p.v != null).map(p => p.v);
   if (vals.length < 2) return `<p class="empty">成交太少，畫不出走勢。</p>`;
@@ -605,9 +652,9 @@ function tabOverview() {
     if (bits.length) h += `<div class="summary">${bits.join("<br>")}</div>`;
     h += `<div class="row">${reportButton()}<button class="btn small" data-act="cmp-add">加入比較</button><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a><a class="btn" target="_blank" rel="noopener" href="${FLOOD_URL}">淹水潛勢</a>` +
       (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
-    h += loanSection(bt.value);
+    h += loanSection(bt.value) + costSection(bt.value) + rentSection(name) + rvbSection(name, bt.value);
   } else {
-    h += loanSection(bt.value);
+    h += loanSection(bt.value) + costSection(bt.value) + rentSection(name);
     h += isNation() ? `<p class="muted">點地圖上的柱子（或「排行」）進入一個縣市，才會下載那個縣市的逐筆成交與路段；也可以直接搜尋「台北市大安區…」這樣的地址。透天厝的單價含土地，看透天請以總價為主。</p>`
       : `<p class="muted">點地圖上的柱子看各區，或在上方搜尋地址。透天厝的單價含土地，看透天請以總價為主。</p>`;
   }
@@ -631,6 +678,101 @@ function loanSection(median) {
   return `<h3>房貸試算</h3><div class="loan">${num("price", "總價", 10, "萬", median ? String(Math.round(median)) : "")}${num("down", "自備款", 5, "%")}` +
     `${num("rate", "年利率", 0.05, "%")}${num("years", "年限", 5, "年")}${num("grace", "寬限期", 1, "年")}</div>` +
     `<div id="loan-out">${loanResult(median)}</div><p class="muted">本息平均攤還的估算，總價空白就用這一區的中位總價；實際利率、成數與寬限期以銀行核貸為準，這不是貸款建議。</p>`;
+}
+// ---- 交屋前要準備的現金：自備款＋買方稅費（契稅、印花稅、規費、代書、仲介…）
+const loanPrice = median => +loanState().price || median;
+function costState() { return Object.assign({}, L.COST_DEFAULT, S.settings.cost || {}); }
+const wan = v => v >= 100 ? L.fmtNum(v) : v >= 10 ? v.toFixed(1) : v.toFixed(2).replace(/0$/, "");
+function costResult(median) {
+  const st = loanState(), price = loanPrice(median), c = price ? L.purchaseCosts(price, +st.down, costState()) : null;
+  if (!c) return `<p class="muted">輸入總價就能試算。</p>`;
+  const m = L.mortgage(price, +st.down, +st.rate, +st.years, +st.grace);
+  const reserve = m ? Math.max(m.monthly, m.graceMonthly || 0) * 6 / 10000 : 0;
+  let h = `<table class="list cost"><tbody>` + c.items.filter(([k, , v]) => v > 0 || k === "agent")
+    .map(([k, label, v, note]) => `<tr${k === "down" ? ' class="strong"' : ""}><td>${esc(label)}<div class="muted">${esc(note)}</div></td><td class="r">${wan(v)} 萬</td></tr>`).join("") +
+    `<tr class="total"><td>合計（交屋前要準備）</td><td class="r">${L.fmtNum(c.total)} 萬</td></tr></tbody></table>`;
+  h += `<div class="summary">頭期款以外的稅費與雜支約 <b>${wan(c.fees)} 萬</b>（總價的 ${(c.fees / price * 100).toFixed(1)}%）` +
+    (reserve ? `<br>另外建議預留 6 個月房貸約 ${wan(reserve)} 萬，以免收入中斷時繳不出來` : "") + `</div>`;
+  if (c.estimated) h += `<p class="muted">房屋評定現值、土地公告現值沒填，暫用總價的 ${L.COST_RATIO.house * 100}%、${L.COST_RATIO.land * 100}% 粗估（新大樓通常更低、老透天的土地比例更高）；實際數字看賣方的房屋稅單、地價稅單，或請代書查。</p>`;
+  return h;
+}
+function costSection(median) {
+  const st = costState(), num = (k, label, step, unit, ph) =>
+    `<label class="loan-f"><span>${label}</span><input type="number" inputmode="decimal" step="${step}" data-cost="${k}" value="${esc(String(st[k]))}"${ph ? ` placeholder="${esc(ph)}"` : ""}><small>${unit}</small></label>`;
+  const price = loanPrice(median);
+  return `<details class="more" data-det="costOpen"${S.settings.costOpen ? " open" : ""}><summary>交屋前要準備多少現金</summary>` +
+    `<div class="loan">${num("hv", "房屋現值", 1, "萬", price ? "約 " + Math.round(price * L.COST_RATIO.house) : "")}${num("lv", "土地現值", 1, "萬", price ? "約 " + Math.round(price * L.COST_RATIO.land) : "")}` +
+    `${num("agent", "仲介費", 0.5, "%")}${num("reno", "裝潢搬家", 10, "萬")}</div><div id="cost-out">${costResult(median)}</div>` +
+    `<p class="muted">總價、自備款比例沿用上面的房貸試算。稅率依現行法規（契稅 6%、印花稅與登記規費 0.1%、抵押權設定規費 0.1%）；房屋稅、地價稅依交屋日分算，不在這裡。這是估算，不是稅務建議。</p></details>`;
+}
+
+// ---- 租金行情：實價登錄租賃（近一年），加上毛租金報酬率
+function rentYield(name, cat) {
+  const rc = L.rentCell(D.rent, name, cat), su = D.book.best(name, cat, "u").value;
+  return rc && rc.n >= 5 ? L.grossYield(rc.unit, su) : null;
+}
+function rentSection(name) {
+  if (!D.tw) return "";
+  const rb = D.rent;
+  let h = `<h3>租金行情</h3>`;
+  if (!rb) return h + `<p class="muted">這個縣市的租金資料還在準備中（每次自動更新會補上）。</p>`;
+  const cell = rb.data[name];
+  if (!cell) return h + `<p class="muted">近一年沒有這一區的租賃登錄。</p>`;
+  const rows = L.RENT_ROOMS.map(([k, label]) => [label + (k === "s" ? "" : "（整層）"), cell.rooms && cell.rooms[k]])
+    .concat([["透天（整棟）", cell.house]]).filter(([, v]) => v && v[0]);
+  h += `<table class="list"><thead><tr><th>類型</th><th class="r">件</th><th class="r">月租中位</th><th class="r">每坪月租</th><th class="r">坪數</th></tr></thead><tbody>` +
+    rows.map(([k, v]) => `<tr${v[0] < L.RENT_MIN_N ? ' class="low"' : ""}><td>${esc(k)}</td><td class="r">${v[0]}</td><td class="r">${L.fmtNum(v[1])}</td><td class="r">${L.fmtNum(v[2])}</td><td class="r">${v[3] == null ? "—" : v[3].toFixed(0)}</td></tr>`).join("") + `</tbody></table>`;
+  const bits = [];
+  for (const [cat, label] of [["apt", "大樓／華廈"], ["house", "透天"]]) {
+    const y = rentYield(name, cat), rc = L.rentCell(rb, name, cat);
+    if (y != null) bits.push(`${label}：每坪月租 ${L.fmtNum(rc.unit)} 元，毛租金報酬率約 <b>${y.toFixed(1)}%</b>`);
+  }
+  if (cell.chg != null) bits.push(`每坪月租比前一年${cell.chg >= 0 ? "漲" : "跌"} ${Math.abs(cell.chg).toFixed(1)}%`);
+  if (bits.length) h += `<div class="summary">${bits.join("<br>")}</div>`;
+  h += `<p class="muted">內政部實價登錄租賃資料，${esc(rb.window[0])}～${esc(rb.window[1])}，灰字不到 5 件。租賃登錄多來自代管、包租業者，房東自己出租的登錄較少，行情可能偏高。毛租金報酬率＝每坪月租 × 12 ÷ 每坪中位房價，未扣稅費、空租期與管理維修。</p>`;
+  return h;
+}
+
+// ---- 買房還是租房：同一間房子，N 年後兩邊的資產
+function rvbState() { return Object.assign({ rent: "" }, L.RVB_DEFAULT, S.settings.rvb || {}); }
+function rvbDefaultRent(name, median) {
+  const price = loanPrice(median), y = rentYield(name, S.cat === "house" ? "house" : "apt") ?? rentYield(name, "apt");
+  return price && y ? Math.round(price * 10000 * y / 100 / 12 / 100) * 100 : null;
+}
+function rvbSVG(years) {
+  const W = 360, H = 150, l = 44, r = 10, t = 10, b = 22, vals = years.flatMap(p => [p.buy, p.rent]);
+  let lo = Math.min(0, ...vals), hi = Math.max(...vals); if (hi <= lo) hi = lo + 1;
+  const x = i => l + (W - l - r) * (i + 1) / years.length, y = v => t + (hi - v) / (hi - lo) * (H - t - b);
+  let s = `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="買房與租房的資產比較">`;
+  for (const f of [0, 0.5, 1]) { const v = hi - (hi - lo) * f; s += `<line x1="${l}" x2="${W - r}" y1="${y(v)}" y2="${y(v)}" stroke="#eceff2"/><text x="${l - 5}" y="${y(v) + 4}" font-size="10" text-anchor="end" fill="#5b6168">${L.fmtNum(v)}</text>`; }
+  for (const [k, c] of [["buy", "#e3542c"], ["rent", "#2a78d6"]])
+    s += `<polyline fill="none" stroke="${c}" stroke-width="2.2" points="${years.map((p, i) => `${x(i)},${y(p[k])}`).join(" ")}"/>`;
+  years.forEach((p, i) => { if ((i + 1) % 5 === 0 || i === 0) s += `<text x="${x(i)}" y="${H - 6}" font-size="10" text-anchor="middle" fill="#5b6168">${p.y}年</text>`; });
+  return s + `</svg><p class="muted"><span style="color:#e3542c">━</span> 買房的資產　<span style="color:#2a78d6">━</span> 租房的資產（萬）</p>`;
+}
+function rvbResult(name, median) {
+  const st = loanState(), rv = rvbState(), price = loanPrice(median);
+  const rent = +rv.rent || rvbDefaultRent(name, median);
+  if (!price) return `<p class="muted">輸入總價就能比較。</p>`;
+  if (!rent) return `<p class="muted">這一區沒有足夠的租金資料，請自己填同樣房子的月租。</p>`;
+  const c = L.purchaseCosts(price, +st.down, costState());
+  const res = L.rentVsBuy({ price, down: +st.down, rate: +st.rate, loanYears: +st.years, grace: +st.grace, rent, cash: c.total,
+    years: +rv.years, g: +rv.g, rg: +rv.rg, inv: +rv.inv, hold: +rv.hold, sell: +rv.sell });
+  if (!res) return `<p class="muted">條件不完整。</p>`;
+  const e = res.end, diff = e.buy - e.rent, yuan = v => Math.round(v).toLocaleString("zh-TW");
+  let h = `<div class="summary">一開始兩邊都有 ${L.fmtNum(res.cash0)} 萬現金：買方付頭期與稅費，租方拿去投資。<br>` +
+    `每月：房貸 ${yuan(res.monthly)} 元＋持有成本 vs 房租 ${yuan(rent)} 元（每年調 ${rv.rg}%）<br>` +
+    `<b>${rv.years} 年後：買房約 ${L.fmtNum(e.buy)} 萬、租房約 ${L.fmtNum(e.rent)} 萬</b>（${diff >= 0 ? "買房多" : "租房多"} ${L.fmtNum(Math.abs(diff))} 萬）<br>` +
+    (res.breakeven != null ? `住滿約 <b>${res.breakeven} 年</b>以後，買房開始比租房划算` : `${rv.years} 年內租房都比較划算（假設條件下）`) + `</div>`;
+  return h + rvbSVG(res.years);
+}
+function rvbSection(name, median) {
+  const st = rvbState(), def = rvbDefaultRent(name, median), num = (k, label, step, unit, ph) =>
+    `<label class="loan-f"><span>${label}</span><input type="number" inputmode="decimal" step="${step}" data-rvb="${k}" value="${esc(String(st[k]))}"${ph ? ` placeholder="${esc(ph)}"` : ""}><small>${unit}</small></label>`;
+  return `<details class="more" data-det="rvbOpen"${S.settings.rvbOpen ? " open" : ""}><summary>買房還是租房比較划算</summary>` +
+    `<div class="loan">${num("rent", "月租", 500, "元", def ? String(def) : "")}${num("years", "比較", 1, "年")}${num("g", "房價年漲", 0.5, "%")}` +
+    `${num("rg", "租金年漲", 0.5, "%")}${num("inv", "投資報酬", 0.5, "%")}</div><div id="rvb-out">${rvbResult(name, median)}</div>` +
+    `<p class="muted">月租空白時用這一區的毛租金報酬率推算同總價房子的租金。房貸條件沿用上面的試算；持有成本（房屋稅、地價稅、管理費、修繕）以每年房價 ${L.RVB_DEFAULT.hold}% 估，賣屋時扣 ${L.RVB_DEFAULT.sell}% 仲介與稅費，未計房地合一稅。結果對「房價年漲」與「投資報酬」很敏感，請多試幾組；這不是投資建議。</p></details>`;
 }
 // 上班地點選單：依縣市分組，目前看的縣市排最前面
 function workplaceOptions(sel) {
@@ -932,7 +1074,7 @@ function cmpEnsure() {
   Promise.all(need.map(async x => {
     if (!D.tw) { CMP_DATA.set(x.code + "|" + x.name, { book: D.book, d: D.dmap[x.name] }); return; }
     const cd = await countyData(x.code);
-    CMP_DATA.set(x.code + "|" + x.name, { book: cd.book, d: cd.dmap[x.name] });
+    CMP_DATA.set(x.code + "|" + x.name, { book: cd.book, d: cd.dmap[x.name], rent: cd.rent });
   })).then(() => { if (S.tab === "cmp") renderPanel(); }).catch(e => { logError("載入比較資料", e); toast("比較資料載入失敗，請檢查網路。"); });
   return false;
 }
@@ -971,9 +1113,11 @@ function tabCmp() {
     ["近半年漲跌", c => L.trendText(c.book.trend(c.name, cat, S.metric))],
     ["預售比中古大樓", c => { const g = c.book.presaleGap(c.name); return g == null ? "—" : `${g >= 0 ? "高" : "低"} ${Math.abs(g).toFixed(0)}%`; }],
     [w ? `到${w.name}（${modeName()}）` : "通勤（先設定上班地點）", c => w ? `約 ${minsTo(c.d.lat, c.d.lng, w)} 分` : "—"],
-    ["最近的捷運／高鐵站", c => {
+    ["月租中位（整層住家）", c => { const r = L.rentCell(c.rent, c.name, "apt"); return r ? `${L.fmtNum(r.rent)}${r.n < L.RENT_MIN_N ? "*" : ""}` : "—"; }],
+    ["毛租金報酬率", c => { const r = L.rentCell(c.rent, c.name, "apt"), su = c.book.best(c.name, "apt", "u").value, y = r && r.n >= L.RENT_MIN_N ? L.grossYield(r.unit, su) : null; return y == null ? "—" : y.toFixed(1) + "%"; }],
+    ["最近的車站", c => {
       let best = null; for (const { ln, st } of stations) { const k = L.distKm(c.d.lat, c.d.lng, st[1], st[2]); if (!best || k < best.k) best = { k, n: st[0], ln }; }
-      return best && best.k <= 8 ? `${esc(best.n.split("（")[0].slice(0, 10))} ${best.k.toFixed(1)} 公里${best.ln.operating ? "" : "（規劃）"}` : "8 公里內沒有";
+      return best && best.k <= 8 ? `${esc(best.n.split("（")[0].slice(0, 10))} ${best.k.toFixed(1)} 公里${best.ln.operating ? "" : "（規劃）"}<div class="muted">${esc(best.ln.name)}</div>` : "8 公里內沒有";
     }],
     ["3 公里內重大建設", c => {
       const n = D.intel.filter(it => it.lat != null && (it.impact_level || 0) >= 4 && L.distKm(c.d.lat, c.d.lng, it.lat, it.lng) <= 3).length;
@@ -1169,6 +1313,7 @@ function bindUI() {
     if (a === "zin") view.zoomAt(1.4); if (a === "zout") view.zoomAt(1 / 1.4);
     if (a === "rotl") view.rotate(-20); if (a === "rotr") view.rotate(20);
     if (a === "tilt") { view.pitch = view.pitch > 70 ? 40 : 89; view.request(); }
+    if (a === "share") shareNow();
   });
   $("#btn-city").addEventListener("click", () => selectDistrict(L.CITY));
   $("#btn-nation").addEventListener("click", () => enterNation());
@@ -1278,9 +1423,17 @@ function bindUI() {
     }
   });
   body.addEventListener("input", e => {
-    if (e.target.dataset.loan) {
-      S.settings.loan = Object.assign(loanState(), { [e.target.dataset.loan]: e.target.value }); saveStore();
-      const out = $("#loan-out"); if (out) out.innerHTML = loanResult(D.book.best(S.current, S.cat, "t").value);
+    const ds = e.target.dataset;
+    if (ds.loan || ds.cost || ds.rvb) {
+      if (ds.loan) S.settings.loan = Object.assign(loanState(), { [ds.loan]: e.target.value });
+      if (ds.cost) S.settings.cost = Object.assign(costState(), { [ds.cost]: e.target.value });
+      if (ds.rvb) S.settings.rvb = Object.assign(rvbState(), { [ds.rvb]: e.target.value });
+      saveStore();
+      const med = D.book.best(S.current, S.cat, "t").value, set = (id, f) => { const el = $(id); if (el) el.innerHTML = f(); };
+      set("#loan-out", () => loanResult(med)); set("#cost-out", () => costResult(med)); set("#rvb-out", () => rvbResult(S.current, med));
+      const pr = loanPrice(med), dr = rvbDefaultRent(S.current, med), ph = (sel, v) => { const el = $(sel); if (el) el.placeholder = v; };
+      ph("[data-cost='hv']", pr ? "約 " + Math.round(pr * L.COST_RATIO.house) : ""); ph("[data-cost='lv']", pr ? "約 " + Math.round(pr * L.COST_RATIO.land) : "");
+      ph("[data-rvb='rent']", dr ? String(dr) : "");
     }
     if (e.target.id === "commute-min") {
       S.settings.commuteMin = +e.target.value; $("#commute-v").textContent = e.target.value + " 分鐘"; saveStore(); refreshBars(); refreshPins();
@@ -1290,6 +1443,7 @@ function bindUI() {
     if (e.target.id === "road-kw") { S.roadKw = e.target.value; clearTimeout(S._kwT); S._kwT = setTimeout(() => { const pos = e.target.selectionStart; renderPanel(); const i = $("#road-kw"); i.focus(); i.setSelectionRange(pos, pos); }, 350); }
     if (e.target.id === "year") { S.year = +e.target.value; $("#year-v").textContent = S.year + " 年"; clearTimeout(S._yT); S._yT = setTimeout(() => { refreshModels(); const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; }, 120); refreshModels(); }
   });
+  body.addEventListener("toggle", e => { const d = e.target; if (d.dataset && d.dataset.det) { S.settings[d.dataset.det] = d.open; saveStore(); } }, true);
   window.addEventListener("resize", () => { sheet(S.sheet || "peek"); placeAttrib(); });
 }
 
@@ -1319,7 +1473,7 @@ function resetSelection() {
 function enterNation(fly = true) {
   D.county = null;
   L.setCity(D.tw.nation || "全台", "全台");
-  D.book = D.twBook; D.txs = null; D.txPromise = Promise.resolve();
+  D.book = D.twBook; D.rent = D.twRent; D.txs = null; D.txPromise = Promise.resolve();
   D.districts = D.tw.counties.map(c => ({ name: c.short, lat: c.lat, lng: c.lng, zone: c.region, code: c.code }));
   D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
   D.meta = { ...D.tw, road_districts: [] };
@@ -1336,8 +1490,8 @@ const COUNTY_CACHE = new Map();
 function countyData(code) {
   if (!COUNTY_CACHE.has(code)) {
     const base = `data/tw/${code}/`;
-    COUNTY_CACHE.set(code, Promise.all([getJSON(base + "book.json"), getJSON(base + "districts.json")])
-      .then(([raw, dd]) => ({ raw, dd, book: new L.Book(raw), dmap: Object.fromEntries(dd.districts.map(d => [d.name, d])) }))
+    COUNTY_CACHE.set(code, Promise.all([getJSON(base + "book.json"), getJSON(base + "districts.json"), getJSON(base + "rent.json").catch(() => null)])
+      .then(([raw, dd, rent]) => ({ raw, dd, rent, book: new L.Book(raw), dmap: Object.fromEntries(dd.districts.map(d => [d.name, d])) }))
       .catch(e => { COUNTY_CACHE.delete(code); throw e; }));
   }
   return COUNTY_CACHE.get(code);
@@ -1347,10 +1501,10 @@ async function enterCounty(code, fly = true) {
   if (!c) return false;
   if (!c.has_data) { toast(`${c.short}的資料還在準備中（每次自動更新會補上）。`); return false; }
   const base = `data/tw/${code}/`;
-  let book, dd;
-  try { ({ raw: book, dd } = await countyData(code)); }
+  let book, dd, rent;
+  try { ({ raw: book, dd, rent } = await countyData(code)); }
   catch (e) { logError(`載入${c.short}資料`, e); toast(`${c.short}的資料載入失敗，請檢查網路後再試。`); return false; }
-  D.county = c;
+  D.county = c; D.rent = rent;
   L.setCity(c.short, c.short);
   D.book = new L.Book(book);
   D.districts = dd.districts; D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
@@ -1378,7 +1532,9 @@ async function main() {
   Object.assign(D, { intel: intel.items, mrt, landmarks, workplaces });
   if (tw) {
     L.setOrigin(...TW_ORIGIN);
-    D.tw = tw; D.twBook = new L.Book(await getJSON("data/tw/book.json"));
+    D.tw = tw;
+    const [twBook, twRent] = await Promise.all([getJSON("data/tw/book.json"), getJSON("data/tw/rent.json").catch(() => null)]);
+    D.twBook = new L.Book(twBook); D.twRent = twRent;
   } else {
     const [meta, book, districts] = await Promise.all(["meta", "book", "districts"].map(n => getJSON(`data/${n}.json`)));
     Object.assign(D, { meta, book: new L.Book(book), districts });
@@ -1387,7 +1543,10 @@ async function main() {
   view = new View3D($("#map"), { models });
   view.lines = mrt.lines;
   if (tw) {     // 全台營運中的捷運、輕軌、高鐵（GitHub Actions 由 OpenStreetMap 整理）；沒有這個檔就只畫台南的規劃線
-    getJSON("data/tw/transit.json").then(t => { D.transit = t.lines || []; view.lines = mrt.lines.concat(D.transit); view.request(); })
+    getJSON("data/tw/transit.json").then(t => {
+      D.transit = (t.lines || []).slice().sort((a, b) => (b.kind === "台鐵") - (a.kind === "台鐵"));      // 台鐵先畫（在捷運底下）
+      view.lines = D.transit.filter(l => l.kind === "台鐵").concat(mrt.lines, D.transit.filter(l => l.kind !== "台鐵")); view.request();
+    })
       .catch(() => { D.transit = []; });
   }
   view.layerOn = { town: S.settings.town, liq: S.settings.liq, slide: S.settings.slide, fault: S.settings.fault };
@@ -1412,9 +1571,11 @@ async function main() {
     D.txPromise = getJSON("data/tx.json").then(raw => { D.txs = L.decodeTx(raw); refreshRoads(); checkWatchNews(); renderPanel(); })
       .catch(e => { logError("載入成交資料", e); toast("成交資料載入失敗，請檢查網路後重新整理。"); });
   }
+  applyShared(params);
+  S.ready = true; syncUrl();
   if (params.get("q")) { $("#q").value = params.get("q"); const wait = () => (D.tw || D.txs) ? search(params.get("q")) : setTimeout(wait, 200); wait(); }
   getJSON("data/status.json").then(st => { D.status = st; if (!st.ok) $("#btn-menu").classList.add("has-err"); }).catch(() => {});
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
-  window.__app = { S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation, logError };   // 測試用
+  window.__app = { S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation, logError, shareUrl };   // 測試用
 }
 main().catch(err => { logError("啟動", err); document.body.insertAdjacentHTML("beforeend", `<div class="note" style="position:fixed;top:60px;left:10px;right:10px;z-index:99">載入失敗：${esc(err.message)}</div>`); });

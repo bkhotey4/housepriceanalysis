@@ -10,6 +10,8 @@
     web/data/tw/<代碼>/book.json      該縣市各鄉鎮市區的每月統計
     web/data/tw/<代碼>/tx.json        該縣市逐筆成交（格式同台南版 web/data/tx.json）
     web/data/tw/<代碼>/districts.json 該縣市鄉鎮市區與位置
+    web/data/tw/<代碼>/rent.json      該縣市各鄉鎮市區近一年的租金行情（實價登錄租賃檔）
+    web/data/tw/rent.json             全台各縣市的租金行情
 道路位置另由 tools/fetch_roads_tw.py 逐步下載到 web/data/tw/<代碼>/roads/。
 """
 import argparse
@@ -23,7 +25,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "data"))
 
-from core import address, geo, plvr_tw, prices  # noqa: E402
+from core import address, geo, plvr_tw, prices, rent  # noqa: E402
 from core.taiwan import COUNTIES, NATION, load_towns, norm  # noqa: E402
 
 OUT = os.path.join(ROOT, "web", "data", "tw")
@@ -123,7 +125,7 @@ def main():
     if not towns.get("D"):           # 還沒跑過 build_towns：臺南市用內建的行政區位置
         towns["D"] = [{"name": d["name"], "lat": d["lat"], "lng": d["lng"], "zone": d.get("zone", "")} for d in geo.load_districts()]
     as_of = plvr_tw.as_of()
-    all_tx, counties, books = [], [], {}
+    all_tx, all_rent, counties, books = [], [], [], {}
     for c in COUNTIES:
         if args.legacy_tainan:
             txs = prices.load_transactions() if c["code"] == "D" else []
@@ -148,6 +150,15 @@ def main():
             print("%s：%d 筆、%d 區（%.1f MB）" % (c["short"], n, len(names), size / 1e6), flush=True)
             for x in txs:
                 all_tx.append(dict(x, dist=c["short"]))
+            rents = [] if args.legacy_tainan else plvr_tw.load_county_rent(c["code"])
+            if rents:
+                rb = rent.build_rent_book(rents, names, raw["complete_through"], c["short"])
+                _dump("%s/rent.json" % c["code"], rb)
+                n_rent = rb["data"].get(c["short"], {}).get("all", [0])[0]
+                entry["rent_n"] = n_rent
+                print("  租賃：近一年 %d 筆" % n_rent, flush=True)
+                for x in rents:
+                    all_rent.append(dict(x, dist=c["short"]))
         entry["roads"] = road_list(c["code"])
         counties.append(entry)
     if not all_tx:
@@ -155,6 +166,9 @@ def main():
     nat = prices.build_book(all_tx, [c["short"] for c in counties if c["has_data"]], as_of=as_of, source="live",
                             total=NATION, note="內政部不動產交易實價查詢服務網開放資料", today_ym=today.strftime("%Y-%m"))
     _dump("book.json", nat)
+    if all_rent:
+        _dump("rent.json", rent.build_rent_book(all_rent, [c["short"] for c in counties if c.get("rent_n")],
+                                                nat["complete_through"], NATION))
     pb = prices.PriceBook(nat)
     index = {"built": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "as_of": as_of,
              "complete_through": nat["complete_through"], "describe": pb.describe_source(),

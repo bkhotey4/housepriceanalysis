@@ -570,6 +570,12 @@ class UiSmokeTest(unittest.TestCase):
         self.assertEqual(dlg.out["loan"].cget("text"), "800 萬")
         self.assertEqual(dlg.out["monthly"].cget("text"), "30,376 元")
         self.assertEqual(dlg.out["interest"].cget("text"), "294 萬")          # 30,376 x 360 - 800 萬
+        c = prices.purchase_costs(1000, 20, agent_pct=2)
+        self.assertEqual(dlg.out["cash"].cget("text"), "約 %s 萬" % "{:,}".format(int(round(c["total"]))))
+        self.assertIn("契稅", dlg.fee_detail.cget("text"))
+        dlg.v_agent.set("0"); dlg.recalc()
+        self.assertEqual(dlg.out["fees"].cget("text"), "約 %.1f 萬" % prices.purchase_costs(1000, 20, agent_pct=0)["fees"])
+        dlg.v_agent.set("2")
         for bad in ("", "abc", "-5"):
             dlg.v_rate.set(bad)
             self.assertIsNone(dlg.recalc())

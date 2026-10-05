@@ -1,5 +1,5 @@
 // 離線快取：程式本身先用快取（有新版本時背景更新），資料檔先抓網路、抓不到再用快取。
-const VERSION = "v13";
+const VERSION = "v14";
 const SHELL = ["./", "index.html", "css/app.css", "js/main.js", "js/logic.js", "js/view3d.js", "js/report.js", "manifest.webmanifest", "img/icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open("shell-" + VERSION).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
@@ -16,7 +16,8 @@ self.addEventListener("fetch", e => {
       return r;
     }).catch(() => caches.match(e.request)));
   } else {
-    e.respondWith(caches.match(e.request).then(hit => {
+    // 分享連結帶 ?c=…&d=… 參數：開頁面時不看參數，離線也打得開
+    e.respondWith(caches.match(e.request, { ignoreSearch: e.request.mode === "navigate" }).then(hit => {
       const net = fetch(e.request).then(r => { if (r.ok) { const copy = r.clone(); caches.open("shell-" + VERSION).then(c => c.put(e.request, copy)); } return r; });
       return hit || net;
     }));

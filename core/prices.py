@@ -434,3 +434,39 @@ def monthly_payment(loan_wan, annual_rate_pct, years):
     if r <= 0:
         return principal / n
     return principal * r / (1.0 - (1.0 + r) ** -n)
+
+
+# ------------------------------------------------------------------ 交屋前要準備的現金（與網頁版 logic.purchaseCosts 相同）
+COST_RATIO = {"house": 0.10, "land": 0.25}     # 沒填時粗估：房屋評定現值≈總價 10%、土地公告現值≈總價 25%
+
+
+def purchase_costs(price_wan, down_pct, house_val=None, land_val=None, agent_pct=2.0, reno=0.0,
+                   scrivener=2.0, bank_fee=1.0):
+    """買方交屋前要準備的現金（萬元）。回傳 {items: [(代號, 名稱, 萬, 說明)], down, loan, fees, total, estimated}。
+
+    契稅＝房屋評定現值 × 6%；印花稅、登記規費＝（房屋評定現值＋土地公告現值）× 0.1%；
+    抵押權設定規費＝貸款 × 1.2 × 0.1%；履約保證費＝總價 0.06% 由買賣雙方各半。
+    """
+    if not price_wan or price_wan <= 0:
+        return None
+    est = house_val is None or land_val is None
+    hv = house_val if house_val is not None else price_wan * COST_RATIO["house"]
+    lv = land_val if land_val is not None else price_wan * COST_RATIO["land"]
+    loan = max(0.0, price_wan * (1 - down_pct / 100.0))
+    down = price_wan - loan
+    agent_pct = agent_pct or 0.0
+    items = [
+        ("down", "自備款（頭期款）", down, "總價 %g%%" % down_pct),
+        ("deed", "契稅", hv * 0.06, "房屋評定現值 × 6%"),
+        ("stamp", "印花稅", (hv + lv) * 0.001, "（房屋評定現值＋土地公告現值）× 0.1%"),
+        ("reg", "產權登記規費", (hv + lv) * 0.001 + 0.016, "申報價值 × 0.1%＋書狀費"),
+        ("mort", "抵押權設定規費", loan * 1.2 * 0.001, "貸款 × 1.2 × 0.1%"),
+        ("scrivener", "代書費", scrivener, "行情約 1.5～2.5 萬"),
+        ("escrow", "履約保證費", price_wan * 0.0003, "總價 0.06%，買賣雙方各半"),
+        ("agent", "仲介服務費", price_wan * agent_pct / 100.0, "總價 %g%%（行情約 1～2%%，可議價；跟建商買免付）" % agent_pct),
+        ("bank", "貸款開辦費、火險地震險", bank_fee if loan > 0 else 0.0, "依銀行而定"),
+        ("reno", "裝潢、家具、搬家", reno or 0.0, "自己估"),
+    ]
+    fees = sum(it[2] for it in items if it[0] != "down")
+    return {"items": items, "down": down, "loan": loan, "fees": fees, "total": down + fees, "estimated": est,
+            "hv": hv, "lv": lv}

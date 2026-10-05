@@ -1,4 +1,4 @@
-"""全台營運中的捷運、輕軌與高鐵路線（OpenStreetMap），給網頁版與電腦版畫在地圖上。
+"""全台營運中的捷運、輕軌、高鐵與台鐵路線（OpenStreetMap），給網頁版與電腦版畫在地圖上。
 
 用法（需要網路；GitHub Actions 會自動跑，已有的檔案超過 30 天才重抓）：
     python tools/build_transit.py            # 檔案太舊或不存在才抓
@@ -8,6 +8,8 @@
   {"as_of", "source", "lines": [{"name", "full_name", "network", "color", "operating": true, "approved": true,
      "status", "counties": [代碼…], "segments": [[lat, lng, lat, lng, …], …], "stations": [[站名, lat, lng], …]}]}
 OSM 的一條路線會依行駛方向拆成好幾個 relation（例如「淡水信義線：象山→淡水」「淡水→象山」），這裡依路線名稱合併。
+台鐵的 relation 是一班一班的列車，太多也不完整，所以直接抓軌道（railway=rail，排除高鐵、糖鐵、側線）與車站，合成一條「台鐵」。
+台鐵那幾區查不到時，沿用上一次的台鐵資料，捷運照常更新。
 臺南捷運還在規劃，仍以 data/mrt.json（人工整理的規劃線與進度）為準。
 """
 import argparse
@@ -30,7 +32,7 @@ from core.taiwan import COUNTIES, load_towns  # noqa: E402
 OUT = os.path.join(ROOT, "data", "tw", "transit.json")
 WEB_OUT = os.path.join(ROOT, "web", "data", "tw", "transit.json")
 MAX_AGE_DAYS = 30
-VERSION = 3          # 格式或抓法改了就加 1：舊檔案即使還沒滿 30 天也會重抓
+VERSION = 4          # 格式或抓法改了就加 1：舊檔案即使還沒滿 30 天也會重抓（4：加台鐵）
 REPORT = os.path.join(ROOT, "web", "data", "tw", "transit_report.json")   # 每條 relation 的明細（網站上看得到，方便查漏抓）
 # 一次查全台太大，Overpass 會中途停掉（回傳一部分＋remark 錯誤訊息）：分區、分類各查一次再合併
 AREAS = [("北部", "24.55,120.9,25.35,122.1"), ("中部", "23.75,120.2,24.55,121.4"), ("南部", "21.8,120.0,23.75,121.0"),
@@ -38,6 +40,15 @@ AREAS = [("北部", "24.55,120.9,25.35,122.1"), ("中部", "23.75,120.2,24.55,12
 _Q = '[out:json][timeout:180][bbox:%s];%s->.r;.r out geom;node(r.r)["name"];out;'
 QUERIES = [("%s捷運輕軌" % n, _Q % (b, 'rel["route"~"^(subway|light_rail|monorail)$"]')) for n, b in AREAS[:3]] + [
     ("高鐵", _Q % ("21.8,118.0,26.5,122.2", 'rel["route"="train"]["name"~"高鐵|高速鐵路|High Speed"]'))]
+# 台鐵：軌道＋車站，分四區（區域可以重疊，依 id 去重）
+TRA_AREAS = [("台鐵北部", "24.4,120.6,25.35,122.1"), ("台鐵中部", "23.4,120.1,24.45,121.2"),
+             ("台鐵南部", "21.8,120.0,23.45,121.0"), ("台鐵東部", "21.8,120.8,24.95,122.0")]
+_QT = ('[out:json][timeout:180][bbox:%s];way["railway"="rail"]["service"!~"."];out geom tags;'
+       'node["railway"~"^(station|halt)$"];out tags;')
+TRA_QUERIES = [(n, _QT % b) for n, b in TRA_AREAS]
+TRA_COLOR = "#5b6b7c"
+_TRA_OP = re.compile("臺鐵|台鐵|臺灣鐵路|台灣鐵路|Taiwan Railway")
+_NOT_TRA = re.compile("高鐵|高速鐵路|High Speed|糖|捷運|Metro|MRT|林鐵|阿里山|森林|輕軌")
 DEFAULT_COLORS = {"subway": "#2a78d6", "light_rail": "#2ea36b", "monorail": "#8e5bd0", "train": "#e36f1e"}
 
 
@@ -207,6 +218,103 @@ def build(raw, towns=None):
     return lines
 
 
+def _merge_fast(segs):
+    """頭尾相接（而且那一點只有這兩段）的折線接起來；每一輪接很多對，比 roads.merge_chains 快很多（台鐵有好幾千段）。"""
+    segs = [list(s) for s in segs if len(s) >= 2]
+    changed = True
+    while changed and len(segs) > 1:
+        changed = False
+        ends = {}
+        for i, sg in enumerate(segs):
+            ends.setdefault(sg[0], set()).add(i)
+            ends.setdefault(sg[-1], set()).add(i)
+        used, out = set(), []
+        for pt, idx in ends.items():
+            if len(idx) != 2:
+                continue
+            i, j = sorted(idx)
+            if i in used or j in used:
+                continue
+            a, b = segs[i], segs[j]
+            if a[-1] != pt:
+                a = a[::-1]
+            if b[0] != pt:
+                b = b[::-1]
+            if a[-1] != pt or b[0] != pt or a[0] == b[-1]:
+                continue
+            used.update((i, j))
+            out.append(a + b[1:])
+            changed = True
+        segs = [s for k, s in enumerate(segs) if k not in used] + out
+    return segs
+
+
+def is_tra_way(t):
+    """台鐵的軌道：排除高鐵（標準軌、名稱）、糖鐵與林鐵（窄軌、觀光）、工業線。"""
+    if t.get("highspeed") == "yes" or t.get("railway:preserved") == "yes":
+        return False
+    if t.get("usage") in ("industrial", "military", "tourism", "test"):
+        return False
+    gauge = str(t.get("gauge") or "")
+    if gauge and gauge != "1067":
+        return False
+    text = " ".join(str(t.get(k) or "") for k in ("name", "operator", "network"))
+    return not _NOT_TRA.search(text)
+
+
+def build_tra(elements, towns=None):
+    """Overpass 回傳（台鐵軌道 way＋車站 node）→ 一條「台鐵」路線；沒有軌道回傳 None。"""
+    towns = towns if towns is not None else load_towns()
+    ways, nodes = {}, {}
+    for e in elements:
+        t = e.get("tags") or {}
+        if e.get("type") == "way" and e.get("geometry") and is_tra_way(t):
+            pts = [(round(p["lat"], 4), round(p["lon"], 4)) for p in e["geometry"] if "lat" in p]
+            if len(pts) >= 2:
+                ways[e["id"]] = pts
+        elif e.get("type") == "node" and t.get("name") and "lat" in e:
+            nodes[e["id"]] = e
+    if not ways:
+        return None
+    # 車站：有台鐵的營運者標記，或在台鐵軌道（的節點）300 公尺內、又不是捷運／高鐵／輕軌的站
+    grid = {}
+    for pts in ways.values():
+        for la, lo in pts:
+            grid.setdefault((int(la * 100), int(lo * 100)), []).append((la, lo))
+
+    def near_track(la, lo):
+        gx, gy = int(la * 100), int(lo * 100)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for p in grid.get((gx + dx, gy + dy), ()):
+                    if math.hypot((p[0] - la) * 110.57, (p[1] - lo) * 101.8) < 0.3:
+                        return True
+        return False
+    stations, seen = [], set()
+    for e in nodes.values():
+        t = e["tags"]
+        if t.get("station") in ("subway", "light_rail", "monorail") or t.get("subway") == "yes" or t.get("light_rail") == "yes":
+            continue
+        text = " ".join(str(t.get(k) or "") for k in ("name", "operator", "network"))
+        if _NOT_TRA.search(text):
+            continue
+        if not (_TRA_OP.search(text) or near_track(e["lat"], e["lon"])):
+            continue
+        name = t["name"].split(";")[0].strip()
+        name = name if name.endswith("站") else name + "站"
+        if name in seen:
+            continue
+        seen.add(name)
+        stations.append([name, round(e["lat"], 5), round(e["lon"], 5)])
+    chains = _merge_fast(list(ways.values()))
+    segs = [[c for p in _thin(ch, 0.08) for c in p] for ch in chains if len(ch) >= 2]
+    counties = sorted({_nearest_county(la, lo, towns) for _n, la, lo in stations}) if stations else []
+    stations.sort(key=lambda s: (-s[1], s[2]))
+    return {"name": "台鐵", "full_name": "臺灣鐵路", "network": "臺鐵", "kind": "台鐵", "color": TRA_COLOR,
+            "operating": True, "approved": True, "status": "營運中（台鐵）", "counties": counties,
+            "segments": segs, "stations": stations}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true")
@@ -224,6 +332,23 @@ def main():
             print("路線資料 %d 天前更新過，這次不重抓" % age)
             return
     elements, seen, report, failed = [], set(), [], []
+    tra_elements, tra_seen, tra_failed = [], set(), []
+    for label, ql in TRA_QUERIES:
+        try:
+            raw = ask(ql)
+        except RuntimeError as e:
+            print("%s：查詢失敗（%s）" % (label, str(e)[:200]), flush=True)
+            tra_failed.append(label)
+            continue
+        n = 0
+        for e in raw["elements"]:
+            k = (e.get("type"), e.get("id"))
+            if k not in tra_seen:
+                tra_seen.add(k)
+                tra_elements.append(e)
+                n += 1
+        print("%s：%d 個軌道與車站" % (label, n), flush=True)
+        time.sleep(5)
     for label, ql in QUERIES:
         try:
             raw = ask(ql)
@@ -260,6 +385,18 @@ def main():
     lines = build({"elements": elements})
     if not lines:
         raise SystemExit("沒有抓到任何路線")
+    tra = None if tra_failed else build_tra(tra_elements)
+    if tra is None:
+        # 台鐵這次沒抓齊：沿用上一次的（如果有）
+        try:
+            with open(OUT, encoding="utf-8") as f:
+                tra = next((ln for ln in json.load(f).get("lines") or [] if ln.get("kind") == "台鐵"), None)
+        except (OSError, ValueError):
+            tra = None
+        print("台鐵：%s" % ("查詢失敗（%s），沿用上一次的資料" % "、".join(tra_failed) if tra_failed else "沒有抓到軌道")
+              + ("" if tra else "，這次沒有台鐵"), flush=True)
+    if tra:
+        lines.append(tra)
     out = {"as_of": datetime.date.today().isoformat(), "v": VERSION, "source": "© OpenStreetMap 貢獻者（Overpass API）",
            "lines": lines}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

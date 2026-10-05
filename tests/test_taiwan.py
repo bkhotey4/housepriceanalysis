@@ -11,7 +11,7 @@ import zipfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from core import address, plvr, plvr_tw, prices, taiwan  # noqa: E402
+from core import address, plvr, plvr_tw, prices, rent, taiwan  # noqa: E402
 from tools import export_tw  # noqa: E402
 
 FIX = os.path.join(ROOT, "tests")
@@ -68,6 +68,7 @@ class NationalDownloadTest(unittest.TestCase):
             code = c["code"].lower()
             files["%s_lvr_land_a.csv" % code] = _as_taipei(a) if code == "a" else (a if code == "d" else a[:a.index(b"\n", a.index(b"\n") + 1) + 1])
             files["%s_lvr_land_b.csv" % code] = b if code == "d" else b[:b.index(b"\n", b.index(b"\n") + 1) + 1]
+        files["d_lvr_land_c.csv"] = _read("fixture_d_lvr_land_c.csv")
         self.zip = _zip(files)
 
         def fake_fetch(url, timeout=90, insecure=False, data=None, agent=None, headers=None):
@@ -106,6 +107,67 @@ class NationalDownloadTest(unittest.TestCase):
         again = self.calls[before:]
         self.assertFalse(any("DownloadSeason" in u and "115S2" in u for u in again))
         self.assertTrue(any("Download?type=zip" in u for u in again))
+        # 租賃檔也一起展開
+        rents = plvr_tw.load_county_rent("D")
+        self.assertTrue(rents)
+        self.assertEqual(plvr_tw.load_county_rent("A"), [])
+
+    def test_old_cache_still_readable_and_refetched(self):
+        """舊版下載的資料夾（只有 _done、沒有租賃檔）照樣讀得到；更新時會重抓一次補上租賃檔。"""
+        plvr_tw.update(seasons_wanted=2, today=datetime.date(2026, 10, 2), progress=lambda m: None)
+        for n in os.listdir(plvr_tw.CACHE):
+            d = os.path.join(plvr_tw.CACHE, n)
+            os.rename(os.path.join(d, plvr_tw.DONE), os.path.join(d, "_done"))
+        self.assertTrue(plvr_tw.folders())
+        self.assertTrue(plvr_tw.load_county("D"))
+        before = len(self.calls)
+        plvr_tw.update(seasons_wanted=2, today=datetime.date(2026, 10, 2), progress=lambda m: None)
+        self.assertTrue(any("DownloadSeason" in u and "115S2" in u for u in self.calls[before:]))
+
+
+class RentTest(unittest.TestCase):
+    def setUp(self):
+        self.items = rent.parse_rent_csv(_read("fixture_d_lvr_land_c.csv").decode("utf-8-sig"))
+
+    def test_parse(self):
+        ids = {x["id"] for x in self.items}
+        self.assertEqual(len(self.items), 22)
+        for bad in ("RPCFX0023", "RPCFX0024", "RPCFX0025", "RPCFX0026"):     # 親友、辦公、只有車位、日期錯
+            self.assertNotIn(bad, ids)
+        cats = {x["id"]: x["cat"] for x in self.items}
+        self.assertEqual(cats["RPCFX0019"], "house")
+        self.assertEqual(cats["RPCFX0020"], "room")      # 獨立套房
+        self.assertEqual(cats["RPCFX0021"], "room")      # 分租雅房（雖然是公寓）
+        park = next(x for x in self.items if x["id"] == "RPCFX0022")
+        self.assertEqual(park["rent"], 22000)            # 扣掉車位 3000
+
+    def test_header_by_name(self):
+        """欄位順序換了也讀得到（依表頭名稱找欄位）。"""
+        import csv as _csv
+        rows = list(_csv.reader(io.StringIO(_read("fixture_d_lvr_land_c.csv").decode("utf-8-sig"))))
+        order = list(range(len(rows[0])))[::-1]
+        buf = io.StringIO()
+        _csv.writer(buf).writerows([[r[i] for i in order] for r in rows])
+        # 第一欄必須是「鄉鎮市區」才認得表頭：把它移回最前面
+        text = buf.getvalue()
+        rows2 = list(_csv.reader(io.StringIO(text)))
+        k = rows2[0].index("鄉鎮市區")
+        rows2 = [[r[k]] + r[:k] + r[k + 1:] for r in rows2]
+        buf2 = io.StringIO()
+        _csv.writer(buf2).writerows(rows2)
+        self.assertEqual(len(rent.parse_rent_csv(buf2.getvalue())), 22)
+        self.assertEqual(rent.parse_rent_csv("鄉鎮市區,交易標的\n東區,建物\n"), [])     # 缺必要欄位
+
+    def test_book_and_yield(self):
+        b = rent.build_rent_book(self.items, ["東區", "中西區", "永康區"], "2026-08", "臺南市")
+        self.assertEqual(b["window"], ["2025-09", "2026-08"])
+        east = b["data"]["東區"]
+        self.assertEqual(east["apt"][0], 13)
+        self.assertEqual(east["apt"][1], 22000)
+        self.assertIn("s", east["rooms"])
+        self.assertNotIn("永康區", b["data"])            # 沒有租賃就不列
+        self.assertAlmostEqual(rent.gross_yield(733, 30), 733 * 12 / 300000 * 100)
+        self.assertIsNone(rent.gross_yield(None, 30))
 
 
 def _transit_fixture():
@@ -132,6 +194,82 @@ def _transit_fixture():
 
 
 class TransitTest(unittest.TestCase):
+    def test_main_keeps_old_tra_when_tra_fails(self):
+        """台鐵那幾區查詢失敗：捷運照常更新，台鐵沿用上一次的資料。"""
+        import json as _json
+        from unittest import mock
+        from tools import build_transit as bt
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        out, web, rep = (os.path.join(tmp, n) for n in ("transit.json", "web/transit.json", "web/report.json"))
+        old_tra = {"name": "台鐵", "kind": "台鐵", "color": "#5b6b7c", "counties": ["D"], "segments": [[23.0, 120.2, 23.1, 120.2]],
+                   "stations": [["臺南站", 23.0, 120.2]], "operating": True, "approved": True}
+        with open(out, "w", encoding="utf-8") as f:
+            _json.dump({"as_of": "2026-01-01", "v": 3, "lines": [old_tra]}, f)
+
+        def fake_ask(ql):
+            if 'way["railway"="rail"]' in ql:
+                raise RuntimeError("502")
+            return _transit_fixture() if "subway" in ql else {"elements": []}
+        towns = {"A": [{"name": "信義區", "lat": 25.033, "lng": 121.567}]}
+        with mock.patch.object(bt, "ask", fake_ask), mock.patch.object(bt, "OUT", out), mock.patch.object(bt, "WEB_OUT", web), \
+                mock.patch.object(bt, "REPORT", rep), mock.patch.object(bt.time, "sleep", lambda s: None), \
+                mock.patch.object(bt, "load_towns", lambda: towns), mock.patch.object(sys, "argv", ["build_transit.py"]):
+            bt.main()
+        with open(out, encoding="utf-8") as f:
+            new = _json.load(f)
+        self.assertEqual(new["v"], bt.VERSION)
+        kinds = {ln["name"]: ln.get("kind") for ln in new["lines"]}
+        self.assertIn("淡水信義線", kinds)
+        self.assertEqual(kinds.get("台鐵"), "台鐵")
+        self.assertTrue(os.path.exists(web))
+
+    def test_desktop_clips_tra_to_county(self):
+        """電腦版：台鐵只畫目前縣市範圍內的路段與車站。"""
+        import json as _json
+        from core import region
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        path = os.path.join(tmp, "transit.json")
+        seg = [25.05, 121.52, 24.8, 121.0, 23.0, 120.21, 22.9, 120.2]          # 台北 → 新竹 → 台南
+        with open(path, "w", encoding="utf-8") as f:
+            _json.dump({"lines": [{"name": "台鐵", "kind": "台鐵", "color": "#5b6b7c", "counties": ["A", "D"], "segments": [seg],
+                                   "stations": [["臺北站", 25.0478, 121.517], ["臺南站", 22.997, 120.212]]}]}, f)
+        old = region.TRANSIT_PATH
+        region.TRANSIT_PATH = path
+        self.addCleanup(setattr, region, "TRANSIT_PATH", old)
+        tn = region.transit_lines("D")["台鐵"]
+        self.assertEqual([s[0] for s in tn["stations"]], ["臺南站"])
+        pts = [p for sg in tn["segments"] for p in sg["points"]]
+        self.assertTrue(pts and all(p[0] < 23.5 for p in pts))
+        self.assertEqual(region.transit_lines("B"), {})
+
+    def test_build_tra(self):
+        """台鐵：抓軌道與車站合成一條；高鐵、糖鐵的軌道與捷運、高鐵車站都不算。"""
+        from tools import build_transit
+        towns = {"D": [{"name": "東區", "lat": 22.98, "lng": 120.22}], "E": [{"name": "左營區", "lat": 22.68, "lng": 120.30}]}
+        g = lambda *pts: [{"lat": a, "lon": b} for a, b in pts]
+        els = [
+            {"type": "way", "id": 1, "tags": {"railway": "rail", "name": "縱貫線", "gauge": "1067"}, "geometry": g((22.997, 120.212), (22.98, 120.22))},
+            {"type": "way", "id": 2, "tags": {"railway": "rail", "name": "縱貫線"}, "geometry": g((22.98, 120.22), (22.70, 120.30))},
+            {"type": "way", "id": 3, "tags": {"railway": "rail", "highspeed": "yes", "name": "台灣高速鐵路"}, "geometry": g((22.92, 120.28), (22.68, 120.31))},
+            {"type": "way", "id": 4, "tags": {"railway": "rail", "gauge": "762", "name": "烏樹林線"}, "geometry": g((23.3, 120.3), (23.31, 120.31))},
+            {"type": "node", "id": 10, "lat": 22.9972, "lon": 120.2125, "tags": {"railway": "station", "name": "臺南"}},
+            {"type": "node", "id": 11, "lat": 22.70, "lon": 120.3005, "tags": {"railway": "station", "name": "新左營", "operator": "臺灣鐵路"}},
+            {"type": "node", "id": 12, "lat": 22.70, "lon": 120.3008, "tags": {"railway": "station", "name": "左營", "station": "subway"}},
+            {"type": "node", "id": 13, "lat": 22.687, "lon": 120.307, "tags": {"railway": "station", "name": "左營", "operator": "台灣高鐵"}},
+            {"type": "node", "id": 14, "lat": 23.5, "lon": 120.5, "tags": {"railway": "station", "name": "很遠的站"}},
+        ]
+        ln = build_transit.build_tra(els, towns)
+        self.assertEqual(ln["name"], "台鐵")
+        self.assertEqual(ln["kind"], "台鐵")
+        self.assertEqual(sorted(s[0] for s in ln["stations"]), ["新左營站", "臺南站"])
+        self.assertEqual(len(ln["segments"]), 1)                     # 兩段縱貫線接成一條；高鐵、糖鐵不算
+        self.assertEqual(ln["counties"], ["D", "E"])
+        self.assertIsNone(build_transit.build_tra([els[2], els[3]], towns))
+        self.assertFalse(build_transit.is_tra_way({"railway": "rail", "operator": "台灣高鐵"}))
+        self.assertTrue(build_transit.is_tra_way({"railway": "rail", "operator": "國營臺灣鐵路股份有限公司"}))
+
     def test_build_merges_directions(self):
         from tools import build_transit
         towns = {"A": [{"name": "信義區", "lat": 25.033, "lng": 121.567}], "B": [{"name": "北屯區", "lat": 24.18, "lng": 120.69}]}

@@ -484,30 +484,62 @@ export const POI_CATS = [
   { key: "waste", label: "垃圾場／焚化爐／污水廠", ch: "垃", color: "#8a5a2b", group: "bad", r: 1000, q: ['nwr["landuse"="landfill"]', 'nwr["amenity"="waste_transfer_station"]', 'nwr["man_made"="wastewater_plant"]', 'nwr["power"="plant"]["plant:source"="waste"]'], t: t => t.landuse === "landfill" || t.amenity === "waste_transfer_station" || t.man_made === "wastewater_plant" || (t.power === "plant" && t["plant:source"] === "waste") },
   { key: "temple", label: "宮廟（見仁見智）", ch: "廟", color: "#b5651d", group: "bad", r: 200, q: ['nwr["amenity"="place_of_worship"]["religion"~"^(taoist|buddhist|chinese_folk)$"]'], t: t => t.amenity === "place_of_worship" && /^(taoist|buddhist|chinese_folk)$/.test(t.religion || "") },
   { key: "industry", label: "工業區／工廠", ch: "工", color: "#7a3fb5", group: "bad", r: 500, q: ['way["landuse"="industrial"]', 'nwr["man_made"="works"]'], t: t => t.landuse === "industrial" || t.man_made === "works" },
+  // 線狀的嫌惡設施：量到線上最近的一點（geom），不是線的中心
+  { key: "hvline", label: "高壓電線", ch: "線", color: "#eda100", group: "bad", r: 200, geom: true, q: ['way["power"="line"]'], t: t => t.power === "line" },
+  { key: "rail", label: "鐵路、高架捷運（噪音、震動）", ch: "軌", color: "#6b4f3a", group: "bad", r: 200, geom: true,
+    q: ['way["railway"~"^(rail|light_rail|subway|monorail)$"]["tunnel"!="yes"]["service"!~"."]'],
+    t: t => /^(rail|light_rail|subway|monorail)$/.test(t.railway || "") && t.tunnel !== "yes" && !t.service && !(+t.layer < 0) },
+  { key: "expwy", label: "高速公路、快速道路", ch: "速", color: "#8a929b", group: "bad", r: 200, geom: true,
+    q: ['way["highway"~"^(motorway|trunk)$"]["tunnel"!="yes"]'], t: t => /^(motorway|trunk)$/.test(t.highway || "") && t.tunnel !== "yes" },
+  { key: "airport", label: "機場（航道噪音）", ch: "機", color: "#2a78d6", group: "bad", r: 4000, q: ['nwr["aeroway"="aerodrome"]["iata"]'], t: t => t.aeroway === "aerodrome" && !!t.iata },
 ];
-export const POI_RADIUS = 2000;
+export const POI_RADIUS = 2000;      // 一般設施的查詢上限；機場另外看 4 公里
 export function poiQuery(lat, lng) {
-  const parts = [];
-  for (const c of POI_CATS) for (const q of c.q) parts.push(`${q}(around:${Math.min(c.r, POI_RADIUS)},${lat.toFixed(5)},${lng.toFixed(5)});`);
-  return `[out:json][timeout:25];(${parts.join("")});out center tags 2000;`;
+  const at = c => `(around:${c.r},${lat.toFixed(5)},${lng.toFixed(5)});`;
+  const pt = [], ln = [];
+  for (const c of POI_CATS) for (const q of c.q) (c.geom ? ln : pt).push(q + at(c));
+  return `[out:json][timeout:25];(${pt.join("")});out center tags 2000;(${ln.join("")});out geom tags 300;`;
+}
+// 點到折線最近的位置（平面近似，幾公里內誤差可忽略）：回傳 [距離公尺, lat, lng]
+export function nearestOnLine(lat, lng, geom) {
+  const kx = 111.32 * Math.cos(lat * Math.PI / 180), ky = 110.57;
+  let best = [Infinity, null, null];
+  for (let i = 0; i < geom.length; i++) {
+    const a = geom[i], b = geom[i + 1] || a;
+    if (!a || a.lat == null || !b || b.lat == null) continue;
+    const ax = (a.lon - lng) * kx, ay = (a.lat - lat) * ky, bx = (b.lon - lng) * kx, by = (b.lat - lat) * ky;
+    const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+    const t = L2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / L2)) : 0;
+    const px = ax + t * dx, py = ay + t * dy, d = Math.hypot(px, py) * 1000;
+    if (d < best[0]) best = [d, lat + py / ky, lng + px / kx];
+  }
+  return best;
 }
 export function classifyPois(elements, lat, lng) {
   const items = [], seen = new Set();
   for (const e of elements || []) {
-    const t = e.tags || {}, la = e.lat ?? (e.center && e.center.lat), lo = e.lon ?? (e.center && e.center.lon);
+    const t = e.tags || {};
+    let la = e.lat ?? (e.center && e.center.lat), lo = e.lon ?? (e.center && e.center.lon), dLine = e.dLine ?? null;
+    if (Array.isArray(e.geometry) && e.geometry.length) { const n = nearestOnLine(lat, lng, e.geometry); [dLine, la, lo] = n; }
     if (la == null || lo == null) continue;
     for (const c of POI_CATS) {
       if (!c.t(t)) continue;
-      const d = Math.round(distKm(lat, lng, la, lo) * 1000);
+      const d = Math.round(dLine != null ? dLine : distKm(lat, lng, la, lo) * 1000);
       if (d > c.r) continue;
       const id = `${e.type}${e.id}`;
       if (seen.has(id + c.key)) continue;
       seen.add(id + c.key);
-      items.push({ id, cat: c.key, name: t.name || c.label, lat: la, lng: lo, d });
+      // 同一條電線、鐵路在 OSM 上常拆成好幾段：同名（或同編號）的只算一條
+      const same = c.geom ? (t.name || t.ref || (t.operator && t.voltage ? t.operator + t.voltage : "")) : "";
+      items.push({ id, cat: c.key, name: t.name || (t.ref ? `${c.label} ${t.ref}` : c.label), lat: la, lng: lo, d, same });
       break;
     }
   }
   items.sort((a, b) => a.d - b.d);
+  for (let i = items.length - 1; i >= 0; i--) {     // 由遠到近掃，同一條只留最近的那一段
+    const it = items[i];
+    if (it.same && items.findIndex(x => x.cat === it.cat && x.same === it.same) !== i) items.splice(i, 1);
+  }
   const byCat = {};
   for (const c of POI_CATS) {
     const its = items.filter(x => x.cat === c.key);
@@ -635,4 +667,82 @@ export function judgePrice(est, priceWan) {
   if (!est || !est.ok || !priceWan || !est.tMid) return null;
   const pct = (priceWan - est.tMid) / est.tMid * 100;
   return { pct, pos: priceWan < est.tLo ? "低於" : priceWan > est.tHi ? "高於" : "區間內" };
+}
+
+// ------------------------------------------------------------------ 交屋前要準備的現金（買方負擔的稅費，與 core/prices.purchase_costs 相同）
+// 稅費的計算基礎是「房屋評定現值」與「土地公告現值」，比市價低很多；沒填時用總價的固定比例粗估。
+export const COST_DEFAULT = { hv: "", lv: "", agent: 2, reno: 0, scrivener: 2, bankFee: 1 };
+export const COST_RATIO = { house: 0.10, land: 0.25 };      // 粗估：房屋評定現值≈總價 10%、土地公告現值≈總價 25%
+export function purchaseCosts(priceWan, downPct, opt = {}) {
+  const o = { ...COST_DEFAULT, ...opt }, num = v => (v === "" || v == null || isNaN(+v)) ? null : +v;
+  if (!(priceWan > 0)) return null;
+  const hv = num(o.hv) ?? priceWan * COST_RATIO.house, lv = num(o.lv) ?? priceWan * COST_RATIO.land;
+  const est = num(o.hv) == null || num(o.lv) == null;
+  const loan = Math.max(0, priceWan * (1 - downPct / 100)), down = priceWan - loan;
+  const items = [
+    ["down", "自備款（頭期款）", down, `總價 ${downPct}%`],
+    ["deed", "契稅", hv * 0.06, "房屋評定現值 × 6%"],
+    ["stamp", "印花稅", (hv + lv) * 0.001, "（房屋評定現值＋土地公告現值）× 0.1%"],
+    ["reg", "產權登記規費", (hv + lv) * 0.001 + 0.016, "申報價值 × 0.1%＋書狀費"],
+    ["mort", "抵押權設定規費", loan * 1.2 * 0.001, "貸款 × 1.2 × 0.1%"],
+    ["scrivener", "代書費", num(o.scrivener) ?? 2, "行情約 1.5～2.5 萬"],
+    ["escrow", "履約保證費", priceWan * 0.0003, "總價 0.06%，買賣雙方各半"],
+    ["agent", "仲介服務費", priceWan * (num(o.agent) ?? 0) / 100, `總價 ${num(o.agent) ?? 0}%（行情約 1～2%，可議價；跟建商買免付）`],
+    ["bank", "貸款開辦費、火險地震險", loan > 0 ? (num(o.bankFee) ?? 1) : 0, "依銀行而定"],
+    ["reno", "裝潢、家具、搬家", num(o.reno) ?? 0, "自己估"],
+  ];
+  const fees = items.filter(([k]) => k !== "down").reduce((s, it) => s + it[2], 0);
+  return { items, down, loan, fees, total: down + fees, estimated: est, hv, lv };
+}
+
+// ------------------------------------------------------------------ 買房 vs 租房：同樣的錢，N 年後誰的資產多
+// 一開始兩邊都有「自備款＋買房稅費」這筆現金：買方拿去付頭期，租方拿去投資。
+// 之後每個月，買方付房貸＋持有成本、租方付房租；誰付得少，差額就拿去投資（年報酬 inv%）。
+// N 年後：買方資產＝房子市值（扣賣屋成本）－剩餘房貸＋投資；租方資產＝投資。
+export const RVB_DEFAULT = { years: 20, g: 1.5, rg: 1, inv: 4, hold: 0.5, sell: 3 };
+export function rentVsBuy(p) {
+  const o = { ...RVB_DEFAULT, ...p };
+  const price = o.price * 10000, cash0 = (o.cash ?? o.price * o.down / 100) * 10000;
+  const loan = Math.max(0, o.price * (1 - o.down / 100)) * 10000;
+  const n = Math.round(o.loanYears * 12), r = o.rate / 100 / 12, g = Math.round((o.grace || 0) * 12);
+  if (!(price > 0) || !(o.rent > 0) || !(o.years > 0)) return null;
+  const pay = m => m <= 0 ? 0 : r > 0 ? loan * r / (1 - Math.pow(1 + r, -m)) : loan / m;
+  const monthly = pay(n - g), mInv = Math.pow(1 + o.inv / 100, 1 / 12) - 1;
+  let bal = loan, buyInv = 0, rentInv = cash0, rent = o.rent, home = price;
+  const years = [];
+  let breakeven = null;
+  for (let m = 1; m <= o.years * 12; m++) {
+    let mort = 0;
+    if (bal > 0 && m <= n) {
+      const interest = bal * r;
+      mort = m <= g ? interest : monthly;
+      bal = Math.max(0, bal - (mort - interest));
+    }
+    const buyOut = mort + home * o.hold / 100 / 12;
+    buyInv *= 1 + mInv; rentInv *= 1 + mInv;
+    if (buyOut > rent) rentInv += buyOut - rent; else buyInv += rent - buyOut;
+    home *= Math.pow(1 + o.g / 100, 1 / 12);
+    if (m % 12 === 0) rent *= 1 + o.rg / 100;
+    if (m % 12 === 0) {
+      const buy = home * (1 - o.sell / 100) - bal + buyInv, rnt = rentInv;
+      years.push({ y: m / 12, buy: buy / 10000, rent: rnt / 10000 });
+      if (breakeven == null && buy >= rnt) breakeven = m / 12;
+    }
+  }
+  const end = years[years.length - 1];
+  return { years, breakeven, end, monthly, rentStart: o.rent, cash0: cash0 / 10000 };
+}
+
+// ------------------------------------------------------------------ 租金行情（tools/export_tw.py 產生的 rent.json）
+// 每格：[件數, 月租中位(元), 每坪月租中位(元), 坪數中位]
+export const RENT_MIN_N = 5;
+export const RENT_ROOMS = [["1", "1 房"], ["2", "2 房"], ["3", "3 房"], ["4", "4 房以上"], ["s", "套房／雅房"]];
+export function rentCell(rb, name, cat = "all") {
+  const c = rb && rb.data && rb.data[name];
+  const v = c && c[cat];
+  return v && v[0] ? { n: v[0], rent: v[1], unit: v[2], ping: v[3] } : null;
+}
+// 毛租金報酬率（%）＝每坪月租 × 12 ÷ 每坪房價；saleU 為萬/坪
+export function grossYield(rentUnit, saleU) {
+  return rentUnit && saleU ? rentUnit * 12 / (saleU * 10000) * 100 : null;
 }

@@ -245,10 +245,27 @@ def transit_lines(code=None):
         if code not in (ln.get("counties") or []):
             continue
         segs = [{"points": [(seg[i], seg[i + 1]) for i in range(0, len(seg) - 1, 2)]} for seg in ln.get("segments") or []]
+        stations = [tuple(st) for st in ln.get("stations") or []]
+        if ln.get("kind") == "台鐵":
+            # 台鐵是全台一條：只留這個縣市範圍內的路段與車站，地圖才不會畫整個台灣的鐵路
+            w, e, n, s_ = bounds(code)
+            inside = lambda la, lo: s_ - 0.05 <= la <= n + 0.05 and w - 0.05 <= lo <= e + 0.05
+            clipped = []
+            for sg in segs:
+                run = []
+                for p in sg["points"]:
+                    if inside(*p):
+                        run.append(p)
+                    elif run:
+                        clipped.append({"points": run}); run = []
+                if run:
+                    clipped.append({"points": run})
+            segs = clipped
+            stations = [st for st in stations if inside(st[1], st[2])]
         out[ln["name"]] = {"full_name": ln.get("full_name", ln["name"]), "color": ln.get("color", "#2a78d6"),
                            "approved": True, "operating": True, "kind": ln.get("kind", "捷運"),
                            "network": ln.get("network", ""), "status": "營運中（%s）" % ln.get("kind", "捷運"),
                            "construction_start": "—", "estimated_completion": "已通車",
-                           "segments": [s for s in segs if len(s["points"]) >= 2],
-                           "stations": [tuple(st) for st in ln.get("stations") or []]}
+                           "segments": [sg for sg in segs if len(sg["points"]) >= 2],
+                           "stations": stations}
     return out

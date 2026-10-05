@@ -11,7 +11,7 @@ import os
 import sys
 import threading
 import unittest
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -88,6 +88,22 @@ class WebAppTest(unittest.TestCase):
         g = pg.evaluate("a => __app.L.mortgage(...a)", [1000, 20, 2.2, 30, 3])
         self.assertAlmostEqual(g["graceMonthly"], 800 * 10000 * 0.022 / 12, places=4)          # 寬限期只繳利息
         self.assertAlmostEqual(g["monthly"], prices.monthly_payment(800, 2.2, 27), places=4)   # 之後 27 年攤還
+        # 交屋前現金：和電腦版的 prices.purchase_costs 算出一樣的稅費
+        for price, down, opt in ((1000, 20, {}), (2380, 30, {"hv": "120", "lv": "500", "agent": "1", "reno": "80"}), (800, 100, {"agent": 0})):
+            js = pg.evaluate("a => __app.L.purchaseCosts(...a)", [price, down, opt])
+            py = prices.purchase_costs(price, down, house_val=float(opt["hv"]) if "hv" in opt else None,
+                                       land_val=float(opt["lv"]) if "lv" in opt else None, agent_pct=float(opt.get("agent", 2)),
+                                       reno=float(opt.get("reno", 0)))
+            self.assertAlmostEqual(js["total"], py["total"], places=6)
+            self.assertEqual([round(i[2], 6) for i in js["items"]], [round(i[2], 6) for i in py["items"]])
+        self.assertIsNone(pg.evaluate("__app.L.purchaseCosts(0, 20)"))
+        # 買房 vs 租房：房租超便宜時租方永遠比較多；房租很貴時買方較早划算
+        cheap = pg.evaluate("__app.L.rentVsBuy({price: 1500, down: 20, rate: 2.2, loanYears: 30, rent: 5000, cash: 350, g: 0})")
+        dear = pg.evaluate("__app.L.rentVsBuy({price: 1500, down: 20, rate: 2.2, loanYears: 30, rent: 80000, cash: 350})")
+        self.assertIsNone(cheap["breakeven"]); self.assertLess(cheap["end"]["buy"], cheap["end"]["rent"])
+        self.assertIsNotNone(dear["breakeven"]); self.assertGreater(dear["end"]["buy"], dear["end"]["rent"])
+        self.assertEqual(len(dear["years"]), 20)
+        self.assertIsNone(pg.evaluate("__app.L.rentVsBuy({price: 1500, down: 20, rate: 2.2, loanYears: 30, rent: 0})"))
         # 概況分頁有房貸試算，改利率後結果跟著更新
         pg.evaluate("__app.selectDistrict('善化區')"); pg.wait_for_timeout(200)
         self.assertIn("房貸試算", pg.inner_text("#tab-body"))
@@ -264,7 +280,14 @@ class WebAppTest(unittest.TestCase):
             els = [{"type": "node", "id": 1, "lat": lat + 0.001, "lon": lng, "tags": {"shop": "convenience", "name": "超商A"}},
                    {"type": "node", "id": 2, "lat": lat + 0.0015, "lon": lng, "tags": {"amenity": "fuel", "name": "加油站B"}},
                    {"type": "node", "id": 3, "lat": lat + 0.03, "lon": lng, "tags": {"amenity": "hospital", "name": "太遠的醫院"}},
-                   {"type": "way", "id": 4, "center": {"lat": lat - 0.004, "lon": lng}, "tags": {"landuse": "cemetery"}}]
+                   {"type": "way", "id": 4, "center": {"lat": lat - 0.004, "lon": lng}, "tags": {"landuse": "cemetery"}},
+                   # 高壓電線：兩段同名，只算一條；距離量到線上最近一點（約 110 公尺），不是線的中心
+                   {"type": "way", "id": 5, "tags": {"power": "line", "name": "高壓線C"},
+                    "geometry": [{"lat": lat + 0.001, "lon": lng - 0.02}, {"lat": lat + 0.001, "lon": lng}]},
+                   {"type": "way", "id": 6, "tags": {"power": "line", "name": "高壓線C"},
+                    "geometry": [{"lat": lat + 0.001, "lon": lng}, {"lat": lat + 0.001, "lon": lng + 0.02}]},
+                   {"type": "way", "id": 7, "tags": {"railway": "subway", "tunnel": "yes"},
+                    "geometry": [{"lat": lat, "lon": lng - 0.01}, {"lat": lat, "lon": lng + 0.01}]}]
             route.fulfill(status=200, content_type="application/json", body=_json.dumps({"elements": els}))
         pg.route("**/api/interpreter", handle)
         pg.wait_for_function("__app.D.txs")
@@ -273,7 +296,10 @@ class WebAppTest(unittest.TestCase):
         text = pg.inner_text("#tab-body")
         self.assertIn("超商A", text); self.assertIn("加油站B", text); self.assertNotIn("太遠的醫院", text)
         self.assertEqual(pg.evaluate("__app.S.tab"), "poi")
-        self.assertEqual(pg.evaluate("__app.view.pois.length"), 3)
+        self.assertEqual(pg.evaluate("__app.view.pois.length"), 4)
+        self.assertIn("高壓線C", text); self.assertNotIn("鐵路、高架捷運（噪音、震動）\t1", text)      # 地下捷運不算
+        self.assertEqual(pg.evaluate("__app.S.poi.res.byCat.hvline.n"), 1)
+        self.assertLess(abs(pg.evaluate("__app.S.poi.res.byCat.hvline.nearest.d") - 111), 5)
 
         # 行情報告：含周邊與地址統計
         pg.click("#tab-body [data-act='report']")
@@ -315,6 +341,15 @@ def _make_tw_fixture(root):
     export_tw._dump("A/book.json", raw)
     export_tw._dump("A/districts.json", {"districts": towns})
     export_tw.export_tx("A", txs, [t["name"] for t in towns])
+    from core import rent as rentmod                # 租金行情：大安區、信義區各幾十筆租賃
+    rents = []
+    for i in range(60):
+        t = towns[i % 2]
+        ping = 20 + (i % 4) * 8
+        rents.append({"id": "R%d" % i, "dist": t["name"], "ym": "2026-%02d" % (1 + i % 8), "cat": "room" if i % 10 == 0 else "apt",
+                      "rent": ping * (1100 + rnd.random() * 300), "ping": ping, "unit": 0, "rooms": 1 + i % 4, "built": 2005})
+        rents[-1]["unit"] = rents[-1]["rent"] / ping
+    export_tw._dump("A/rent.json", rentmod.build_rent_book(rents, [t["name"] for t in towns], raw["complete_through"], "台北市"))
     line = [25.0335, 121.5300, 25.0337, 121.5400, 25.0339, 121.5500]
     export_tw._dump("A/roads/大安區.json", {"roads": {"信義路三段": [line]}, "places": {}, "fetched": "2026-10-02"})
     # 全台首頁的統計：原本的臺南市＋假的臺北市
@@ -381,6 +416,25 @@ class TaiwanWebTest(unittest.TestCase):
         pg.evaluate("__app.enterCounty('A')"); pg.wait_for_function("__app.D.county && __app.D.county.code === 'A'")
         pg.evaluate("__app.selectDistrict('大安區')"); pg.wait_for_timeout(200)
         pg.evaluate("__app.S.tab = 'overview'"); pg.evaluate("__app.selectDistrict('大安區')")
+        # 租金行情、交屋前現金、買房 vs 租房
+        body = pg.inner_text("#tab-body")
+        for want in ("租金行情", "毛租金報酬率", "交屋前要準備多少現金", "買房還是租房比較划算"):
+            self.assertIn(want, body)
+        pg.evaluate("document.querySelector(`details[data-det='rvbOpen'] > summary`).click()")
+        self.assertIn("年後：買房約", pg.inner_text("#rvb-out"))
+        before = pg.inner_text("#rvb-out")
+        pg.fill("input[data-rvb='rent']", "200000"); pg.wait_for_timeout(100)
+        self.assertNotEqual(pg.inner_text("#rvb-out"), before)
+        self.assertTrue(pg.evaluate("__app.S.settings.rvbOpen"))
+        pg.fill("input[data-rvb='rent']", ""); pg.evaluate("document.querySelector(`details[data-det='rvbOpen'] > summary`).click()")
+        pg.evaluate("document.querySelector(`details[data-det='costOpen'] > summary`).click()")
+        self.assertIn("契稅", pg.inner_text("#cost-out"))
+        t1 = pg.inner_text("#cost-out .total"); pg.fill("input[data-cost='agent']", "0"); pg.wait_for_timeout(100)
+        self.assertNotEqual(pg.inner_text("#cost-out .total"), t1)
+        pg.fill("input[data-cost='agent']", "2"); pg.evaluate("document.querySelector(`details[data-det='costOpen'] > summary`).click()")
+        pg.evaluate("__app.selectDistrict('中正區')")
+        self.assertIn("近一年沒有這一區的租賃登錄", pg.inner_text("#tab-body"))
+        pg.evaluate("__app.selectDistrict('大安區')")
         pg.evaluate("document.querySelector(`#tab-body [data-act='cmp-add']`).click()"); pg.wait_for_timeout(200)
         pg.evaluate("__app.enterCounty('D')"); pg.wait_for_function("__app.D.county && __app.D.county.code === 'D'")
         pg.evaluate("__app.S.tab = 'overview'"); pg.evaluate("__app.selectDistrict('東區')"); pg.wait_for_timeout(200)
@@ -389,6 +443,8 @@ class TaiwanWebTest(unittest.TestCase):
         heads = pg.inner_text("#tab-body table.cmp thead")
         self.assertIn("台北 大安區", heads); self.assertIn("台南 東區", heads)
         self.assertIn("中位單價", pg.inner_text("#tab-body table.cmp"))
+        self.assertIn("毛租金報酬率", pg.inner_text("#tab-body table.cmp"))
+        self.assertRegex(pg.inner_text("#tab-body table.cmp"), r"\d\.\d%")              # 大安區有租金資料
         pg.evaluate("document.querySelector(`#tab-body [data-cmpdel='0']`).click()"); pg.wait_for_timeout(200)
         self.assertEqual(pg.locator("#tab-body table.cmp thead th").count(), 2)
         pg.evaluate("__app.S.settings.cmp = []; __app.enterNation()")
@@ -445,6 +501,37 @@ class TaiwanWebTest(unittest.TestCase):
         url = unquote(pop.value.url)
         self.assertIn("github.com/bkhotey4/housepriceanalysis/issues/new", url)
         self.assertIn("假的錯誤", url)
+        self.assertEqual(errors, [])
+
+    def test_share_link(self):
+        """分享連結：網址帶縣市、區域、房型、分頁、比較清單，打開就是同一個畫面；畫面一變網址列跟著變。"""
+        ctx = self.browser.new_context(viewport={"width": 1200, "height": 800})
+        ctx.route("https://wmts.nlsc.gov.tw/**", lambda r: r.abort())
+        ctx.route("https://geomap.gsmma.gov.tw/**", lambda r: r.abort())
+        self.addCleanup(ctx.close)
+        pg = ctx.new_page()
+        errors = []
+        pg.on("pageerror", lambda e: errors.append(str(e)))
+        pg.goto(self.url + "?c=A&d=" + quote("信義區") + "&cat=apt&m=t&tab=rank")
+        pg.wait_for_function("window.__app && __app.D.county && __app.S.current === '信義區'")
+        st = pg.evaluate("({cat: __app.S.cat, m: __app.S.metric, tab: __app.S.tab})")
+        self.assertEqual(st, {"cat": "apt", "m": "t", "tab": "rank"})
+        self.assertEqual(pg.evaluate("document.querySelector('#chips [data-cat=apt]').getAttribute('aria-checked')"), "true")
+        self.assertIn("d=%E4%BF%A1%E7%BE%A9%E5%8D%80", pg.evaluate("location.search"))
+        pg.evaluate("__app.selectDistrict('大安區')")
+        self.assertIn(quote("大安區"), pg.evaluate("location.search"))
+        url = pg.evaluate("__app.shareUrl()")
+        self.assertIn("c=A", url); self.assertIn("tab=rank", url); self.assertIn("cat=apt", url)
+        # 比較清單跟著連結走
+        pg.goto(self.url + "?c=A&tab=cmp&cmp=" + quote("A:大安區,D:東區"))
+        pg.wait_for_function("window.__app && __app.D.county && document.querySelectorAll('#tab-body table.cmp thead th').length === 3")
+        self.assertIn("台南 東區", pg.inner_text("#tab-body table.cmp thead"))
+        # 分享按鈕：沒有 navigator.share 時複製連結
+        ctx.grant_permissions(["clipboard-read", "clipboard-write"])
+        pg.evaluate("delete navigator.share")
+        pg.click("#map-tools [data-act='share']"); pg.wait_for_timeout(200)
+        self.assertIn("已複製連結", pg.inner_text("#toast"))
+        self.assertIn("cmp=", pg.evaluate("navigator.clipboard.readText()"))
         self.assertEqual(errors, [])
 
 

@@ -29,30 +29,35 @@ class MortgageDialog(tk.Toplevel):
         self.v_ltv = tk.StringVar(value="%g" % st.get("loan_pct", 80))
         self.v_rate = tk.StringVar(value="%g" % st.get("loan_rate", 2.3))
         self.v_years = tk.StringVar(value="%g" % st.get("loan_years", 30))
+        self.v_agent = tk.StringVar(value="%g" % st.get("agent_pct", 2))
         rows = [("房屋總價", self.v_price, "萬"), ("貸款成數", self.v_ltv, "%"),
-                ("年利率", self.v_rate, "%"), ("貸款年限", self.v_years, "年")]
+                ("年利率", self.v_rate, "%"), ("貸款年限", self.v_years, "年"), ("仲介費", self.v_agent, "%")]
         for i, (label, var, unit) in enumerate(rows):
             tk.Label(self, text=label, bg=kit.SURFACE, fg=kit.INK, font=f.base, anchor="w").grid(row=i, column=0, sticky="w", pady=3)
             e = ttk.Entry(self, textvariable=var, width=10, font=f.base, justify="right")
             e.grid(row=i, column=1, padx=8, pady=3)
             e.bind("<KeyRelease>", lambda ev: self.recalc())
             tk.Label(self, text=unit, bg=kit.SURFACE, fg=kit.MUTED, font=f.base).grid(row=i, column=2, sticky="w")
-        tk.Label(self, text="利率與成數請填銀行實際給你的條件。", bg=kit.SURFACE, fg=kit.MUTED, font=f.small
-                 ).grid(row=4, column=0, columnspan=3, sticky="w", pady=(2, 8))
+        tk.Label(self, text="利率與成數請填銀行實際給你的條件；跟建商買預售屋、新成屋，仲介費填 0。", bg=kit.SURFACE, fg=kit.MUTED, font=f.small
+                 ).grid(row=5, column=0, columnspan=3, sticky="w", pady=(2, 8))
         box = tk.Frame(self, bg="#f6f7f9", padx=12, pady=10, highlightthickness=1, highlightbackground=kit.BORDER)
-        box.grid(row=5, column=0, columnspan=3, sticky="ew")
+        box.grid(row=6, column=0, columnspan=3, sticky="ew")
         self.out = {}
         for i, (key, label) in enumerate([("down", "自備款"), ("loan", "貸款金額"), ("monthly", "每月應繳"),
-                                          ("interest", "利息總額"), ("income", "月收入參考")]):
+                                          ("interest", "利息總額"), ("income", "月收入參考"),
+                                          ("fees", "稅費與雜支"), ("cash", "交屋前要準備")]):
             tk.Label(box, text=label, bg="#f6f7f9", fg=kit.MUTED, font=f.base, anchor="w").grid(row=i, column=0, sticky="w", pady=2)
             v = tk.Label(box, text="—", bg="#f6f7f9", fg=kit.INK, font=f.h2 if key == "monthly" else f.bold, anchor="e")
             v.grid(row=i, column=1, sticky="e", padx=(24, 0), pady=2)
             self.out[key] = v
         box.columnconfigure(1, weight=1)
-        tk.Label(self, text="每月應繳以本息平均攤還計算，未含寬限期、稅費與保險。\n「月收入參考」是以月付不超過月收入三分之一的常見審核原則反推，僅供試算。",
-                 bg=kit.SURFACE, fg=kit.MUTED, font=f.small, justify="left").grid(row=6, column=0, columnspan=3, sticky="w", pady=(8, 8))
+        self.fee_detail = tk.Label(self, text="", bg=kit.SURFACE, fg=kit.MUTED, font=f.small, justify="left")
+        self.fee_detail.grid(row=7, column=0, columnspan=3, sticky="w", pady=(8, 0))
+        tk.Label(self, text="每月應繳以本息平均攤還計算，未含寬限期、稅費與保險。\n「月收入參考」是以月付不超過月收入三分之一的常見審核原則反推，僅供試算。\n"
+                 "稅費以房屋評定現值≈總價 10%、土地公告現值≈總價 25% 粗估，實際以稅單或代書試算為準。",
+                 bg=kit.SURFACE, fg=kit.MUTED, font=f.small, justify="left").grid(row=8, column=0, columnspan=3, sticky="w", pady=(4, 8))
         btns = tk.Frame(self, bg=kit.SURFACE)
-        btns.grid(row=7, column=0, columnspan=3, sticky="e")
+        btns.grid(row=9, column=0, columnspan=3, sticky="e")
         ttk.Button(btns, text="關閉", command=self.destroy).pack(side="right", padx=2)
         if on_apply:
             ttk.Button(btns, text="把總價設為地圖預算", command=self._apply).pack(side="right", padx=2)
@@ -70,6 +75,7 @@ class MortgageDialog(tk.Toplevel):
         if not vals:
             for v in self.out.values():
                 v.config(text="—")
+            self.fee_detail.config(text="")
             return None
         price, ltv, rate, years = vals
         loan = price * ltv / 100.0
@@ -80,8 +86,15 @@ class MortgageDialog(tk.Toplevel):
         self.out["monthly"].config(text="%s 元" % kit.fmt_num(monthly))
         self.out["interest"].config(text="%s 萬" % kit.fmt_num(interest / 10000.0))
         self.out["income"].config(text="約 %.1f 萬以上" % (monthly * 3 / 10000.0))
+        agent = _num(self.v_agent.get())
+        agent = agent if agent is not None and 0 <= agent <= 6 else 2.0
+        c = prices.purchase_costs(price, 100 - ltv, agent_pct=agent)
+        self.out["fees"].config(text="約 %.1f 萬" % c["fees"])
+        self.out["cash"].config(text="約 %s 萬" % kit.fmt_num(c["total"]))
+        parts = ["%s %.1f 萬" % (label.split("、")[0], v) for k, label, v, _n in c["items"] if k not in ("down", "reno") and v >= 0.05]
+        self.fee_detail.config(text="稅費明細：" + "、".join(parts) + "\n另外建議預留 6 個月房貸約 %.0f 萬。" % (monthly * 6 / 10000.0))
         st = self.app.settings
-        st["loan_pct"], st["loan_rate"], st["loan_years"] = ltv, rate, years
+        st["loan_pct"], st["loan_rate"], st["loan_years"], st["agent_pct"] = ltv, rate, years, agent
         return monthly
 
     def _apply(self):
