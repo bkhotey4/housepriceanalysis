@@ -389,7 +389,9 @@ function hideSuggestions() {
 
 function renderSuggestions(query) {
   query = (query || "").trim();
-  if (!query) { hideSuggestions(); return; }
+  const sug = $("#search-sug");
+  if (!sug) return;
+
   const data = {
     districts: D.districts || [],
     roadCatalog: D.roadCatalog || [],
@@ -398,10 +400,46 @@ function renderSuggestions(query) {
     intel: D.intel || [],
     twCounties: D.tw ? D.tw.counties : []
   };
+
+  if (!query) {
+    const popular = L.popularLandmarks(data, { currentDistrict: S.current, cityName: L.CITY, limit: 8 });
+    if (!popular.length) { hideSuggestions(); return; }
+    currentSuggestions = popular;
+    sugIndex = -1;
+
+    const chipsHtml = L.LANDMARK_CATEGORIES.map(c => `
+      <button type="button" class="sug-chip" data-kw="${esc(c.kw)}">
+        <span aria-hidden="true">${c.icon}</span> ${esc(c.label)}
+      </button>
+    `).join("");
+
+    sug.innerHTML = `
+      <div class="sug-section">
+        <div class="sug-header">📍 熱門生活地標捷徑</div>
+        <div class="sug-chips">${chipsHtml}</div>
+      </div>
+      <div class="sug-section">
+        <div class="sug-section-title">熱門推薦地標</div>
+        <ul class="sug-list" role="listbox">
+          ${popular.map((item, idx) => `
+            <li class="sug-item" role="option" data-idx="${idx}">
+              <span class="sug-icon" aria-hidden="true">${item.icon}</span>
+              <div class="sug-main">
+                <div class="sug-title">${esc(item.title)}<span class="sug-badge">${item.badge}</span></div>
+                <div class="sug-sub">${esc(item.sub)}</div>
+              </div>
+            </li>
+          `).join("")}
+        </ul>
+      </div>
+    `;
+    sug.hidden = false;
+    return;
+  }
+
   const items = L.quickSuggest(query, data, { currentDistrict: S.current, cityName: L.CITY, limit: 8 });
   currentSuggestions = items;
   sugIndex = -1;
-  const sug = $("#search-sug");
   if (!items.length) { hideSuggestions(); return; }
   sug.innerHTML = items.map((item, idx) => `
     <li class="sug-item" role="option" data-idx="${idx}">
@@ -439,10 +477,13 @@ async function selectSuggestion(item) {
     sheet("peek");
   } else if (item.type === "school") {
     pick(["school", item.school.id]);
+    toast(`已定位學區：${item.title}`);
   } else if (item.type === "landmark") {
     pick(["landmark", item.lm.id]);
+    toast(`已定位地標：${item.title}`);
   } else if (item.type === "project") {
     pick(["project", item.pr.id]);
+    toast(`已定位建設：${item.title}`);
   } else if (item.type === "road") {
     await showAddress({ district: item.dist, road: item.road, text: item.road });
   } else if (item.type === "address") {
@@ -486,12 +527,28 @@ async function search(text) {
     selectDistrict(only || q.district); toast(`已移到${only || q.district}`); sheet("peek"); return "district";
   }
   if (q.num == null && q.lane == null && !q.district) {
-    const lm = D.landmarks.find(l => s.length >= 2 && (l.name.includes(s) || s.includes(l.name)));
-    if (lm) { pick(["landmark", lm.id]); return "landmark"; }
-    const sc = (D.schools || []).find(sc => s.length >= 2 && (sc.name.includes(s) || s.includes(sc.name)));
-    if (sc) { pick(["school", sc.id]); return "school"; }
+    let lm = D.landmarks.find(l => s.length >= 2 && (l.name.includes(s) || s.includes(l.name)));
+    if (!lm) {
+      for (const al of L.SEARCH_ALIASES) {
+        if (al.keys.some(k => s.includes(k) || k.includes(s))) {
+          lm = D.landmarks.find(l => l.name.includes(al.target) || (l.note && l.note.includes(al.target)));
+          if (lm) break;
+        }
+      }
+    }
+    if (lm) { pick(["landmark", lm.id]); toast(`已定位地標：${lm.name}`); return "landmark"; }
+    let sc = (D.schools || []).find(sc => s.length >= 2 && (sc.name.includes(s) || s.includes(sc.name)));
+    if (!sc) {
+      for (const al of L.SEARCH_ALIASES) {
+        if (al.keys.some(k => s.includes(k) || k.includes(s))) {
+          sc = (D.schools || []).find(x => x.name.includes(al.target));
+          if (sc) break;
+        }
+      }
+    }
+    if (sc) { pick(["school", sc.id]); toast(`已定位學區：${sc.name}`); return "school"; }
     const pr = D.intel.find(it => it.build && s.length >= 2 && it.name.includes(s));
-    if (pr) { pick(["project", pr.id]); return "project"; }
+    if (pr) { pick(["project", pr.id]); toast(`已定位建設：${pr.name}`); return "project"; }
   }
   if (!q.road) { toast("看不出這是哪一條路。請輸入像「善化區中山路123號」「大同路一段」這樣的地址或路名。"); return "none"; }
   if (!q.district) {
@@ -1572,16 +1629,22 @@ function bindUI() {
   qInput.addEventListener("input", () => {
     const val = qInput.value.trim();
     clearBtn.hidden = !val;
-    clearTimeout(sugDebounceTimer);
-    sugDebounceTimer = setTimeout(() => {
-      renderSuggestions(val);
-    }, 120);
+    renderSuggestions(val);
   });
 
+  let suppressSugOnce = false;
+
   qInput.addEventListener("focus", () => {
+    if (suppressSugOnce) { suppressSugOnce = false; return; }
     const val = qInput.value.trim();
     clearBtn.hidden = !val;
-    if (val) renderSuggestions(val);
+    renderSuggestions(val);
+  });
+
+  qInput.addEventListener("click", () => {
+    if (!qInput.value.trim() && sugEl.hidden) {
+      renderSuggestions("");
+    }
   });
 
   qInput.addEventListener("keydown", e => {
@@ -1596,10 +1659,9 @@ function bindUI() {
       sugIndex = (sugIndex - 1 + currentSuggestions.length) % currentSuggestions.length;
       updateActiveSug();
     } else if (e.key === "Enter") {
-      if (!sugEl.hidden && currentSuggestions.length) {
+      if (!sugEl.hidden && sugIndex >= 0 && currentSuggestions.length) {
         e.preventDefault();
-        const chosen = sugIndex >= 0 ? currentSuggestions[sugIndex] : currentSuggestions[0];
-        selectSuggestion(chosen);
+        selectSuggestion(currentSuggestions[sugIndex]);
       }
     } else if (e.key === "Escape") {
       hideSuggestions();
@@ -1607,6 +1669,17 @@ function bindUI() {
   });
 
   sugEl.addEventListener("click", e => {
+    const chip = e.target.closest(".sug-chip");
+    if (chip) {
+      e.preventDefault();
+      e.stopPropagation();
+      const kw = chip.dataset.kw;
+      qInput.value = kw;
+      clearBtn.hidden = false;
+      renderSuggestions(kw);
+      qInput.focus();
+      return;
+    }
     const li = e.target.closest(".sug-item");
     if (!li) return;
     const idx = +li.dataset.idx;
@@ -1617,6 +1690,7 @@ function bindUI() {
     qInput.value = "";
     clearBtn.hidden = true;
     hideSuggestions();
+    suppressSugOnce = true;
     qInput.focus();
   });
 

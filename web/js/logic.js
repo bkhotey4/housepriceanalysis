@@ -943,13 +943,31 @@ export function buildRoadCatalog(txs) {
 }
 
 // 知名縮寫、大學、名校與地標別名對照表
-const SEARCH_ALIASES = [
+export const SEARCH_ALIASES = [
   { keys: ["成大", "成功大學"], target: "國立成功大學" },
   { keys: ["台大", "台灣大學"], target: "國立臺灣大學" },
   { keys: ["清大", "清華大學"], target: "國立清華大學" },
   { keys: ["交大", "陽明交大"], target: "陽明交通大學" },
   { keys: ["南科", "台積電"], target: "南科台積電廠區" },
-  { keys: ["南紡", "南紡夢時代"], target: "南紡購物中心" },
+  { keys: ["南紡", "南紡夢時代", "南紡購物"], target: "南紡購物中心" },
+  { keys: ["新光三越", "新光", "西門新天地", "新天地"], target: "新光三越台南新天地" },
+  { keys: ["三井", "三井outlet", "outlet", "mitsui"], target: "MITSUI OUTLET PARK 台南" },
+  { keys: ["好市多", "costco"], target: "好市多台南店" },
+  { keys: ["成大醫院", "成醫"], target: "成大醫院" },
+  { keys: ["奇美醫院", "永康奇美"], target: "奇美醫院" },
+  { keys: ["市立醫院", "市醫"], target: "台南市立醫院" },
+  { keys: ["花園夜市"], target: "花園夜市" },
+  { keys: ["大東夜市"], target: "大東夜市" },
+  { keys: ["武聖夜市"], target: "武聖夜市" },
+  { keys: ["巴克禮", "巴克禮公園"], target: "巴克禮紀念公園" },
+  { keys: ["文化中心", "臺南文化中心"], target: "臺南文化中心" },
+  { keys: ["新市車站", "新市火車站"], target: "新市火車站" },
+  { keys: ["善化車站", "善化火車站"], target: "善化火車站" },
+  { keys: ["永康車站", "永康火車站"], target: "永康火車站" },
+  { keys: ["藍晒圖", "藍曬圖"], target: "藍晒圖文創園區" },
+  { keys: ["亞太棒球場", "亞太棒球村", "亞太國際棒球"], target: "亞太國際棒球訓練中心" },
+  { keys: ["台南棒球場", "市立棒球場", "統一獅主場"], target: "台南市立棒球場" },
+  { keys: ["迎曦湖", "南科管理局"], target: "南部科學園區管理局" },
   { keys: ["赤崁", "赤嵌樓"], target: "赤崁樓" },
   { keys: ["安平古堡", "熱蘭遮城"], target: "安平古堡" },
   { keys: ["奇美", "奇美博物館"], target: "奇美博物館" },
@@ -985,6 +1003,74 @@ const SEARCH_ALIASES = [
   { keys: ["平實", "平實營區"], target: "平實營區重劃區" },
   { keys: ["捷運藍線", "藍線"], target: "捷運" }
 ];
+
+export function landmarkMeta(lm) {
+  const cat = lm.category || "";
+  const name = lm.name || "";
+  const note = lm.note || "";
+  if (cat === "nightmarket" || name.includes("夜市") || note.includes("夜市")) {
+    return { icon: "🍢", badge: "知名夜市" };
+  }
+  if (cat === "mall" || name.includes("購物") || name.includes("三越") || name.includes("百貨") || name.includes("Outlet") || name.includes("Costco") || name.includes("好市多")) {
+    return { icon: "🛍️", badge: "核心商圈" };
+  }
+  if (cat === "hospital" || name.includes("醫院")) {
+    return { icon: "🏥", badge: "醫療中心" };
+  }
+  if (cat === "station" || name.includes("火車站") || name.includes("車站") || name.includes("高鐵")) {
+    return { icon: "🚄", badge: "交通樞紐" };
+  }
+  if (cat === "tech" || name.includes("科學園區") || name.includes("晶圓") || name.includes("台積電")) {
+    return { icon: "🏢", badge: "科技園區" };
+  }
+  if (cat === "park" || name.includes("公園") || name.includes("湖") || name.includes("綠色隧道")) {
+    return { icon: "🌳", badge: "公園休閒" };
+  }
+  if (name.includes("棒球") || note.includes("棒球場")) {
+    return { icon: "⚾", badge: "體育休閒" };
+  }
+  if (name.includes("美術館") || name.includes("博物館") || name.includes("文化中心") || name.includes("文創")) {
+    return { icon: "🎨", badge: "藝文地標" };
+  }
+  if (name.includes("廟") || name.includes("寺") || name.includes("天后宮")) {
+    return { icon: "⛩️", badge: "名勝古剎" };
+  }
+  return { icon: "🏛️", badge: "知名地標" };
+}
+
+export const LANDMARK_CATEGORIES = [
+  { label: "核心商圈", icon: "🛍️", kw: "商圈" },
+  { label: "知名夜市", icon: "🍢", kw: "夜市" },
+  { label: "醫療中心", icon: "🏥", kw: "醫院" },
+  { label: "交通樞紐", icon: "🚄", kw: "車站" },
+  { label: "公園綠地", icon: "🌳", kw: "公園" },
+  { label: "明星學區", icon: "🎓", kw: "學區" }
+];
+
+export function popularLandmarks(data, options = {}) {
+  const landmarks = data.landmarks || [];
+  const currentDist = options.currentDistrict || "";
+  const limit = options.limit || 8;
+  const scored = [];
+
+  for (const lm of landmarks) {
+    const meta = landmarkMeta(lm);
+    let score = (4 - (lm.rank || 2)) * 20;
+    if (currentDist && lm.district === currentDist) score += 200;
+    if (["🛍️", "🍢", "🏥", "🚄", "🏢"].includes(meta.icon)) score += 30;
+    scored.push({ lm, meta, score });
+  }
+
+  scored.sort((a, b) => b.score - a.score || a.lm.name.localeCompare(b.lm.name));
+  return scored.slice(0, limit).map(({ lm, meta }) => ({
+    type: "landmark",
+    title: lm.name,
+    sub: `${lm.district || ""} · ${lm.note ? lm.note.slice(0, 24) + "..." : meta.badge}`,
+    icon: meta.icon,
+    badge: meta.badge,
+    lm
+  }));
+}
 
 export function quickSuggest(rawText, data, options = {}) {
   const query = normSearchQuery(rawText);
@@ -1082,7 +1168,9 @@ export function quickSuggest(rawText, data, options = {}) {
     if (sName === query) score = 960;
     else if (sName.startsWith(query)) score = 660;
     else if (sName.includes(query)) score = 450;
-    else {
+    else if (query === "學區" || query === "明星學區" || (query.length >= 2 && "明星學區".includes(query))) {
+      score = 420;
+    } else {
       for (const al of SEARCH_ALIASES) {
         if (al.keys.some(k => query.includes(k) || k.includes(query)) && sName.includes(al.target.toLowerCase())) {
           score = 620;
@@ -1107,27 +1195,53 @@ export function quickSuggest(rawText, data, options = {}) {
   // 5. 地標比對 (Landmarks)
   for (const lm of landmarks) {
     const lName = normTw(lm.name).toLowerCase();
+    const lNote = normTw(lm.note || "").toLowerCase();
+    const lCat = (lm.category || "").toLowerCase();
+    const meta = landmarkMeta(lm);
     let score = 0;
-    if (lName === query) score = 920;
-    else if (lName.startsWith(query)) score = 640;
-    else if (lName.includes(query)) score = 400;
+
+    if (lName === query) score = 950;
+    else if (lName.startsWith(query)) score = 680;
+    else if (lName.includes(query)) score = 420;
+    else if (lNote.includes(query)) score = 340;
     else {
       for (const al of SEARCH_ALIASES) {
-        if (al.keys.some(k => query.includes(k) || k.includes(query)) && lName.includes(al.target.toLowerCase())) {
-          score = 600;
-          break;
+        if (al.keys.some(k => query.includes(k) || k.includes(query))) {
+          if (lName.includes(al.target.toLowerCase()) || lNote.includes(al.target.toLowerCase())) {
+            score = 620;
+            break;
+          }
         }
       }
     }
+
+    if (!score) {
+      if ((query === "夜市" || query.includes("夜市")) && (lCat === "nightmarket" || meta.badge === "知名夜市" || lName.includes("夜市") || lNote.includes("夜市"))) {
+        score = 550;
+      } else if ((query === "商圈" || query === "百貨" || query === "購物" || query === "量販" || query === "outlet" || query === "costco" || query === "好市多") && (lCat === "mall" || meta.badge === "核心商圈" || lName.includes("購物") || lName.includes("三越") || lName.includes("好市多") || lNote.includes("百貨") || lNote.includes("商圈") || lNote.includes("outlet"))) {
+        score = 540;
+      } else if ((query === "醫院" || query === "醫療" || query === "成醫" || query === "奇美") && (lCat === "hospital" || meta.badge === "醫療中心" || lName.includes("醫院") || lNote.includes("醫院") || lNote.includes("醫學中心"))) {
+        score = 540;
+      } else if ((query === "車站" || query === "火車站" || query === "高鐵" || query === "台鐵") && (lCat === "station" || meta.badge === "交通樞紐" || lName.includes("站") || lNote.includes("車站") || lNote.includes("高鐵"))) {
+        score = 530;
+      } else if ((query === "公園" || query === "綠地" || query === "生態") && (lCat === "park" || meta.badge === "公園休閒" || lName.includes("公園") || lNote.includes("公園") || lNote.includes("綠地"))) {
+        score = 510;
+      } else if ((query === "科技" || query === "科學園區" || query === "園區" || query === "南科") && (lCat === "tech" || meta.badge === "科技園區" || lName.includes("園區") || lNote.includes("科學園區") || lNote.includes("園區"))) {
+        score = 520;
+      } else if ((query === "棒球" || query === "球場" || query === "棒球場") && (lName.includes("棒球") || lNote.includes("棒球"))) {
+        score = 520;
+      }
+    }
+
     if (score > 0) {
-      if (lm.district === currentDist) score += 80;
+      if (lm.district === currentDist) score += 90;
       score += Math.max(0, (4 - (lm.rank || 2)) * 15);
       results.push({
         type: "landmark",
         title: lm.name,
-        sub: `${lm.district || ""} · ${lm.note ? lm.note.slice(0, 22) + "..." : "熱門地標"}`,
-        icon: "🏛️",
-        badge: "地標商圈",
+        sub: `${lm.district || ""} · ${lm.note ? lm.note.slice(0, 24) + "..." : meta.badge}`,
+        icon: meta.icon,
+        badge: meta.badge,
         score,
         lm
       });

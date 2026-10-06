@@ -38,6 +38,62 @@ input, select, textarea { font: inherit; color: inherit; }
   overflow-y: auto; z-index: 100; padding: 4px 0; margin: 0; list-style: none;
   overscroll-behavior: contain;
 }
+.sug-section {
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid #f0f3f6;
+}
+.sug-section:last-child {
+  border-bottom: 0;
+  padding-bottom: 4px;
+}
+.sug-header {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sug-section-title {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #656d76;
+  margin-bottom: 4px;
+}
+.sug-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.sug-chip {
+  background: #f1f6f5;
+  border: 1px solid #cce4e1;
+  color: #0b5d57;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.sug-chip:hover, .sug-chip:active {
+  background: #0b5d57;
+  color: #ffffff;
+  border-color: #0b5d57;
+  box-shadow: 0 2px 5px rgba(11, 93, 87, 0.2);
+}
+.sug-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
 .sug-item {
   display: flex; align-items: center; gap: 10px; padding: 8px 12px;
   cursor: pointer; border-bottom: 1px solid #f2f4f7; transition: background 0.1s ease;
@@ -64,6 +120,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .sug-badge {
   font-size: 0.72rem; padding: 2px 6px; border-radius: 4px;
   background: #f0f3f6; color: #57606a; flex: none; font-weight: 500;
+  margin-left: 6px;
 }
 
 /* ---------- 地圖 */

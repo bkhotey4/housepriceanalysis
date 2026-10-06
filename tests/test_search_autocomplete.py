@@ -126,6 +126,79 @@ class SearchAutocompleteTest(unittest.TestCase):
 
         ctx.close()
 
+    def test_zero_typing_landmark_shortcuts_and_category_chips(self):
+        ctx = self.browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
+        page = ctx.new_page()
+        page.goto(self.url)
+        page.wait_for_function("window.__app && __app.D.districts && __app.D.txs")
+
+        # 1. 點擊/聚焦搜尋框時，在無輸入狀態下應自動展開「熱門生活地標捷徑」面板
+        page.click("#q")
+        page.wait_for_selector("#search-sug:not([hidden]) .sug-chips", timeout=3000)
+        chips = page.eval_on_selector_all("#search-sug .sug-chip", "els => els.map(e => e.innerText.trim())")
+        self.assertTrue(any("核心商圈" in c for c in chips), f"Expected 核心商圈 in chips: {chips}")
+        self.assertTrue(any("知名夜市" in c for c in chips), f"Expected 知名夜市 in chips: {chips}")
+        self.assertTrue(any("醫療中心" in c for c in chips), f"Expected 醫療中心 in chips: {chips}")
+
+        # 下方應同時列出預先推薦的熱門地標
+        rec_items = page.eval_on_selector_all("#search-sug .sug-item", "els => els.map(e => e.querySelector('.sug-title').innerText)")
+        self.assertTrue(len(rec_items) >= 5, f"Expected at least 5 recommended landmarks, got {len(rec_items)}")
+
+        # 2. 點擊「知名夜市」快捷標籤，搜尋框應自動填入「夜市」並列出知名夜市
+        page.click("#search-sug .sug-chip:has-text('知名夜市')")
+        page.wait_for_timeout(200)
+        self.assertEqual(page.eval_on_selector("#q", "el => el.value"), "夜市")
+        items = page.eval_on_selector_all("#search-sug .sug-item", "els => els.map(e => ({ title: e.querySelector('.sug-title').innerText, badge: e.querySelector('.sug-badge').innerText }))")
+        titles = [it["title"] for it in items]
+        self.assertTrue(any("花園夜市" in t for t in titles), f"Expected 花園夜市 in {titles}")
+        self.assertTrue(any("大東夜市" in t for t in titles), f"Expected 大東夜市 in {titles}")
+        self.assertTrue(any("武聖夜市" in t for t in titles), f"Expected 武聖夜市 in {titles}")
+
+        # 點擊「花園夜市」應立即導航並打開詳情
+        page.click("#search-sug .sug-item:has-text('花園夜市')")
+        page.wait_for_timeout(300)
+        self.assertEqual(page.evaluate("__app.S.tab"), "detail")
+        detail_text = page.eval_on_selector("#tab-body", "el => el.innerText")
+        self.assertIn("花園夜市", detail_text)
+        self.assertIn("北區", detail_text)
+
+        ctx.close()
+
+    def test_landmark_search_and_detail_navigation(self):
+        ctx = self.browser.new_context(viewport={"width": 1366, "height": 820})
+        page = ctx.new_page()
+        page.goto(self.url)
+        page.wait_for_function("window.__app && __app.D.districts && __app.D.txs")
+
+        # 1. 搜尋「三井」應命中 MITSUI OUTLET PARK 台南
+        page.fill("#q", "三井")
+        page.wait_for_selector("#search-sug:not([hidden]) .sug-item", timeout=3000)
+        items = page.eval_on_selector_all("#search-sug .sug-item", "els => els.map(e => ({ title: e.querySelector('.sug-title').innerText, badge: e.querySelector('.sug-badge').innerText }))")
+        self.assertTrue(any("MITSUI OUTLET" in it["title"] or "三井" in it["title"] for it in items))
+
+        # 2. 搜尋「好市多」應命中 好市多台南店
+        page.click("#btn-clear")
+        page.fill("#q", "好市多")
+        page.wait_for_selector("#search-sug:not([hidden]) .sug-item", timeout=3000)
+        items = page.eval_on_selector_all("#search-sug .sug-item", "els => els.map(e => ({ title: e.querySelector('.sug-title').innerText, badge: e.querySelector('.sug-badge').innerText }))")
+        self.assertTrue(any("好市多" in it["title"] for it in items))
+
+        # 點擊好市多
+        page.click("#search-sug .sug-item:has-text('好市多')")
+        page.wait_for_timeout(300)
+        self.assertEqual(page.evaluate("__app.S.tab"), "detail")
+        detail_text = page.eval_on_selector("#tab-body", "el => el.innerText")
+        self.assertIn("好市多", detail_text)
+
+        # 3. 搜尋「成大醫院」應命中成大醫院
+        page.fill("#q", "成大醫院")
+        page.wait_for_selector("#search-sug:not([hidden]) .sug-item", timeout=3000)
+        items = page.eval_on_selector_all("#search-sug .sug-item", "els => els.map(e => ({ title: e.querySelector('.sug-title').innerText, badge: e.querySelector('.sug-badge').innerText }))")
+        self.assertTrue(any("成大醫院" in it["title"] and "醫療中心" in it["badge"] for it in items))
+
+        ctx.close()
+
 if __name__ == "__main__":
     unittest.main()
+
 
