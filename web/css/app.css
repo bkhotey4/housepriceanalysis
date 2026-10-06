@@ -154,3 +154,45 @@ details.more[open] > summary::before { content: "▾ "; }
 table.list.cost td .muted { font-size: 0.75rem; margin: 1px 0 0; }
 table.list.cost tr.strong td { font-weight: 600; }
 table.list.cost tr.total td { font-weight: 700; border-top: 2px solid #cfd5db; border-bottom: 0; }
+
+/* ---------- 1. 安全出價卡片 ---------- */
+.safety-bid { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; margin: 10px 0; }
+.safety-bid h4 { margin: 0 0 10px; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
+.bid-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.bid-box { background: #fff; border-radius: 8px; padding: 8px 6px; text-align: center; border: 1px solid #e2e8f0; }
+.bid-box.offer { border-top: 3px solid #2ea36b; }
+.bid-box.target { border-top: 3px solid #2a78d6; }
+.bid-box.ceiling { border-top: 3px solid #e3542c; }
+.bid-box .t { font-size: 0.72rem; color: var(--muted); margin-bottom: 2px; }
+.bid-box .p { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.bid-box .u { font-size: 0.7rem; color: var(--muted); }
+.bid-verdict { background: #fff; border-radius: 8px; padding: 8px 10px; border-left: 3px solid #2a78d6; font-size: 0.85rem; line-height: 1.5; margin-top: 6px; }
+
+/* ---------- 2. 新青安斷崖與體檢 ---------- */
+.cliff-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin: 8px 0; font-size: 0.85rem; }
+.cliff-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+.cliff-badge.safe { background: #e8f5e9; color: #2e7d32; }
+.cliff-badge.warning { background: #fff8e1; color: #f57f17; }
+.cliff-badge.danger { background: #ffebee; color: #c62828; }
+.cliff-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed #edf2f7; font-size: 0.85rem; }
+.cliff-row:last-child { border-bottom: 0; }
+
+/* ---------- 8. 雙區 PK 擂台 ---------- */
+.duel-card { background: linear-gradient(135deg, #f0f7f6 0%, #eef2f8 100%); border: 1px solid #d3e2e0; border-radius: 12px; padding: 14px; margin: 12px 0; }
+.duel-header { display: flex; align-items: center; justify-content: space-between; text-align: center; margin-bottom: 12px; }
+.duel-team { flex: 1; }
+.duel-team .name { font-size: 1.05rem; font-weight: 700; }
+.duel-team .score { font-size: 1.6rem; font-weight: 800; color: var(--accent); }
+.duel-vs { font-size: 0.95rem; font-weight: 800; color: #94a3b8; padding: 0 8px; }
+.duel-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: #fff; border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+.duel-table th, .duel-table td { padding: 6px 8px; text-align: center; border-bottom: 1px solid #f1f5f9; }
+.duel-table th { background: #f8fafc; color: var(--muted); font-weight: 500; font-size: 0.78rem; }
+.duel-win { font-weight: 700; color: var(--accent); background: #f0fdf4; }
+.duel-verdict { background: #fff; border-radius: 8px; padding: 10px 12px; font-size: 0.88rem; line-height: 1.5; border-left: 4px solid var(--accent); }
+
+/* ---------- 4. 學校與徽章 ---------- */
+.badge { display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; margin-right: 4px; }
+.badge.primary { background: #e0f2fe; color: #0284c7; }
+.badge.danger { background: #fee2e2; color: #dc2626; }
+.badge.success { background: #dcfce7; color: #16a34a; }
+

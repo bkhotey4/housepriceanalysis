@@ -8,6 +8,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const SEQ = ["#fbe3cf", "#f6b98a", "#eb8a4c", "#d2601f", "#9a3f0c"];
 const ROAD_RAMP = ["#fff3b0", "#ffc857", "#f98e3a", "#e2543d", "#a5236f"];
+const YIELD_RAMP = ["#e8f5e9", "#a5d6a7", "#66bb6a", "#2e7d32", "#1b5e20"];
 const NO_DATA = "#b9bfc6", DIV_NEG = "#1c5cab", DIV_MID = "#d8d7d2", DIV_POS = "#c0302f", TREND_SPAN = 8;
 const WORK_COLOR = "#0b5d57", WATCH_COLOR = "#7a3fb5", SEARCH_COLOR = "#d81b60";
 const MARKER_COLOR = { "商辦": "#2a78d6", "商場": "#eb6834", "科學園區": "#1baf7a", "產業園區": "#eda100", "重劃區": "#e87ba4",
@@ -27,7 +28,7 @@ const S = {
   cat: "all", metric: "u", current: L.CITY, tab: "overview", year: new Date().getFullYear(),
   addr: null, pin: null, roadFilter: null, picked: null, pickMode: null, roadKw: "", bldgKw: "", bldg: null, poi: null,
   settings: { town: true, liq: false, slide: false, fault: false, hires: true, lines: true, markers: true, landmarks: true, projects: true,
-              roads: true, labels: true, color: "price", work: "", workKm: 5, budget: "", mode: "car", commuteMin: 20, workPt: null, autoReport: true },
+              roads: true, labels: true, schools: true, color: "price", work: "", workKm: 5, budget: "", mode: "car", commuteMin: 20, workPt: null, autoReport: true },
   watch: [],
 };
 function loadStore() {
@@ -196,15 +197,22 @@ function workOK(name) {
 const filtersOn = () => !!parseFloat(S.settings.budget) || (!!workPlace() && !!commuteLimit());
 
 function refreshBars() {
-  const vals = D.districts.map(d => [d, D.book.best(d.name, S.cat, S.metric), D.book.trend(d.name, S.cat, S.metric)]);
+  const vals = D.districts.map(d => [d, D.book.best(d.name, S.cat, S.metric), D.book.trend(d.name, S.cat, S.metric), rentYield(d.name, S.cat === "house" ? "house" : "apt")]);
   let solid = vals.filter(([, b]) => b.value != null && !b.low).map(([, b]) => b.value);
   if (!solid.length) solid = vals.filter(([, b]) => b.value != null).map(([, b]) => b.value);
   if (!solid.length) solid = [1];
   const lo = Math.min(...solid), hi = Math.max(...solid), span = (hi - lo) || 1, active = filtersOn();
-  view.bars = vals.map(([d, b, tr]) => {
+  view.bars = vals.map(([d, b, tr, yld]) => {
     const v = b.value, ok = !active || (budgetOK(d.name) && workOK(d.name));
-    const color = v == null ? NO_DATA : S.settings.color === "trend" ? trendColor(tr) : b.low ? NO_DATA : ramp(SEQ, (v - lo) / span);
-    const num = v == null ? "—" : S.metric === "u" ? v.toFixed(1) : L.fmtNum(v);
+    let color = NO_DATA;
+    if (S.settings.color === "yield") {
+      color = yld == null ? NO_DATA : ramp(YIELD_RAMP, (yld - 1.5) / 3.0);
+    } else if (S.settings.color === "trend") {
+      color = trendColor(tr);
+    } else {
+      color = v == null ? NO_DATA : b.low ? NO_DATA : ramp(SEQ, (v - lo) / span);
+    }
+    const num = S.settings.color === "yield" ? (yld != null ? yld.toFixed(1) + "%" : "—") : (v == null ? "—" : S.metric === "u" ? v.toFixed(1) : L.fmtNum(v));
     return { id: d.name, lat: d.lat, lng: d.lng, value: v, frac: v == null ? 0 : Math.min(1.15, v / hi), color,
              label: `${d.name} ${num}${b.low && v != null ? "*" : ""}`, n: b.n, dim: active && !ok };
   });
@@ -217,11 +225,16 @@ function renderLegend() {
   if (!D.barRange) return;
   const { lo, span } = D.barRange;
   let rows;
-  if (S.settings.color === "trend") rows = [[-TREND_SPAN, "跌 8% 以上"], [0, "持平"], [TREND_SPAN, "漲 8% 以上"]].map(([p, t]) => [trendColor(p), t]);
-  else rows = [0, 0.5, 1].map(k => [ramp(SEQ, k), (S.metric === "u" ? (lo + span * k).toFixed(0) : L.fmtNum(lo + span * k)) + " " + unit]);
+  if (S.settings.color === "yield") {
+    rows = [[ramp(YIELD_RAMP, 0), "1.5%（低收租）"], [ramp(YIELD_RAMP, 0.5), "3.0%（中等）"], [ramp(YIELD_RAMP, 1.0), "4.5%+（高投報）"]];
+  } else if (S.settings.color === "trend") {
+    rows = [[-TREND_SPAN, "跌 8% 以上"], [0, "持平"], [TREND_SPAN, "漲 8% 以上"]].map(([p, t]) => [trendColor(p), t]);
+  } else {
+    rows = [0, 0.5, 1].map(k => [ramp(SEQ, k), (S.metric === "u" ? (lo + span * k).toFixed(0) : L.fmtNum(lo + span * k)) + " " + unit]);
+  }
   rows.push([NO_DATA, "樣本少／無資料"]);
   let html = `<div class="lg-head">圖例 ${el.classList.contains("collapsed") ? "▸" : "▾"}</div>` +
-    `<div><b>${S.metric === "u" ? "中位單價" : "中位總價"}</b>${S.settings.color === "trend" ? "｜顏色：近半年漲跌" : ""}</div>` +
+    `<div><b>${S.settings.color === "yield" ? "毛租金報酬率（年化）" : S.metric === "u" ? "中位單價" : "中位總價"}</b>${S.settings.color === "trend" ? "｜顏色：近半年漲跌" : ""}</div>` +
     rows.map(([c, t]) => `<div><span class="sw" style="background:${c}"></span>${esc(t)}</div>`).join("");
   if (D.barRange.matched != null) html += `<div style="margin-top:3px"><b>符合條件 ${D.barRange.matched} 區</b></div>`;
   if (view.roads.length && S.current !== L.CITY && D.roadRange) {
@@ -229,6 +242,7 @@ function renderLegend() {
       [0, 0.5, 1].map(k => `<div><span class="sw" style="background:${ramp(ROAD_RAMP, k)}"></span>${S.metric === "u" ? (D.roadRange.lo + D.roadRange.span * k).toFixed(1) : L.fmtNum(D.roadRange.lo + D.roadRange.span * k)}</div>`).join("");
   }
   if (S.settings.projects) html += `<div style="margin-top:4px"><b>建設（${S.year}）</b></div><div>原色 完工｜塔吊 施工中｜淡色 規劃中</div>`;
+  if (S.settings.schools) html += `<div style="margin-top:4px"><b>🎓 明星學區</b></div><div>額滿管制／名校</div>`;
   el.innerHTML = html;
   el.hidden = false;
 }
@@ -248,9 +262,17 @@ function projectItems() {
              rank: lvl >= 5 ? 1 : lvl >= 4 ? 2 : 3, label: state === "完工" ? short : `${short}（${when || state}）` };
   });
 }
+function schoolItems() {
+  if (!S.settings.schools || !D.schools) return [];
+  return D.schools.filter(s => inScope(s, true)).map(s => ({
+    id: s.id, hit: "school", model: "campus", lat: s.lat, lng: s.lng, size: 0.85,
+    rank: 2, label: `🎓 ${s.name.replace(/國民[中小]學/, "").slice(0, 10)}`,
+    name: s.name, district: s.district, type: s.type, status: s.status, note: s.note, county: s.county
+  }));
+}
 function refreshModels() {
   const lms = S.settings.landmarks ? D.landmarks.filter(l => inScope(l, l.rank === 1)).map(l => ({ ...l, label: l.name })) : [];
-  view.models = lms.concat(projectItems());
+  view.models = lms.concat(projectItems()).concat(schoolItems());
   view.markers = !S.settings.markers ? [] : D.intel.filter(it => it.lat != null && (it.impact_level || 0) >= 3 && !(it.build && S.settings.projects) && inScope(it, false))
     .map(it => ({ id: it.id, lat: it.lat, lng: it.lng, color: MARKER_COLOR[it.type] || "#6b7178", level: it.impact_level || 2,
                   label: it.name.split("（")[0].split("—")[0].slice(0, 16) }));
@@ -531,8 +553,8 @@ function pick(hit, latlng) {
   if (kind === "road") { selectRoad(id); return; }
   if (kind === "pin" && id === "search") { if (S.pin) view.flyTo(S.pin.lat, S.pin.lng, Math.max(view.zoom, ZOOM.address)); S.tab = "tx"; renderPanel(); sheet("half"); return; }
   if (kind === "pin" && id !== "work") { S.tab = "watch"; S.watchSel = id; renderPanel(); sheet("half"); return; }
-  const item = kind === "landmark" ? D.landmarks.find(x => x.id === id) : (kind === "project" || kind === "marker") ? D.intel[id] : null;
-  const where = kind === "landmark" ? (item || {}).district : item ? ((item.district || "").split(/[、／\/,，\s（(]/)[0]) : null;
+  const item = kind === "landmark" ? D.landmarks.find(x => x.id === id) : kind === "school" ? (D.schools || []).find(x => x.id === id) : (kind === "project" || kind === "marker") ? D.intel[id] : null;
+  const where = (kind === "landmark" || kind === "school") ? (item || {}).district : item ? ((item.district || "").split(/[、／\/,，\s（(]/)[0]) : null;
   if (D.tw && item) {
     // 全台版：圖案屬於別的縣市，先切到那個縣市（舊資料沒有標縣市的都是臺南市）
     const code = item.county || "D";
@@ -546,6 +568,7 @@ function pick(hit, latlng) {
   view.select(kind === "station" ? "line" : kind, kind === "station" ? id[0] : id);
   let ll = null;
   if (kind === "landmark") { const l = D.landmarks.find(x => x.id === id); ll = [l.lat, l.lng]; }
+  else if (kind === "school") { const sc = (D.schools || []).find(x => x.id === id); if (sc) ll = [sc.lat, sc.lng]; }
   else if (kind === "project" || kind === "marker") { const it = D.intel[id]; ll = [it.lat, it.lng]; }
   else if (kind === "station") { const ln = allLines().find(l => l.name === id[0]); const st = ln && ln.stations.find(s => s[0] === id[1]); if (st) ll = [st[1], st[2]]; }
   else if (kind === "pin" && id === "work") { const w = workPlace(); if (w) ll = [w.lat, w.lng]; }
@@ -965,6 +988,17 @@ function tabDetail() {
       dists.map(d => { const b = D.book.best(d.name, S.cat, "u"); return `<p><a href="#" data-goto="${esc(d.name)}">看${esc(d.name)}的房價</a> <span class="muted">${b.value != null ? "中位單價 " + b.value.toFixed(1) + " 萬/坪" : ""}</span></p>`; }).join("") +
       `<p><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/${encodeURIComponent(L.COUNTY_NAME.replace("全台", "") + " " + l.name)}">在 Google 地圖查看</a></p><p class="muted">圖案是示意造型，位置取自 OpenStreetMap。</p>`;
   }
+  if (kind === "school") {
+    const s = (D.schools || []).find(x => x.id === id);
+    if (!s) return "";
+    const b = D.book.best(s.district, S.cat, "u");
+    return `<h2 style="margin-top:2px">🎓 ${esc(s.name)}</h2>` +
+      `<p><span class="badge ${s.status.includes('額滿') ? 'danger' : 'primary'}">${esc(s.status)}</span> <span class="muted">${esc(s.type)}｜${esc(s.district)}</span></p>` +
+      `<p>${esc(s.note)}</p>` +
+      `<p><a href="#" data-goto="${esc(s.district)}">查看 ${esc(s.district)} 房價行情</a> <span class="muted">${b.value != null ? "（中位單價 " + b.value.toFixed(1) + " 萬/坪）" : ""}</span></p>` +
+      `<p><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/${encodeURIComponent(s.name)}">在 Google 地圖查看</a></p>` +
+      `<p class="muted">學區劃分與入學管制以各縣市教育局最新公告為準。</p>`;
+  }
   if (kind === "project" || kind === "marker") return writeIntel(D.intel[id]);
   if (kind === "station") {
     const ln = allLines().find(l => l.name === id[0]);
@@ -1104,6 +1138,40 @@ function tabCmp() {
   if (!cmpEnsure()) return h + `<p class="empty">載入比較資料中…</p>`;
   const cols = list.map(x => ({ ...x, ...CMP_DATA.get(x.code + "|" + x.name), label: (D.tw ? x.county.replace(/[市縣]$/, "") + " " : "") + x.name }))
     .filter(c => c.book && c.d);
+
+  if (cols.length === 2) {
+    const duel = L.duelCompare(cols[0], cols[1], S.cat);
+    if (duel) {
+      h += `<div class="duel-card">
+        <div class="duel-header">
+          <div class="duel-team">
+            <div class="name">${esc(cols[0].label)}</div>
+            <div class="score">${duel.scoreA}</div>
+          </div>
+          <div class="duel-vs">⚔️ VS</div>
+          <div class="duel-team">
+            <div class="name">${esc(cols[1].label)}</div>
+            <div class="score">${duel.scoreB}</div>
+          </div>
+        </div>
+        <table class="duel-table">
+          <thead><tr><th>評比指標</th><th>${esc(cols[0].name)}</th><th>勝負</th><th>${esc(cols[1].name)}</th></tr></thead>
+          <tbody>
+            ${duel.rounds.map(r => `
+              <tr>
+                <td>${esc(r.label)}</td>
+                <td class="${r.win === 'A' ? 'duel-win' : ''}">${r.valA != null ? r.valA + (r.unit || '') : '—'}</td>
+                <td>${r.win === 'A' ? '◀ 勝' : r.win === 'B' ? '勝 ▶' : '平'}</td>
+                <td class="${r.win === 'B' ? 'duel-win' : ''}">${r.valB != null ? r.valB + (r.unit || '') : '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="duel-verdict"><b>🏆 雙區 PK 點評：</b>${esc(duel.verdict)}</div>
+      </div>`;
+    }
+  }
+
   const w = workPlace(), cat = S.cat;
   const stations = allLines().flatMap(ln => ln.stations.map(st => ({ ln, st })));
   const rows = [
@@ -1160,6 +1228,67 @@ function tabValue() {
   h += `<div class="summary"><b>合理總價約 ${L.fmtNum(e.tLo)}～${L.fmtNum(e.tHi)} 萬</b>（中間值 ${L.fmtNum(e.tMid)} 萬）<br>` +
     `單價 ${e.uLo}～${e.uHi} 萬/坪（中間值 ${e.uMid}）｜比對 ${e.n} 筆近 ${e.months / 12 | 0} 年成交，最接近的有 ${e.nearN} 筆${esc(e.level)}` +
     (j ? `<br>開價 ${L.fmtNum(+v.price)} 萬：<b class="${j.pos === "高於" ? "up" : j.pos === "低於" ? "down" : ""}">${j.pos}合理區間</b>（比中間值${j.pct >= 0 ? "高" : "低"} ${Math.abs(j.pct).toFixed(0)}%）` : "") + `</div>`;
+
+  const sb = L.safetyBid(e, +v.price);
+  if (sb) {
+    h += `<div class="safety-bid">
+      <h4>🎯 安全出價與議價空間指南</h4>
+      <div class="bid-grid">
+        <div class="bid-box offer">
+          <div class="t">建議斡旋起標價</div>
+          <div class="p">${L.fmtNum(sb.offerWan)} 萬</div>
+          <div class="u">單價約 ${sb.uLo} 萬/坪</div>
+        </div>
+        <div class="bid-box target">
+          <div class="t">合理成交目標</div>
+          <div class="p">${L.fmtNum(sb.targetWan)} 萬</div>
+          <div class="u">單價約 ${sb.uMid} 萬/坪</div>
+        </div>
+        <div class="bid-box ceiling">
+          <div class="t">偏貴警戒防線</div>
+          <div class="p">${L.fmtNum(sb.ceilingWan)} 萬</div>
+          <div class="u">單價約 ${sb.uHi} 萬/坪</div>
+        </div>
+      </div>
+      ${sb.askingAnalysis ? `
+        <div class="bid-verdict">
+          <b>開價分析（${L.fmtNum(sb.askingAnalysis.askingWan)} 萬）：</b>${esc(sb.askingAnalysis.verdict)}<br>
+          <span class="muted">合理成交相當於開價打 <b>${sb.askingAnalysis.discountToTarget} 折</b>；建議斡旋起標相當於開價打 <b>${sb.askingAnalysis.discountToOffer} 折</b>。</span>
+        </div>
+      ` : `<p class="muted" style="margin:4px 0 0">若在上方表單填寫「開價」，系統將自動分析開價溢價比與建議議價折數。</p>`}
+    </div>`;
+  }
+
+  const targetPrice = +v.price || e.tMid;
+  const incomeVal = parseFloat(S.settings.incomeMonthly) || 120000;
+  const cliff = L.youthLoanCliff(targetPrice, 20, incomeVal);
+  const budget = L.affordableBudget(incomeVal, 20);
+  if (cliff) {
+    h += `<details class="more" open><summary>新青安 40 年房貸與家庭所得體檢（以 ${L.fmtNum(targetPrice)} 萬試算）</summary>` +
+      `<div class="cliff-box">` +
+      `<div class="row" style="margin-bottom:6px"><span>家庭月收入（元）</span><input type="text" inputmode="numeric" data-set="incomeMonthly" value="${incomeVal}" placeholder="例 120000" style="max-width:140px"></div>` +
+      `<div class="cliff-row"><span>新青安額度（1.775% 限額 1000 萬）</span><b>${L.fmtNum(cliff.youthWan)} 萬</b></div>` +
+      (cliff.normalWan > 0 ? `<div class="cliff-row"><span>超額一般房貸（2.30%）</span><b>${L.fmtNum(cliff.normalWan)} 萬</b></div>` : "") +
+      `<div class="cliff-row"><span>前 5 年寬限期月繳（只繳利息）</span><b style="color:#2ea36b">${L.fmtNum(cliff.period1)} 元/月</b></div>` +
+      `<div class="cliff-row"><span>第 6 年起本息攤還月繳（斷崖）</span><b class="up">${L.fmtNum(cliff.period2)} 元/月</b></div>` +
+      `<div class="cliff-row"><span>斷崖月增負擔</span><b class="up">+${L.fmtNum(cliff.cliffDiff)} 元/月（增幅 +${cliff.cliffPct}%）</b></div>` +
+      (cliff.incomeEval ? `
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #edf2f7">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <span>所得負擔健康度：</span>
+            <span class="cliff-badge ${cliff.incomeEval.safeStatus}">
+              ${cliff.incomeEval.safeStatus === "safe" ? "✓ 負擔健康（<35%）" : cliff.incomeEval.safeStatus === "warning" ? "⚠ 負擔偏高（35~50%）" : "⛔ 高度斷崖風險（>50%）"}
+            </span>
+          </div>
+          <div class="muted">
+            前 5 年房貸佔月薪 ${cliff.incomeEval.ratio1}%；第 6 年起房貸佔月薪 <b>${cliff.incomeEval.ratio2}%</b>。<br>
+            以月收入 1/3（${L.fmtNum(cliff.incomeEval.safeMonthly)} 元/月）安全支出為基準，建議購屋總價上限約 <b>${L.fmtNum(budget?.maxPriceWan)} 萬</b>。
+          </div>
+        </div>
+      ` : "") +
+      `</div></details>`;
+  }
+
   if (q.cat === "house") h += `<p class="muted">透天的單價含土地，地坪大小影響很大，這個區間只能當粗略參考。</p>`;
   S.txShown = e.comps;
   h += `<h3>比對用的成交（最相近的 ${e.comps.length} 筆）</h3><table class="list"><thead><tr><th>日期</th><th>地址／建案</th><th class="r">坪</th><th class="r">屋齡</th><th class="r">萬/坪</th><th class="r">總價</th></tr></thead><tbody>`;
@@ -1205,8 +1334,8 @@ function renderMenu() {
   $("#menu-body").innerHTML = `
     <h3>地圖圖層</h3>${chk("town", "行政區界")}${chk("liq", "土壤液化潛勢")}${D.tw ? chk("slide", "山崩與地滑（地質敏感區）") : ""}${chk("fault", "活動斷層")}
     <p class="muted">淹水潛勢：官方圖資沒有開放疊圖，請到 <a target="_blank" rel="noopener" href="${FLOOD_URL}">國家災害防救科技中心 3D 災害潛勢地圖</a> 查詢（各區「概況」也有「淹水潛勢」按鈕）。</p>${chk("hires", "放大時載入高解析衛星影像（較耗流量）")}
-    ${chk("lines", "捷運、輕軌、高鐵（營運中與規劃）")}${chk("markers", "開發案與情資（菱形）")}${chk("landmarks", "知名地標 3D")}${chk("projects", "重大建設 3D")}${chk("roads", "路段房價（選了行政區才畫）")}${chk("labels", "名稱標籤")}
-    <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option></select></div>
+    ${chk("lines", "捷運、輕軌、高鐵（營運中與規劃）")}${chk("markers", "開發案與情資（菱形）")}${chk("landmarks", "知名地標 3D")}${chk("projects", "重大建設 3D")}${chk("schools", "🎓 明星學區與額滿學校")}${chk("roads", "路段房價（選了行政區才畫）")}${chk("labels", "名稱標籤")}
+    <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option><option value="yield"${s.color === "yield" ? " selected" : ""}>毛租金投報率</option></select></div>
     <h3>篩選</h3>
     <div class="row"><span>總價預算</span><input type="text" inputmode="decimal" data-set="budget" value="${esc(s.budget)}" placeholder="萬，例 1500"></div>
     <div class="row"><span>上班地點</span><select data-set="work"><option value="">（不設定）</option>${workplaceOptions(s.work)}${s.workPt ? `<option value="__custom"${s.work === "__custom" ? " selected" : ""}>自訂地點</option>` : ""}</select></div>
@@ -1239,8 +1368,8 @@ function onSetting(el) {
   S.settings[k] = v; saveStore();
   view.layerOn = { town: S.settings.town, liq: S.settings.liq, slide: S.settings.slide, fault: S.settings.fault };
   view.show.hires = S.settings.hires; view.show.lines = S.settings.lines; view.show.labels = S.settings.labels;
-  if (["budget", "work", "workKm", "commuteMin", "mode", "color"].includes(k)) { refreshBars(); refreshPins(); renderPanel(); }
-  if (["landmarks", "projects", "markers"].includes(k)) refreshModels();
+  if (["budget", "work", "workKm", "commuteMin", "mode", "color", "incomeMonthly"].includes(k)) { refreshBars(); refreshPins(); renderPanel(); }
+  if (["landmarks", "projects", "markers", "schools"].includes(k)) refreshModels();
   if (k === "roads") refreshRoads();
   if (k === "work" && workPlace()) { const w = workPlace(); view.flyTo(w.lat, w.lng, Math.max(view.zoom, 30)); }
   view.request();
@@ -1527,9 +1656,9 @@ async function main() {
   setTimeout(flushAutoReport, 5000);   // 上次離線時沒送出的錯誤回報
   const params = new URLSearchParams(location.search);
   const tw = params.get("tw") === "0" ? null : await getJSON("data/tw/index.json").catch(() => null);    // ?tw=0：強制台南版（測試用）
-  const shared = ["intel", "mrt", "landmarks", "models", "workplaces"];
-  const [intel, mrt, landmarks, models, workplaces] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`)));
-  Object.assign(D, { intel: intel.items, mrt, landmarks, workplaces });
+  const shared = ["intel", "mrt", "landmarks", "models", "workplaces", "schools"];
+  const [intel, mrt, landmarks, models, workplaces, schools] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`).catch(() => n === "schools" ? [] : null)));
+  Object.assign(D, { intel: intel.items, mrt, landmarks, workplaces, schools: schools || [] });
   if (tw) {
     L.setOrigin(...TW_ORIGIN);
     D.tw = tw;

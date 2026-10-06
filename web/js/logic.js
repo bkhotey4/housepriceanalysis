@@ -746,3 +746,168 @@ export function rentCell(rb, name, cat = "all") {
 export function grossYield(rentUnit, saleU) {
   return rentUnit && saleU ? rentUnit * 12 / (saleU * 10000) * 100 : null;
 }
+
+// ------------------------------------------------------------------ 安全出價與議價空間估算
+export function safetyBid(est, askingWan = null) {
+  if (!est || !est.ok || !est.tMid) return null;
+  const mid = est.tMid, lo = est.tLo, hi = est.tHi;
+  const offerWan = Math.round(Math.min(lo, mid * 0.92));
+  const targetWan = Math.round(mid);
+  const ceilingWan = Math.round(Math.max(hi, mid * 1.08));
+
+  let askingAnalysis = null;
+  if (askingWan && askingWan > 0) {
+    const markupPct = (askingWan - targetWan) / targetWan * 100;
+    const discountToTarget = targetWan / askingWan * 10;
+    const discountToOffer = offerWan / askingWan * 10;
+    let verdict = "";
+    if (askingWan <= offerWan) verdict = "開價極甜，接近甚至低於起標價，留意是否有特殊瑕疵";
+    else if (askingWan <= targetWan) verdict = "開價合理，略高於起標價，議價空間約 95~98 折";
+    else if (askingWan <= ceilingWan) verdict = "開價偏高但屬一般開價常態，建議從 " + discountToOffer.toFixed(1) + " 折開始斡旋";
+    else verdict = "開價高於合理上限，溢價高達 +" + markupPct.toFixed(0) + "%，建議大膽從 " + discountToOffer.toFixed(1) + " 折下斡";
+
+    askingAnalysis = {
+      askingWan, markupPct: +markupPct.toFixed(1), discountToTarget: +discountToTarget.toFixed(1),
+      discountToOffer: +discountToOffer.toFixed(1), verdict
+    };
+  }
+  return { offerWan, targetWan, ceilingWan, uLo: est.uLo, uMid: est.uMid, uHi: est.uHi, askingAnalysis };
+}
+
+// ------------------------------------------------------------------ 新青安寬限期斷崖與家庭所得體檢
+export function youthLoanCliff(priceWan, downPct = 20, incomeMonthly = 0, opt = {}) {
+  const youthMax = opt.youthMaxWan ?? 1000;
+  const yRate = opt.youthRate ?? 1.775;
+  const nRate = opt.normalRate ?? 2.30;
+  const loanTotalWan = Math.max(0, priceWan * (1 - downPct / 100));
+  if (!(loanTotalWan > 0)) return null;
+
+  const youthWan = Math.min(loanTotalWan, youthMax);
+  const normalWan = Math.max(0, loanTotalWan - youthMax);
+
+  const yMonths = 40 * 12, yGrace = 5 * 12;
+  const yr = yRate / 100 / 12;
+  const yGraceMonthly = youthWan * 10000 * yr;
+  const yPostMonthly = youthWan * 10000 * yr / (1 - Math.pow(1 + yr, -(yMonths - yGrace)));
+
+  const nYears = opt.normalYears ?? 30, nGraceYears = opt.normalGrace ?? 3;
+  const nMonths = nYears * 12, nGrace = nGraceYears * 12;
+  const nr = nRate / 100 / 12;
+  const nGraceMonthly = normalWan > 0 ? normalWan * 10000 * nr : 0;
+  const nPostMonthly = normalWan > 0 ? normalWan * 10000 * nr / (1 - Math.pow(1 + nr, -(nMonths - nGrace))) : 0;
+
+  const period1 = Math.round(yGraceMonthly + nGraceMonthly);
+  const period2 = Math.round(yPostMonthly + nPostMonthly);
+  const cliffDiff = period2 - period1;
+  const cliffPct = period1 > 0 ? (cliffDiff / period1 * 100) : 0;
+
+  let incomeEval = null;
+  if (incomeMonthly > 0) {
+    const ratio1 = period1 / incomeMonthly * 100;
+    const ratio2 = period2 / incomeMonthly * 100;
+    let safeStatus = "safe";
+    if (ratio2 > 50) safeStatus = "danger";
+    else if (ratio2 > 35) safeStatus = "warning";
+    incomeEval = {
+      incomeMonthly, ratio1: +ratio1.toFixed(1), ratio2: +ratio2.toFixed(1),
+      safeStatus,
+      safeMonthly: Math.round(incomeMonthly / 3),
+    };
+  }
+
+  return {
+    loanTotalWan, youthWan, normalWan,
+    period1, period2, cliffDiff, cliffPct: +cliffPct.toFixed(1),
+    incomeEval
+  };
+}
+
+export function affordableBudget(incomeMonthly, downPct = 20, opt = {}) {
+  if (!(incomeMonthly > 0)) return null;
+  const safeMonthly = incomeMonthly / 3;
+  const yRate = (opt.youthRate ?? 1.775) / 100 / 12;
+  const nRate = (opt.normalRate ?? 2.30) / 100 / 12;
+  const yFactor = yRate / (1 - Math.pow(1 + yRate, -35 * 12));
+  const youthMaxMonthly = 1000 * 10000 * yFactor;
+
+  let maxLoanWan = 0;
+  if (safeMonthly <= youthMaxMonthly) {
+    maxLoanWan = safeMonthly / yFactor / 10000;
+  } else {
+    const remMonthly = safeMonthly - youthMaxMonthly;
+    const nFactor = nRate / (1 - Math.pow(1 + nRate, -27 * 12));
+    const extraLoanWan = remMonthly / nFactor / 10000;
+    maxLoanWan = 1000 + extraLoanWan;
+  }
+  const maxPriceWan = Math.round(maxLoanWan / (1 - downPct / 100));
+  const downWan = Math.round(maxPriceWan * downPct / 100);
+  return { maxPriceWan, downWan, maxLoanWan: Math.round(maxLoanWan), safeMonthly: Math.round(safeMonthly) };
+}
+
+// ------------------------------------------------------------------ 雙區 PK 擂台
+export function duelCompare(a, b, cat = "all") {
+  if (!a || !b) return null;
+  const buA = a.book.best(a.name, cat, "u"), buB = b.book.best(b.name, cat, "u");
+  const btA = a.book.best(a.name, cat, "t"), btB = b.book.best(b.name, cat, "t");
+  const trA = a.book.trend(a.name, cat, "u"), trB = b.book.trend(b.name, cat, "u");
+  const rcA = rentCell(a.rent, a.name), rcB = rentCell(b.rent, b.name);
+  const yldA = grossYield(rcA?.unit, buA.value), yldB = grossYield(rcB?.unit, buB.value);
+  const gapA = a.book.presaleGap ? a.book.presaleGap(a.name) : null;
+  const gapB = b.book.presaleGap ? b.book.presaleGap(b.name) : null;
+
+  const rounds = [
+    {
+      key: "price_u", label: "單價門檻", unit: "萬/坪",
+      valA: buA.value != null ? +buA.value.toFixed(1) : null,
+      valB: buB.value != null ? +buB.value.toFixed(1) : null,
+      win: buA.value != null && buB.value != null ? (buA.value < buB.value ? "A" : buA.value > buB.value ? "B" : "T") : null,
+      note: "單價低者勝（負擔較輕）"
+    },
+    {
+      key: "price_t", label: "總價門檻", unit: "萬",
+      valA: btA.value != null ? Math.round(btA.value) : null,
+      valB: btB.value != null ? Math.round(btB.value) : null,
+      win: btA.value != null && btB.value != null ? (btA.value < btB.value ? "A" : btA.value > btB.value ? "B" : "T") : null,
+      note: "總價低者勝（自備款門檻低）"
+    },
+    {
+      key: "trend", label: "近半年漲跌", unit: "%",
+      valA: trA != null ? +trA.toFixed(1) : null,
+      valB: trB != null ? +trB.toFixed(1) : null,
+      win: trA != null && trB != null ? (trA > trB ? "A" : trA < trB ? "B" : "T") : null,
+      note: "動能強者勝（增值力道）"
+    },
+    {
+      key: "yield", label: "租金毛投報", unit: "%",
+      valA: yldA != null ? +yldA.toFixed(2) : null,
+      valB: yldB != null ? +yldB.toFixed(2) : null,
+      win: yldA != null && yldB != null ? (yldA > yldB ? "A" : yldA < yldB ? "B" : "T") : null,
+      note: "投報高者勝（收租現金流優勢）"
+    },
+    {
+      key: "presale_gap", label: "預售溢價差", unit: "%",
+      valA: gapA != null ? Math.round(gapA) : null,
+      valB: gapB != null ? Math.round(gapB) : null,
+      win: gapA != null && gapB != null ? (gapA < gapB ? "A" : gapA > gapB ? "B" : "T") : null,
+      note: "溢價低者勝（預售合理性）"
+    }
+  ];
+
+  let scoreA = 0, scoreB = 0;
+  rounds.forEach(r => {
+    if (r.win === "A") scoreA++;
+    else if (r.win === "B") scoreB++;
+  });
+
+  let verdict = "";
+  if (scoreA > scoreB) {
+    verdict = `${a.name} 在多項指標中以 ${scoreA}:${scoreB} 勝出，性價比與總體負擔具優勢！`;
+  } else if (scoreB > scoreA) {
+    verdict = `${b.name} 在多項指標中以 ${scoreB}:${scoreA} 勝出，動能與綜合潛力較佳！`;
+  } else {
+    verdict = `兩區各擅勝場（${scoreA}:${scoreB} 平手），可依自住剛需或投資目標評估。`;
+  }
+
+  return { rounds, scoreA, scoreB, verdict, nameA: a.name, nameB: b.name };
+}
+
