@@ -17,10 +17,15 @@
 <body>
 <header id="top">
   <div class="brand">房價分析</div>
-  <form id="search" autocomplete="off">
-    <input id="q" type="search" enterkeyhint="search" placeholder="地址、路名、縣市或地標，例：台北市大安區信義路三段">
-    <button type="submit" aria-label="搜尋">搜尋</button>
-  </form>
+  <div id="search-wrap">
+    <form id="search" autocomplete="off">
+      <span class="search-lens" aria-hidden="true">🔍</span>
+      <input id="q" type="search" enterkeyhint="search" placeholder="搜尋地址、路名、行政區、學區或地標..." aria-autocomplete="list" aria-controls="search-sug">
+      <button type="button" id="btn-clear" class="btn-clear" aria-label="清除" hidden title="清除">✕</button>
+      <button type="submit" id="btn-submit" aria-label="搜尋">搜尋</button>
+    </form>
+    <ul id="search-sug" class="search-dropdown" hidden role="listbox"></ul>
+  </div>
   <button id="btn-menu" class="icon" aria-label="設定與圖層" title="設定與圖層">☰</button>
 </header>
 

@@ -911,3 +911,299 @@ export function duelCompare(a, b, cat = "all") {
   return { rounds, scoreA, scoreB, verdict, nameA: a.name, nameB: b.name };
 }
 
+// ------------------------------------------------------------------ 即時搜尋與自動補全（Google Maps 風格）
+const SECTION_NORM = { "1段": "一段", "2段": "二段", "3段": "三段", "4段": "四段", "5段": "五段", "6段": "六段", "7段": "七段", "8段": "八段", "9段": "九段" };
+
+export function normSearchQuery(str) {
+  let s = normTw(str || "").trim().toLowerCase();
+  for (const [k, v] of Object.entries(SECTION_NORM)) s = s.replace(k, v);
+  return s;
+}
+
+export function buildRoadCatalog(txs) {
+  if (!txs || !txs.length) return [];
+  const map = new Map();
+  for (const x of txs) {
+    const r = x.road;
+    if (!r || r === "其他") continue;
+    let entry = map.get(r);
+    if (!entry) {
+      entry = { road: r, dists: new Set(), n: 0, latestU: x.u };
+      map.set(r, entry);
+    }
+    entry.dists.add(x.dist);
+    entry.n++;
+  }
+  return Array.from(map.values()).map(it => ({
+    road: it.road,
+    dists: Array.from(it.dists),
+    n: it.n,
+    latestU: it.latestU
+  })).sort((a, b) => b.n - a.n);
+}
+
+// 知名縮寫、大學、名校與地標別名對照表
+const SEARCH_ALIASES = [
+  { keys: ["成大", "成功大學"], target: "國立成功大學" },
+  { keys: ["台大", "台灣大學"], target: "國立臺灣大學" },
+  { keys: ["清大", "清華大學"], target: "國立清華大學" },
+  { keys: ["交大", "陽明交大"], target: "陽明交通大學" },
+  { keys: ["南科", "台積電"], target: "南科台積電廠區" },
+  { keys: ["南紡", "南紡夢時代"], target: "南紡購物中心" },
+  { keys: ["赤崁", "赤嵌樓"], target: "赤崁樓" },
+  { keys: ["安平古堡", "熱蘭遮城"], target: "安平古堡" },
+  { keys: ["奇美", "奇美博物館"], target: "奇美博物館" },
+  { keys: ["101", "台北101"], target: "台北101" },
+  { keys: ["大巨蛋", "台北大巨蛋"], target: "臺北大巨蛋" },
+  { keys: ["小巨蛋", "台北小巨蛋"], target: "臺北小巨蛋" },
+  { keys: ["台南高鐵", "高鐵台南"], target: "高鐵台南站" },
+  { keys: ["台南車站", "台南火車站"], target: "臺南車站" },
+  { keys: ["台北車站", "台北火車站", "北車"], target: "台北車站" },
+  { keys: ["新竹高鐵", "高鐵新竹"], target: "高鐵新竹站" },
+  { keys: ["桃園高鐵", "高鐵桃園"], target: "高鐵桃園站" },
+  { keys: ["台中高鐵", "高鐵台中"], target: "高鐵台中站" },
+  { keys: ["南一中", "台南一中"], target: "臺南第一高級中學" },
+  { keys: ["後甲", "後甲國中"], target: "後甲國民中學" },
+  { keys: ["建興", "建興國中"], target: "建興國民中學" },
+  { keys: ["復興", "復興國中"], target: "復興國民中學" },
+  { keys: ["崇明", "崇明國中"], target: "崇明國民中學" },
+  { keys: ["南科實中", "南科國中"], target: "南科國際實驗高級中學" },
+  { keys: ["小新", "小新國小"], target: "小新國民小學" },
+  { keys: ["建中", "建國中學"], target: "中正國民中學" },
+  { keys: ["師大附中", "附中"], target: "臺灣師範大學附屬高級中學" },
+  { keys: ["金華", "金華國中"], target: "金華國民中學" },
+  { keys: ["敦化", "敦化國中"], target: "敦化國民中學" },
+  { keys: ["海山", "海山高中"], target: "海山高級中學" },
+  { keys: ["培英", "培英國中"], target: "培英國民中學" },
+  { keys: ["光武", "光武國中"], target: "光武國民中學" },
+  { keys: ["成功國中"], target: "成功國民中學" },
+  { keys: ["東興國中"], target: "東興國民中學" },
+  { keys: ["居仁", "居仁國中"], target: "居仁國民中學" },
+  { keys: ["惠文", "惠文高中"], target: "惠文高級中學" },
+  { keys: ["七賢", "七賢國中"], target: "七賢國民中學" },
+  { keys: ["陽明國中"], target: "陽明國民中學" },
+  { keys: ["平實", "平實營區"], target: "平實營區重劃區" },
+  { keys: ["捷運藍線", "藍線"], target: "捷運" }
+];
+
+export function quickSuggest(rawText, data, options = {}) {
+  const query = normSearchQuery(rawText);
+  if (!query) return [];
+  const limit = options.limit || 8;
+  const currentDist = options.currentDistrict || "";
+  const cityName = options.cityName || CITY || "台南市";
+  const results = [];
+
+  const districts = data.districts || [];
+  const roadCatalog = data.roadCatalog || [];
+  const landmarks = data.landmarks || [];
+  const schools = data.schools || [];
+  const intel = data.intel || [];
+  const twCounties = data.twCounties || [];
+
+  // 1. 如果輸入包含號、弄、巷等特定門牌，先做精準門牌地址解析
+  const distNames = districts.map(d => d.name);
+  const parsed = parseAddress(rawText, distNames);
+  if (parsed.road && (parsed.num != null || parsed.lane != null)) {
+    const fullDesc = `${parsed.district ? parsed.district + " " : ""}${describe(parsed)}`;
+    results.push({
+      type: "address",
+      title: fullDesc,
+      sub: "精準門牌定位 · 查看周邊成交行情",
+      icon: "📍",
+      badge: "門牌地址",
+      score: 2000,
+      addr: parsed
+    });
+  }
+
+  // 2. 行政區比對 (Districts)
+  for (const d of districts) {
+    const dName = normTw(d.name).toLowerCase();
+    const dStem = dName.replace(/區|鄉|鎮|市$/, "");
+    let score = 0;
+    if (dName === query || dStem === query) score = 1000;
+    else if (dName.startsWith(query) || dStem.startsWith(query)) score = 700;
+    else if (dName.includes(query) || query.includes(dStem)) score = 400;
+    if (score > 0) {
+      if (d.name === currentDist) score += 120;
+      results.push({
+        type: "district",
+        title: d.name,
+        sub: `${cityName} · 行政區行情`,
+        icon: "📍",
+        badge: "行政區",
+        score,
+        name: d.name,
+        d
+      });
+    }
+  }
+
+  // 3. 全台其他縣市與鄉鎮 (TW Counties & Towns)
+  if (twCounties.length) {
+    for (const c of twCounties) {
+      const cName = normTw(c.name).toLowerCase();
+      const cShort = normTw(c.short).toLowerCase();
+      if (cName.includes(query) || cShort.includes(query) || query.includes(cShort)) {
+        results.push({
+          type: "county",
+          title: c.name,
+          sub: "全台縣市行情動態",
+          icon: "🗺️",
+          badge: "縣市",
+          score: 820,
+          countyCode: c.code,
+          c
+        });
+      }
+      for (const t of (c.town_names || [])) {
+        const tNorm = normTw(t).toLowerCase();
+        if (tNorm === query || (query.length >= 2 && (tNorm.includes(query) || query.includes(tNorm)))) {
+          results.push({
+            type: "tw_district",
+            title: `${c.short} ${t}`,
+            sub: `${c.name} · 行政區`,
+            icon: "📍",
+            badge: "行政區",
+            score: 760,
+            countyCode: c.code,
+            town: t
+          });
+        }
+      }
+    }
+  }
+
+  // 4. 明星學區比對 (Schools)
+  for (const sc of schools) {
+    const sName = normTw(sc.name).toLowerCase();
+    let score = 0;
+    if (sName === query) score = 960;
+    else if (sName.startsWith(query)) score = 660;
+    else if (sName.includes(query)) score = 450;
+    else {
+      for (const al of SEARCH_ALIASES) {
+        if (al.keys.some(k => query.includes(k) || k.includes(query)) && sName.includes(al.target.toLowerCase())) {
+          score = 620;
+          break;
+        }
+      }
+    }
+    if (score > 0) {
+      if (sc.district === currentDist) score += 90;
+      results.push({
+        type: "school",
+        title: sc.name,
+        sub: `${sc.district || ""} · ${sc.status}（${sc.type}）`,
+        icon: "🎓",
+        badge: "明星學區",
+        score,
+        school: sc
+      });
+    }
+  }
+
+  // 5. 地標比對 (Landmarks)
+  for (const lm of landmarks) {
+    const lName = normTw(lm.name).toLowerCase();
+    let score = 0;
+    if (lName === query) score = 920;
+    else if (lName.startsWith(query)) score = 640;
+    else if (lName.includes(query)) score = 400;
+    else {
+      for (const al of SEARCH_ALIASES) {
+        if (al.keys.some(k => query.includes(k) || k.includes(query)) && lName.includes(al.target.toLowerCase())) {
+          score = 600;
+          break;
+        }
+      }
+    }
+    if (score > 0) {
+      if (lm.district === currentDist) score += 80;
+      score += Math.max(0, (4 - (lm.rank || 2)) * 15);
+      results.push({
+        type: "landmark",
+        title: lm.name,
+        sub: `${lm.district || ""} · ${lm.note ? lm.note.slice(0, 22) + "..." : "熱門地標"}`,
+        icon: "🏛️",
+        badge: "地標商圈",
+        score,
+        lm
+      });
+    }
+  }
+
+  // 6. 重大建設與重劃區 (Projects/Intel)
+  for (const pr of intel) {
+    if (!pr.build && !pr.name) continue;
+    const pName = normTw(pr.name).toLowerCase();
+    let score = 0;
+    if (pName === query) score = 890;
+    else if (pName.startsWith(query)) score = 590;
+    else if (pName.includes(query)) score = 380;
+    else {
+      for (const al of SEARCH_ALIASES) {
+        if (al.keys.some(k => query.includes(k) || k.includes(query)) && pName.includes(al.target.toLowerCase())) {
+          score = 560;
+          break;
+        }
+      }
+    }
+    if (score > 0) {
+      const b = pr.build;
+      const sub = b ? (b.done ? `預計 ${b.done} 完工 · 重大建設` : "建設進行中") : "都市規劃";
+      results.push({
+        type: "project",
+        title: pr.name,
+        sub: `${pr.district ? pr.district + " · " : ""}${sub}`,
+        icon: "🏗️",
+        badge: "重大建設",
+        score,
+        pr
+      });
+    }
+  }
+
+  // 7. 路段比對 (Roads)
+  for (const r of roadCatalog) {
+    const rName = normSearchQuery(r.road);
+    let score = 0;
+    if (rName === query) score = 860;
+    else if (rName.startsWith(query)) score = 570;
+    else if (rName.includes(query)) score = 330;
+    if (score > 0) {
+      const inCurrent = r.dists.includes(currentDist);
+      if (inCurrent) score += 140;
+      score += Math.min(80, r.n);
+      const preferredDist = inCurrent ? currentDist : r.dists[0];
+      const distLabel = r.dists.length === 1 ? r.dists[0] : inCurrent ? `${currentDist}（跨${r.dists.length}區）` : r.dists.join("、");
+      results.push({
+        type: "road",
+        title: r.road,
+        sub: `${distLabel} · 近年 ${r.n} 筆實價登錄成交`,
+        icon: "🛣️",
+        badge: "實價路段",
+        score,
+        dist: preferredDist,
+        road: r.road,
+        dists: r.dists
+      });
+    }
+  }
+
+  results.sort((a, b) => b.score - a.score);
+  const seen = new Set();
+  const deduped = [];
+  for (const res of results) {
+    const key = `${res.type}|${res.title}|${res.dist || ""}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduped.push(res);
+      if (deduped.length >= limit) break;
+    }
+  }
+  return deduped;
+}
+
+

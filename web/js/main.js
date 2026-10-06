@@ -348,16 +348,121 @@ function selectRoad(name, focus = true) {
   S.tab = "tx"; renderPanel(); sheet("half");
 }
 
+// ------------------------------------------------------------------ 即時自動補全與搜尋提示（Google Maps 風格）
+let sugIndex = -1;
+let currentSuggestions = [];
+let sugDebounceTimer = null;
+
+function highlightMatch(text, query) {
+  if (!query) return esc(text);
+  const qNorm = L.normSearchQuery(query);
+  const tNorm = L.normSearchQuery(text);
+  const idx = tNorm.indexOf(qNorm);
+  if (idx === -1) return esc(text);
+  const before = text.slice(0, idx);
+  const match = text.slice(idx, idx + query.length);
+  const after = text.slice(idx + query.length);
+  return `${esc(before)}<mark>${esc(match)}</mark>${esc(after)}`;
+}
+
+function updateActiveSug() {
+  const items = document.querySelectorAll("#search-sug .sug-item");
+  items.forEach((el, i) => {
+    if (i === sugIndex) {
+      el.classList.add("active");
+      el.scrollIntoView({ block: "nearest" });
+    } else {
+      el.classList.remove("active");
+    }
+  });
+}
+
+function hideSuggestions() {
+  const sug = $("#search-sug");
+  if (sug) {
+    sug.hidden = true;
+    sug.innerHTML = "";
+  }
+  sugIndex = -1;
+  currentSuggestions = [];
+}
+
+function renderSuggestions(query) {
+  query = (query || "").trim();
+  if (!query) { hideSuggestions(); return; }
+  const data = {
+    districts: D.districts || [],
+    roadCatalog: D.roadCatalog || [],
+    landmarks: D.landmarks || [],
+    schools: D.schools || [],
+    intel: D.intel || [],
+    twCounties: D.tw ? D.tw.counties : []
+  };
+  const items = L.quickSuggest(query, data, { currentDistrict: S.current, cityName: L.CITY, limit: 8 });
+  currentSuggestions = items;
+  sugIndex = -1;
+  const sug = $("#search-sug");
+  if (!items.length) { hideSuggestions(); return; }
+  sug.innerHTML = items.map((item, idx) => `
+    <li class="sug-item" role="option" data-idx="${idx}">
+      <span class="sug-icon" aria-hidden="true">${item.icon}</span>
+      <div class="sug-main">
+        <div class="sug-title">${highlightMatch(item.title, query)}<span class="sug-badge">${item.badge}</span></div>
+        <div class="sug-sub">${esc(item.sub)}</div>
+      </div>
+    </li>
+  `).join("");
+  sug.hidden = false;
+}
+
+async function selectSuggestion(item) {
+  if (!item) return;
+  hideSuggestions();
+  $("#q").value = item.title;
+  $("#btn-clear").hidden = false;
+  $("#q").blur();
+
+  if (item.type === "district") {
+    selectDistrict(item.name, true);
+    toast(`已移到${item.name}`);
+    sheet("peek");
+  } else if (item.type === "tw_district") {
+    if (item.countyCode && (!D.county || D.county.code !== item.countyCode)) {
+      await enterCounty(item.countyCode, true);
+    }
+    selectDistrict(item.town, true);
+    toast(`已移到${item.town}`);
+    sheet("peek");
+  } else if (item.type === "county") {
+    enterCounty(item.countyCode, true);
+    toast(`已前往${item.title}`);
+    sheet("peek");
+  } else if (item.type === "school") {
+    pick(["school", item.school.id]);
+  } else if (item.type === "landmark") {
+    pick(["landmark", item.lm.id]);
+  } else if (item.type === "project") {
+    pick(["project", item.pr.id]);
+  } else if (item.type === "road") {
+    await showAddress({ district: item.dist, road: item.road, text: item.road });
+  } else if (item.type === "address") {
+    await showAddress(item.addr);
+  }
+}
+
 // ------------------------------------------------------------------ 地址搜尋
 async function search(text) {
   text = (text || "").trim();
   if (!text) return;
+  hideSuggestions();
   if (D.tw) {
     // 全台版：先判斷縣市；地址開頭有縣市就切過去，沒有就在目前的縣市找，首頁時再用鄉鎮名稱猜縣市
     let [c, rest] = L.splitCounty(text);
     if (!c && isNation()) {
       const lm = D.landmarks.find(l => text.length >= 2 && (l.name.includes(text) || text.includes(l.name)));
       if (lm) { pick(["landmark", lm.id]); return "landmark"; }
+      const sc = (D.schools || []).find(s => text.length >= 2 && (s.name.includes(text) || text.includes(s.name)));
+      if (sc) { pick(["school", sc.id]); return "school"; }
       const pr = D.intel.find(it => it.build && text.length >= 2 && it.name.includes(text));
       if (pr) { pick(["project", pr.id]); return "project"; }
       const hits = D.tw.counties.filter(x => (x.town_names || []).some(t => text.startsWith(t) || L.normTw(text).startsWith(L.normTw(t))));
@@ -370,11 +475,9 @@ async function search(text) {
       rest = text;
     }
     if (c) {
-      const entry = D.tw.counties.find(x => x.code === c.code);
       if (!D.county || D.county.code !== c.code) { if (!(await enterCounty(c.code, false))) return "none"; }
       if (!rest) { selectDistrict(L.CITY); return "county"; }
       text = rest;
-      if (entry) await D.txPromise;
     }
   }
   const names = D.districts.map(d => d.name), q = L.parseAddress(text, names), s = q.text;
@@ -385,40 +488,55 @@ async function search(text) {
   if (q.num == null && q.lane == null && !q.district) {
     const lm = D.landmarks.find(l => s.length >= 2 && (l.name.includes(s) || s.includes(l.name)));
     if (lm) { pick(["landmark", lm.id]); return "landmark"; }
+    const sc = (D.schools || []).find(sc => s.length >= 2 && (sc.name.includes(s) || s.includes(sc.name)));
+    if (sc) { pick(["school", sc.id]); return "school"; }
     const pr = D.intel.find(it => it.build && s.length >= 2 && it.name.includes(s));
     if (pr) { pick(["project", pr.id]); return "project"; }
   }
   if (!q.road) { toast("看不出這是哪一條路。請輸入像「善化區中山路123號」「大同路一段」這樣的地址或路名。"); return "none"; }
-  if (!D.txs) { toast("成交資料還在載入，請稍候再試一次。"); return "none"; }
   if (!q.district) {
-    const found = [...new Set(D.txs.filter(x => x.road === q.road).map(x => x.dist))];
-    let cand = found;
-    if (found.length > 1 && q.lane != null) {
-      const narrow = [...new Set(D.txs.filter(x => x.road === q.road && x.lane === q.lane).map(x => x.dist))];
-      if (narrow.length === 1) cand = narrow;
-    }
-    if (cand.length === 1) q.district = cand[0];
-    else {
-      S.pendingAddr = q; S.roadKw = q.road;
-      selectDistrict(L.CITY, false);
-      S.pendingAddr = q;
-      S.tab = "roads"; renderPanel(); sheet("half");
-      toast(cand.length ? `有 ${cand.length} 個行政區都有「${q.road}」，請在下面挑一區。` : `沒有剛好叫「${q.road}」的路段，下面列出路名相近的。`);
-      return "choose";
+    if (!D.txs) {
+      const catRoad = (D.roadCatalog || []).find(r => r.road === q.road);
+      if (catRoad && catRoad.dists.length === 1) q.district = catRoad.dists[0];
+      else { toast("成交資料還在載入，請稍候再試一次。"); return "none"; }
+    } else {
+      const found = [...new Set(D.txs.filter(x => x.road === q.road).map(x => x.dist))];
+      let cand = found;
+      if (found.length > 1 && q.lane != null) {
+        const narrow = [...new Set(D.txs.filter(x => x.road === q.road && x.lane === q.lane).map(x => x.dist))];
+        if (narrow.length === 1) cand = narrow;
+      }
+      if (cand.length === 1) q.district = cand[0];
+      else {
+        S.pendingAddr = q; S.roadKw = q.road;
+        selectDistrict(L.CITY, false);
+        S.pendingAddr = q;
+        S.tab = "roads"; renderPanel(); sheet("half");
+        toast(cand.length ? `有 ${cand.length} 個行政區都有「${q.road}」，請在下面挑一區。` : `沒有剛好叫「${q.road}」的路段，下面列出路名相近的。`);
+        return "choose";
+      }
     }
   }
   await showAddress(q);
   return "address";
 }
 async function showAddress(q) {
-  if (S.current !== q.district) selectDistrict(q.district, true);
+  if (S.current !== q.district) selectDistrict(q.district, false);
   S.addr = q; S.roadFilter = q.road; S.pendingAddr = null;
   view.select("road", q.road);
   S.tab = "tx"; renderPanel(); sheet("half");
+
+  // 若尚未取得精確道路資料，先順暢將鏡頭飛往行政區中心，讓使用者感到完全零停頓
+  const d = D.dmap && D.dmap[q.district];
+  if (d && !roadsNow(q.district)) {
+    view.flyTo(d.lat, d.lng, Math.max(view.zoom, ZOOM.district));
+  }
   await pinAt(q, `${q.district} ${L.describe(q)}`, L.describe(q), true);
 }
 async function pinAt(q, what, label, isSearch) {
-  const data = roadsNow(q.district) || await loadRoads(q.district);
+  const cached = roadsNow(q.district);
+  if (!cached) toast(`正在定位 ${what}...`);
+  const data = cached || await loadRoads(q.district);
   if (!data) { S.pin = null; refreshPins(); toast(`${what}：這一區沒有道路位置資料，無法標在地圖上。`); return; }
   const pos = L.position(data, q);
   if (!pos) { S.pin = null; refreshPins(); toast(`${what}：OpenStreetMap 上找不到「${q.road}」的位置。`); return; }
@@ -1446,7 +1564,72 @@ function bindUI() {
   });
   $("#btn-city").addEventListener("click", () => selectDistrict(L.CITY));
   $("#btn-nation").addEventListener("click", () => enterNation());
-  $("#search").addEventListener("submit", e => { e.preventDefault(); $("#q").blur(); search($("#q").value); });
+
+  const qInput = $("#q");
+  const clearBtn = $("#btn-clear");
+  const sugEl = $("#search-sug");
+
+  qInput.addEventListener("input", () => {
+    const val = qInput.value.trim();
+    clearBtn.hidden = !val;
+    clearTimeout(sugDebounceTimer);
+    sugDebounceTimer = setTimeout(() => {
+      renderSuggestions(val);
+    }, 120);
+  });
+
+  qInput.addEventListener("focus", () => {
+    const val = qInput.value.trim();
+    clearBtn.hidden = !val;
+    if (val) renderSuggestions(val);
+  });
+
+  qInput.addEventListener("keydown", e => {
+    if (e.key === "ArrowDown") {
+      if (sugEl.hidden || !currentSuggestions.length) return;
+      e.preventDefault();
+      sugIndex = (sugIndex + 1) % currentSuggestions.length;
+      updateActiveSug();
+    } else if (e.key === "ArrowUp") {
+      if (sugEl.hidden || !currentSuggestions.length) return;
+      e.preventDefault();
+      sugIndex = (sugIndex - 1 + currentSuggestions.length) % currentSuggestions.length;
+      updateActiveSug();
+    } else if (e.key === "Enter") {
+      if (!sugEl.hidden && currentSuggestions.length) {
+        e.preventDefault();
+        const chosen = sugIndex >= 0 ? currentSuggestions[sugIndex] : currentSuggestions[0];
+        selectSuggestion(chosen);
+      }
+    } else if (e.key === "Escape") {
+      hideSuggestions();
+    }
+  });
+
+  sugEl.addEventListener("click", e => {
+    const li = e.target.closest(".sug-item");
+    if (!li) return;
+    const idx = +li.dataset.idx;
+    if (currentSuggestions[idx]) selectSuggestion(currentSuggestions[idx]);
+  });
+
+  clearBtn.addEventListener("click", () => {
+    qInput.value = "";
+    clearBtn.hidden = true;
+    hideSuggestions();
+    qInput.focus();
+  });
+
+  document.addEventListener("click", e => {
+    if (!e.target.closest("#search-wrap")) hideSuggestions();
+  });
+
+  $("#search").addEventListener("submit", e => {
+    e.preventDefault();
+    hideSuggestions();
+    $("#q").blur();
+    search($("#q").value);
+  });
   $("#btn-menu").addEventListener("click", () => { renderMenu(); $("#menu").hidden = !$("#menu").hidden; });
   $("#menu").addEventListener("click", e => {
     if (e.target.closest("[data-close]")) { $("#menu").hidden = true; return; }
@@ -1639,7 +1822,7 @@ async function enterCounty(code, fly = true) {
   D.districts = dd.districts; D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
   D.meta = { ...D.tw, describe: D.tw.describe, tx_count: c.tx_count || 0, road_districts: c.roads || [] };
   D.txs = null;
-  D.txPromise = getJSON(base + "tx.json").then(raw => { if (D.county === c) { D.txs = L.decodeTx(raw); refreshRoads(); checkWatchNews(); renderPanel(); } })
+  D.txPromise = getJSON(base + "tx.json").then(raw => { if (D.county === c) { D.txs = L.decodeTx(raw); D.roadCatalog = L.buildRoadCatalog(D.txs); refreshRoads(); checkWatchNews(); renderPanel(); } })
     .catch(e => { logError("載入成交資料", e); toast("成交資料載入失敗，請檢查網路後重新整理。"); });
   S.current = L.CITY; resetSelection();
   view.setExtent(coreExtent(D.districts, D.book));
@@ -1658,7 +1841,7 @@ async function main() {
   const tw = params.get("tw") === "0" ? null : await getJSON("data/tw/index.json").catch(() => null);    // ?tw=0：強制台南版（測試用）
   const shared = ["intel", "mrt", "landmarks", "models", "workplaces", "schools"];
   const [intel, mrt, landmarks, models, workplaces, schools] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`).catch(() => n === "schools" ? [] : null)));
-  Object.assign(D, { intel: intel.items, mrt, landmarks, workplaces, schools: schools || [] });
+  Object.assign(D, { intel: intel.items, mrt, landmarks, workplaces, schools: schools || [], roadCatalog: [] });
   if (tw) {
     L.setOrigin(...TW_ORIGIN);
     D.tw = tw;
@@ -1697,7 +1880,7 @@ async function main() {
   } else {
     refreshAll();
     // 逐筆成交比較大（壓縮後約 0.6MB），畫面先出來再載入
-    D.txPromise = getJSON("data/tx.json").then(raw => { D.txs = L.decodeTx(raw); refreshRoads(); checkWatchNews(); renderPanel(); })
+    D.txPromise = getJSON("data/tx.json").then(raw => { D.txs = L.decodeTx(raw); D.roadCatalog = L.buildRoadCatalog(D.txs); refreshRoads(); checkWatchNews(); renderPanel(); })
       .catch(e => { logError("載入成交資料", e); toast("成交資料載入失敗，請檢查網路後重新整理。"); });
   }
   applyShared(params);
@@ -1705,6 +1888,6 @@ async function main() {
   if (params.get("q")) { $("#q").value = params.get("q"); const wait = () => (D.tw || D.txs) ? search(params.get("q")) : setTimeout(wait, 200); wait(); }
   getJSON("data/status.json").then(st => { D.status = st; if (!st.ok) $("#btn-menu").classList.add("has-err"); }).catch(() => {});
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
-  window.__app = { S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation, logError, shareUrl };   // 測試用
+  window.__app = { S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation, logError, shareUrl, renderSuggestions, selectSuggestion, hideSuggestions };   // 測試用
 }
 main().catch(err => { logError("啟動", err); document.body.insertAdjacentHTML("beforeend", `<div class="note" style="position:fixed;top:60px;left:10px;right:10px;z-index:99">載入失敗：${esc(err.message)}</div>`); });
