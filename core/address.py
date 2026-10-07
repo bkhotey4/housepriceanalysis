@@ -26,7 +26,7 @@ def normalize(text):
 def _parts(rest):
     """行政區之後的部分 -> (路段, 巷, 弄, 號, 之幾)；沒有的項目是 None。"""
     rest = _VILLAGE.sub("", rest)
-    road = road_of(rest)
+    road = road_of(rest, strip=False)          # rest 已經去掉縣市與行政區
     if road == "其他":
         return None, None, None, None, None
     tail = rest[len(road):] if rest.startswith(road) else rest

@@ -85,8 +85,8 @@ export function tabValue() {
     h += `<details class="more" open><summary>新青安 40 年房貸與家庭所得體檢（以 ${L.fmtNum(targetPrice)} 萬試算）</summary>` +
       `<div class="cliff-box">` +
       `<div class="row" style="margin-bottom:6px"><span>家庭月收入（元）</span><input type="text" inputmode="numeric" data-set="incomeMonthly" value="${incomeVal}" placeholder="例 120000" style="max-width:140px"></div>` +
-      `<div class="cliff-row"><span>新青安額度（1.775% 限額 1000 萬）</span><b>${L.fmtNum(cliff.youthWan)} 萬</b></div>` +
-      (cliff.normalWan > 0 ? `<div class="cliff-row"><span>超額一般房貸（2.30%）</span><b>${L.fmtNum(cliff.normalWan)} 萬</b></div>` : "") +
+      `<div class="cliff-row"><span>新青安額度（${L.YOUTH_LOAN.rate}%，上限 ${L.fmtNum(L.YOUTH_LOAN.cap)} 萬）</span><b>${L.fmtNum(cliff.youthWan)} 萬</b></div>` +
+      (cliff.normalWan > 0 ? `<div class="cliff-row"><span>超額一般房貸（${cliff.normalRate}%，${L.NORMAL_LOAN.years} 年、沒有寬限期）</span><b>${L.fmtNum(cliff.normalWan)} 萬</b></div>` : "") +
       `<div class="cliff-row"><span>前 5 年寬限期月繳（只繳利息）</span><b style="color:#2ea36b">${L.fmtNum(cliff.period1)} 元/月</b></div>` +
       `<div class="cliff-row"><span>第 6 年起本息攤還月繳（斷崖）</span><b class="up">${L.fmtNum(cliff.period2)} 元/月</b></div>` +
       `<div class="cliff-row"><span>斷崖月增負擔</span><b class="up">+${L.fmtNum(cliff.cliffDiff)} 元/月（增幅 +${cliff.cliffPct}%）</b></div>` +

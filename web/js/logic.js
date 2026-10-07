@@ -473,8 +473,9 @@ export function quarterSeries(rows) {
   }
   const out = [...g].sort((a, b) => a[0] < b[0] ? -1 : 1).map(([q, us]) => ({ q, n: us.length, u: pyRound(median(us), 1) }));
   if (out.length < 2) return null;
-  const first = out[0], last = out[out.length - 1];
-  return { rows: out, first, last, pct: first.u ? (last.u - first.u) / first.u * 100 : null };
+  const solid = out.filter(r => r.n >= 3);
+  const first = solid[0] || out[0], last = solid[solid.length - 1] || out[out.length - 1];
+  return { rows: out, first, last, pct: solid.length >= 2 && first.u ? (last.u - first.u) / first.u * 100 : null };
 }
 
 // ------------------------------------------------------------------ 進階行情：樓層價差、屋齡折舊、車位、市場冷熱
@@ -578,7 +579,7 @@ const ROUTE_PROFILE = { car: "routed-car", scooter: "routed-car", bike: "routed-
 // 路線時間是不塞車的理想值：開車、機車乘上尖峰係數，再加出發、停車的固定時間
 export const ROUTE_ADJ = { car: [1.25, 3], scooter: [1.15, 2], bike: [1.0, 2] };
 export function routeTableUrl(mode, from, dests) {
-  const pts = [from, ...dests].map(p => `${(+p.lng).toFixed(5)},${(+p.lat).toFixed(5)}`).join(";");
+  const pts = [from, ...dests.filter(p => p.lat != null && p.lng != null)].map(p => `${(+p.lng).toFixed(5)},${(+p.lat).toFixed(5)}`).join(";");
   return `${ROUTE_HOST}/${ROUTE_PROFILE[mode] || ROUTE_PROFILE.car}/table/v1/driving/${pts}?sources=0&annotations=duration`;
 }
 // OSRM table 回應 → [分鐘]（跟 dests 同順序；到不了的是 null）
@@ -755,6 +756,8 @@ export function mortgage(priceWan, downPct, ratePct, years, grace = 0) {
 // 青年安心成家購屋優惠貸款（新青安）：貸款上限 1,000 萬、最長 40 年、寬限期最長 5 年。
 // 利率是公股銀行一段式機動利率（政府補貼後）的參考值，會隨央行升降息調整，實際以承辦銀行公告為準。
 export const YOUTH_LOAN = { rate: 1.775, years: 40, grace: 5, cap: 1000 };
+// 一般房貸的參考條件（房貸試算的預設、超過新青安上限的部分）：本息平均攤還、沒有寬限期
+export const NORMAL_LOAN = { rate: 2.2, years: 30 };
 // 有額度上限的優惠貸款：上限內用優惠條件，超過的部分當成另一筆一般房貸（restRate、restYears，不設寬限期）
 export function mortgageCapped(priceWan, downPct, ratePct, years, grace, capWan, restRate, restYears) {
   const loanWan = Math.max(0, priceWan * (1 - downPct / 100));
@@ -784,7 +787,12 @@ export function estimate(txs, q) {
   const now = ymIndex(q.todayYm || new Date().toISOString().slice(0, 7));
   const year = +(q.todayYm || new Date().toISOString()).slice(0, 4);
   const sameRoad = x => q.road && x.road === q.road;
-  const level = x => !sameRoad(x) ? 0 : q.lane != null && x.lane === q.lane ? (q.num != null && x.num === q.num && (x.alley ?? null) === (q.alley ?? null) ? 3 : 2) : 1;
+  // 位置等級：0 同區、1 同一條路、2 同一條巷、3 同一棟（同巷弄同門牌；在大馬路上沒有巷時，同門牌就是同一棟）
+  const level = x => {
+    if (!sameRoad(x) || (q.lane ?? null) !== (x.lane ?? null)) return sameRoad(x) ? 1 : 0;
+    if (q.num != null && x.num === q.num && (x.alley ?? null) === (q.alley ?? null)) return 3;
+    return q.lane != null ? 2 : 1;
+  };
   const tries = [[24, 0.5, 12], [36, 0.7, 20], [60, 1.2, 99]];      // [月數, 坪數容許比例, 屋齡容許年]，找不到夠多就放寬
   let pool = [], used = null;
   for (const [months, pTol, aTol] of tries) {
@@ -871,7 +879,7 @@ export function rentVsBuy(p) {
   const o = { ...RVB_DEFAULT, ...p };
   const price = o.price * 10000, cash0 = (o.cash ?? o.price * o.down / 100) * 10000;
   const loan = Math.max(0, o.price * (1 - o.down / 100)) * 10000;
-  const n = Math.round(o.loanYears * 12), r = o.rate / 100 / 12, g = Math.round((o.grace || 0) * 12);
+  const n = Math.round(o.loanYears * 12), r = o.rate / 100 / 12, g = Math.min(Math.round((o.grace || 0) * 12), Math.max(0, n - 12));
   if (!(price > 0) || !(o.rent > 0) || !(o.years > 0)) return null;
   const pay = m => m <= 0 ? 0 : r > 0 ? loan * r / (1 - Math.pow(1 + r, -m)) : loan / m;
   const monthly = pay(n - g), mInv = Math.pow(1 + o.inv / 100, 1 / 12) - 1;
@@ -945,7 +953,7 @@ export function safetyBid(est, askingWan = null) {
 export function youthLoanCliff(priceWan, downPct = 20, incomeMonthly = 0, opt = {}) {
   const youthMax = opt.youthMaxWan ?? YOUTH_LOAN.cap;
   const yRate = opt.youthRate ?? YOUTH_LOAN.rate;
-  const nRate = opt.normalRate ?? 2.30;
+  const nRate = opt.normalRate ?? NORMAL_LOAN.rate;
   const loanTotalWan = Math.max(0, priceWan * (1 - downPct / 100));
   if (!(loanTotalWan > 0)) return null;
 
@@ -957,14 +965,11 @@ export function youthLoanCliff(priceWan, downPct = 20, incomeMonthly = 0, opt = 
   const yGraceMonthly = youthWan * 10000 * yr;
   const yPostMonthly = youthWan * 10000 * yr / (1 - Math.pow(1 + yr, -(yMonths - yGrace)));
 
-  const nYears = opt.normalYears ?? 30, nGraceYears = opt.normalGrace ?? 3;
-  const nMonths = nYears * 12, nGrace = nGraceYears * 12;
-  const nr = nRate / 100 / 12;
-  const nGraceMonthly = normalWan > 0 ? normalWan * 10000 * nr : 0;
-  const nPostMonthly = normalWan > 0 ? normalWan * 10000 * nr / (1 - Math.pow(1 + nr, -(nMonths - nGrace))) : 0;
+  const nMonths = (opt.normalYears ?? NORMAL_LOAN.years) * 12, nr = nRate / 100 / 12;
+  const nMonthly = normalWan > 0 ? (nr > 0 ? normalWan * 10000 * nr / (1 - Math.pow(1 + nr, -nMonths)) : normalWan * 10000 / nMonths) : 0;
 
-  const period1 = Math.round(yGraceMonthly + nGraceMonthly);
-  const period2 = Math.round(yPostMonthly + nPostMonthly);
+  const period1 = Math.round(yGraceMonthly + nMonthly);
+  const period2 = Math.round(yPostMonthly + nMonthly);
   const cliffDiff = period2 - period1;
   const cliffPct = period1 > 0 ? (cliffDiff / period1 * 100) : 0;
 
@@ -983,7 +988,7 @@ export function youthLoanCliff(priceWan, downPct = 20, incomeMonthly = 0, opt = 
   }
 
   return {
-    loanTotalWan, youthWan, normalWan,
+    loanTotalWan, youthWan, normalWan, normalRate: nRate,
     period1, period2, cliffDiff, cliffPct: +cliffPct.toFixed(1),
     incomeEval
   };
@@ -1003,19 +1008,19 @@ export function budgetFromIncome(incomeMonthly, cashWan, downPct = 20) {
 export function affordableBudget(incomeMonthly, downPct = 20, opt = {}) {
   if (!(incomeMonthly > 0)) return null;
   const safeMonthly = incomeMonthly / 3;
-  const yRate = (opt.youthRate ?? 1.775) / 100 / 12;
-  const nRate = (opt.normalRate ?? 2.30) / 100 / 12;
-  const yFactor = yRate / (1 - Math.pow(1 + yRate, -35 * 12));
-  const youthMaxMonthly = 1000 * 10000 * yFactor;
+  const yRate = (opt.youthRate ?? YOUTH_LOAN.rate) / 100 / 12;
+  const nRate = (opt.normalRate ?? NORMAL_LOAN.rate) / 100 / 12;
+  const yFactor = yRate / (1 - Math.pow(1 + yRate, -(YOUTH_LOAN.years - YOUTH_LOAN.grace) * 12));   // 以寬限期結束後的月付計
+  const youthMaxMonthly = YOUTH_LOAN.cap * 10000 * yFactor;
 
   let maxLoanWan = 0;
   if (safeMonthly <= youthMaxMonthly) {
     maxLoanWan = safeMonthly / yFactor / 10000;
   } else {
     const remMonthly = safeMonthly - youthMaxMonthly;
-    const nFactor = nRate / (1 - Math.pow(1 + nRate, -27 * 12));
+    const nFactor = nRate / (1 - Math.pow(1 + nRate, -NORMAL_LOAN.years * 12));
     const extraLoanWan = remMonthly / nFactor / 10000;
-    maxLoanWan = 1000 + extraLoanWan;
+    maxLoanWan = YOUTH_LOAN.cap + extraLoanWan;
   }
   const maxPriceWan = Math.round(maxLoanWan / (1 - downPct / 100));
   const downWan = Math.round(maxPriceWan * downPct / 100);

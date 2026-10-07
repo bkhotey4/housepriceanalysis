@@ -75,7 +75,7 @@ export function tabWatch() {
     }
     h += `<div class="row"><button class="btn primary" data-act="watch-value">估合理價</button><button class="btn" data-act="watch-edit">編輯</button><button class="btn" data-act="watch-pin">在地圖上標位置</button>` +
       (it.lat != null ? `<button class="btn" data-act="watch-map">在地圖上看</button>` : "") +
-      (it.url ? `<a class="btn" target="_blank" rel="noopener" href="${esc(it.url)}">物件網址</a>` : "") +
+      (/^https?:\/\//i.test(it.url || "") ? `<a class="btn" target="_blank" rel="noopener noreferrer" href="${esc(it.url)}">物件網址</a>` : "") +
       `<button class="btn" data-act="watch-del">刪除</button></div>`;
   }
   return h;

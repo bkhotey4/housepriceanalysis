@@ -91,6 +91,46 @@ class NationalDownloadTest(unittest.TestCase):
         plvr_tw.CACHE = self.old
         shutil.rmtree(self.tmp, ignore_errors=True)
 
+    def test_flaky_downloads_keep_old_data(self):
+        """前期清單、前期檔、本期檔下載失敗時：不中斷、不刪掉已下載的前期檔、不把空的本期檔標成完成。"""
+        today = datetime.date(2026, 10, 2)
+        plvr_tw.update(seasons_wanted=2, today=today, progress=lambda m: None)
+        before = sorted(plvr_tw.folders())
+        self.assertIn("hist_20260921", before)
+        self.assertIn("cur", before)
+        good = plvr.fetch
+
+        def flaky(url, **kw):
+            if "DownloadSeason" in url:
+                return good(url, **kw)
+            raise plvr.DownloadError("忙線")
+        plvr.fetch = flaky
+        plvr_tw.update(seasons_wanted=2, today=today + datetime.timedelta(days=5), progress=lambda m: None)
+        self.assertEqual(sorted(plvr_tw.folders()), before)                       # 什麼都沒少
+        with open(os.path.join(plvr_tw._dir("cur"), plvr_tw.DONE), encoding="utf-8") as f:
+            self.assertEqual(f.read(), today.isoformat())                         # 本期檔還是上次的日期
+
+    def test_cancelled_later_is_not_a_sale(self):
+        """同一個編號：舊一期是有效成交、新一期標成解約 → 只算解約，不算成交。"""
+        b = _read("fixture_d_lvr_land_b.csv").decode("utf-8-sig")
+        import csv as _csv
+        rows = list(_csv.reader(io.StringIO(b)))
+        cancelled = [r for r in rows[2:] if len(r) > prices.C_CANCEL and r[prices.C_CANCEL].strip()]
+        self.assertTrue(cancelled)
+        valid_rows = [r[:prices.C_CANCEL] + [""] + r[prices.C_CANCEL + 1:] if r in cancelled else r for r in rows]
+        for name, data in (("season_115S1", valid_rows), ("cur", rows)):
+            os.makedirs(plvr_tw._dir(name), exist_ok=True)
+            buf = io.StringIO()
+            _csv.writer(buf).writerows(data)
+            with open(os.path.join(plvr_tw._dir(name), "d_lvr_land_b.csv"), "w", encoding="utf-8") as f:
+                f.write(buf.getvalue())
+            plvr_tw._mark_done(name)
+        cancels = []
+        txs = plvr_tw.load_county("D", cancels)
+        ids = {r[prices.C_ID] for r in cancelled}
+        self.assertEqual({x["id"] for x in cancels}, ids)
+        self.assertFalse(ids & {x["id"] for x in txs})
+
     def test_update_and_load(self):
         names = plvr_tw.update(seasons_wanted=2, today=datetime.date(2026, 10, 2), progress=lambda m: None)
         self.assertIn("cur", names)

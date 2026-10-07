@@ -112,17 +112,18 @@ export async function selectSuggestion(item) {
   $("#btn-clear").hidden = false;
   $("#q").blur();
 
+  if (item.type === "other_county" && D.tw && item.countyCode) { await enterCounty(item.countyCode, true); return; }
   if (item.type === "other_county") {
     toast(`「${item.title}」非台南地區。目前本站為【台南房價專版】，暫未收錄該縣市實價行情。`);
     return;
   }
-  if (item.type === "landmark" && (item.isOtherCounty || (item.lm && item.lm.county && item.lm.county !== "D"))) {
+  if (!D.tw && item.type === "landmark" && (item.isOtherCounty || (item.lm && item.lm.county && item.lm.county !== "D"))) {
     const co = L.COUNTIES.find(x => x.code === (item.countyCode || (item.lm && item.lm.county)));
     const coName = co ? co.short : "其他縣市";
     toast(`「${item.title}」位於${coName}。目前本站為【台南房價專版】，暫未收錄該區實價行情。`);
     return;
   }
-  if (item.type === "school" && item.school && item.school.county && item.school.county !== "D") {
+  if (!D.tw && item.type === "school" && item.school && item.school.county && item.school.county !== "D") {
     const co = L.COUNTIES.find(x => x.code === item.school.county);
     const coName = co ? co.short : "其他縣市";
     toast(`「${item.title}」位於${coName}。目前本站為【台南房價專版】，暫未收錄該區實價行情。`);
@@ -137,6 +138,7 @@ export async function selectSuggestion(item) {
     if (item.countyCode && (!D.county || D.county.code !== item.countyCode)) {
       await enterCounty(item.countyCode, true);
     }
+    if (!D.dmap[item.town]) { toast(`${item.town}還沒有行政區資料。`); return; }
     selectDistrict(item.town, true);
     toast(`已移到${item.town}`);
     sheet("peek");

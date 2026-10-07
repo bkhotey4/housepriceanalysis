@@ -50,11 +50,20 @@ const CMP_DATA = new Map();      // "代碼|區" → {book, d}
 function cmpEnsure() {
   const need = cmpList().filter(x => !CMP_DATA.has(x.code + "|" + x.name));
   if (!need.length) return true;
-  Promise.all(need.map(async x => {
+  // 一個一個載入：載不到的（縣市代碼錯、網路斷）從清單拿掉，其他照常顯示
+  Promise.allSettled(need.map(async x => {
     if (!D.tw) { CMP_DATA.set(x.code + "|" + x.name, { book: D.book, d: D.dmap[x.name] }); return; }
     const cd = await countyData(x.code);
     CMP_DATA.set(x.code + "|" + x.name, { book: cd.book, d: cd.dmap[x.name], rent: cd.rent });
-  })).then(() => { if (S.tab === "cmp") renderPanel(); }).catch(e => { logError("載入比較資料", e); toast("比較資料載入失敗，請檢查網路。"); });
+  })).then(rs => {
+    const bad = need.filter((x, i) => rs[i].status === "rejected");
+    if (bad.length) {
+      logError("載入比較資料", rs.find(r => r.status === "rejected").reason, true);
+      S.settings.cmp = cmpList().filter(x => !bad.includes(x)); saveStore();
+      toast(`${bad.map(x => x.name).join("、")}的資料載入失敗，已從比較拿掉。`);
+    }
+    if (S.tab === "cmp") renderPanel();
+  });
   return false;
 }
 function cmpSeriesSVG(cols) {
@@ -82,8 +91,11 @@ export function tabCmp() {
   if (!list.length) return h + `<p class="empty">還沒有要比較的區。用上面的選單挑${D.tw ? "縣市和" : ""}行政區按「加入比較」，最多 ${CMP_MAX} 個${D.tw ? "，可以跨縣市（例如台北大安 vs 新北板橋）" : ""}。選兩個區會出現「雙區 PK」對決。</p>`;
   if (list.length === 1) h += `<p class="muted">再加一個區，就會出現「雙區 PK」逐項對決。</p>`;
   if (!cmpEnsure()) return h + `<p class="empty">載入比較資料中…</p>`;
-  const cols = list.map(x => ({ ...x, ...CMP_DATA.get(x.code + "|" + x.name), label: (D.tw ? x.county.replace(/[市縣]$/, "") + " " : "") + x.name }))
+  const cols = list.map((x, idx) => ({ ...x, idx, ...CMP_DATA.get(x.code + "|" + x.name), label: (D.tw ? x.county.replace(/[市縣]$/, "") + " " : "") + x.name }))
     .filter(c => c.book && c.d);
+  // 資料載入了、那個縣市卻沒有這一區（例如分享連結打錯字）：從清單拿掉，免得佔名額
+  const missing = list.filter(x => { const cd = CMP_DATA.get(x.code + "|" + x.name); return cd && cd.book && !cd.d; });
+  if (missing.length) { S.settings.cmp = list.filter(x => !missing.includes(x)); saveStore(); }
 
   if (cols.length === 2) {
     const duel = L.duelCompare(cols[0], cols[1], S.cat);
@@ -138,9 +150,9 @@ export function tabCmp() {
       return n ? `${n} 項` : "—";
     }],
   ];
-  h += `<table class="list cmp"><thead><tr><th></th>${cols.map((c, i) => `<th class="r">${esc(c.label)}<div><a href="#" data-cmpdel="${i}">移除</a></div></th>`).join("")}</tr></thead><tbody>` +
+  h += `<table class="list cmp"><thead><tr><th></th>${cols.map((c, i) => `<th class="r">${esc(c.label)}<div><a href="#" data-cmpdel="${c.idx}">移除</a></div></th>`).join("")}</tr></thead><tbody>` +
     rows.map(([k, f]) => `<tr><td>${esc(k)}</td>${cols.map(c => `<td class="r">${f(c)}</td>`).join("")}</tr>`).join("") + `</tbody></table>`;
-  h += `<p class="muted">房型：${L.CAT_LABEL[cat]}｜近半年統計，件數太少時改用近一年（標 *）。通勤是直線距離的估計。</p>`;
+  h += `<p class="muted">房型：${L.CAT_LABEL[cat]}｜近半年統計，件數太少時改用近一年（標 *）。通勤：目前所在縣市的區用實際道路時間（查得到時），其他用直線距離估計。</p>`;
   h += `<h3>每月中位${S.metric === "u" ? "單價" : "總價"}</h3>` + cmpSeriesSVG(cols);
   return h;
 }

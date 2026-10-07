@@ -121,7 +121,12 @@ def main():
         return
     today = datetime.date.today()
     if args.update:
-        plvr_tw.update()
+        try:
+            plvr_tw.update()
+        except Exception as e:                      # 下載失敗：用上次留下的快取照樣產生，不要讓網站掉成只剩台南
+            print("下載全台實價登錄失敗：%s；改用已下載的資料。" % e, flush=True)
+            if not plvr_tw.folders():
+                raise SystemExit("沒有任何已下載的全台資料可用。")
     towns = load_towns()
     if not towns.get("D"):           # 還沒跑過 build_towns：臺南市用內建的行政區位置
         towns["D"] = [{"name": d["name"], "lat": d["lat"], "lng": d["lng"], "zone": d.get("zone", "")} for d in geo.load_districts()]
@@ -140,10 +145,16 @@ def main():
         entry["town_names"] = [t["name"] for t in dl]
         if dl:
             _dump("%s/districts.json" % c["code"], {"districts": dl})
+        raw = None
         if txs:
             names = [t["name"] for t in dl]
-            raw = prices.build_book(txs, names, as_of=as_of, source="live", total=c["short"],
-                                    note="內政部不動產交易實價查詢服務網開放資料", today_ym=today.strftime("%Y-%m"))
+            try:
+                raw = prices.build_book(txs, names, as_of=as_of, source="live", total=c["short"],
+                                        note="內政部不動產交易實價查詢服務網開放資料", today_ym=today.strftime("%Y-%m"))
+            except ValueError as e:                 # 例如只有預售屋、沒有一般買賣：這個縣市先當作沒有資料
+                print("%s：%s，略過" % (c["short"], e), flush=True)
+                entry["has_data"] = False
+        if raw:
             _dump("%s/book.json" % c["code"], raw)
             books[c["code"]] = raw
             size, n = export_tx(c["code"], txs, names, cancels)

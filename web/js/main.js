@@ -160,7 +160,7 @@ async function flushAutoReport() {
   while (pend.length && autoSent < 5) {
     const e = pend[0];
     const text = [`${e.t}｜${e.where}｜${e.at || "-"}｜${e.msg}`, e.stack ? "堆疊：" + e.stack : "",
-      `版本：${e.ver}｜網址：${location.pathname}${location.search}`, `瀏覽器：${navigator.userAgent}`].filter(Boolean).join("\n");
+      `版本：${e.ver}｜網址：${safeUrl()}`, `瀏覽器：${navigator.userAgent}`].filter(Boolean).join("\n");
     try {
       await fetch(FORM_URL, { method: "POST", mode: "no-cors", body: new URLSearchParams({ [FORM_FIELD]: text }) });
     } catch { break; }   // 網路斷了：留著下次再送
@@ -176,9 +176,15 @@ function repoInfo() {
   const m = location.hostname.match(/^([^.]+)\.github\.io$/), path = location.pathname.split("/").filter(Boolean)[0];
   return m && path ? `${m[1]}/${path}` : "bkhotey4/housepriceanalysis";
 }
+// 回報用的網址：只留縣市、區、分頁、房型，不含搜尋過的地址（q）等個人資料
+function safeUrl() {
+  const p = new URLSearchParams(location.search), keep = new URLSearchParams();
+  for (const k of ["c", "d", "tab", "cat", "m"]) if (p.get(k)) keep.set(k, p.get(k));
+  return location.origin + location.pathname + (keep.toString() ? "?" + keep : "");
+}
 function errorReport() {
   const errs = loadErrors().slice(-10), st = D.status;
-  return [`**網址**：${location.href}`, `**版本**：${APP_VER}　**瀏覽器**：${navigator.userAgent}`,
+  return [`**網址**：${safeUrl()}`, `**版本**：${APP_VER}　**瀏覽器**：${navigator.userAgent}`,
     st ? `**資料更新**：${st.time}　${st.ok ? "成功" : "失敗：" + (st.failed || []).join("、")}` : "",
     "", "**最近的錯誤**", "```", ...errs.map(e => `${e.t}｜${e.where}｜${e.at}｜${e.msg}${e.stack ? "｜" + e.stack : ""}`), "```",
     "", "**我在做什麼時發生的（請補充）**：", ""].join("\n");
@@ -205,7 +211,7 @@ export const minsTo = (lat, lng, w = workPlace()) => {
 };
 // ---- 實際道路的通勤時間（OSRM）：每個「上班地點＋交通方式＋縣市」查一次，存在這台裝置 30 天
 const ROUTE_KEY = "dth_route_v1", ROUTE_DAYS = 30;
-const routeState = { pending: null, failed: new Map(), last: 0 }, routeMem = new Map();      // failed：key → 失敗時間（5 分鐘後可再試）
+const routeState = { pending: new Set(), failed: new Map(), last: 0 }, routeMem = new Map();      // failed：key → 失敗時間（5 分鐘後可再試）
 function routeCacheKey(w) { return [D.county ? D.county.code : D.tw ? "" : "D", S.settings.mode || "car", L.ptKey(w.lat, w.lng)].join("|"); }
 function routeStore() { try { return JSON.parse(localStorage.getItem(ROUTE_KEY) || "{}"); } catch { return {}; } }
 export function routeTimes(w = workPlace()) {
@@ -219,14 +225,14 @@ export function routeStatus(w = workPlace()) {
   if (!w || isNation()) return "none";
   if (routeTimes(w)) return "road";
   const k = routeCacheKey(w);
-  return routeState.pending === k ? "loading" : Date.now() - (routeState.failed.get(k) || 0) < 5 * 60e3 ? "failed" : "estimate";
+  return routeState.pending.has(k) ? "loading" : Date.now() - (routeState.failed.get(k) || 0) < 5 * 60e3 ? "failed" : "estimate";
 }
 // 需要時才查（通勤分頁打開、或剛設定上班地點）；同一時間只查一個，兩次請求至少隔 1.1 秒
 export function ensureRouteTimes() {
   const w = workPlace();
   if (!w || isNation() || !D.districts.length || routeStatus(w) !== "estimate") return;
-  const k = routeCacheKey(w), mode = S.settings.mode || "car", dests = D.districts.slice();
-  routeState.pending = k;
+  const k = routeCacheKey(w), mode = S.settings.mode || "car", dests = D.districts.filter(d => d.lat != null && d.lng != null);      // 和 routeTableUrl 一樣略過沒有座標的區
+  routeState.pending.add(k);
   const wait = Math.max(0, routeState.last + 1100 - Date.now());
   setTimeout(async () => {
     routeState.last = Date.now();
@@ -237,6 +243,7 @@ export function ensureRouteTimes() {
       if (!mins) throw new Error("路線伺服器沒有回傳結果");
       const all = routeStore(), entry = { t: Date.now(), mins: {} };
       dests.forEach((d, i) => { if (mins[i] != null) entry.mins[L.ptKey(d.lat, d.lng)] = mins[i]; });
+      if (!Object.keys(entry.mins).length) throw new Error("路線伺服器找不到任何一區的路線");
       all[k] = entry;
       const keys = Object.keys(all).sort((a, b) => all[b].t - all[a].t).slice(0, 30);      // 最多留 30 組
       try { localStorage.setItem(ROUTE_KEY, JSON.stringify(Object.fromEntries(keys.map(x => [x, all[x]])))); } catch { /* 存不下就只用這一次 */ }
@@ -244,7 +251,7 @@ export function ensureRouteTimes() {
     } catch (err) {
       routeState.failed.set(k, Date.now()); logError("通勤路線", err, true);
     } finally {
-      routeState.pending = null;
+      routeState.pending.delete(k);
       refreshBars(); refreshPins(); if (S.tab === "commute" || S.tab === "rank") renderPanel();
     }
   }, wait);
@@ -400,8 +407,10 @@ function refreshAll() { refreshBars(); refreshModels(); refreshPins(); refreshRo
 // ------------------------------------------------------------------ 選取
 export function selectDistrict(name, fly = true) {
   if (isNation() && name !== L.CITY) { const c = D.tw.counties.find(x => x.short === name); if (c) enterCounty(c.code); return; }
+  if (name !== L.CITY && !D.dmap[name]) return;
   S.current = name; S.roadFilter = null; S.addr = null; S.pin = null; S.bldg = null;
   if (S.poi) { S.poi = null; refreshPois(); }
+  if (S.tab === "poi") S.tab = "overview";
   if (name === L.CITY) { view.select(null); if (fly) view.flyHome(); }
   else {
     view.select("district", name);
@@ -543,10 +552,12 @@ export function renderPanel() {
   ].map(([k, v, u]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}<small> ${u}</small></div></div>`).join("");
   $("#tabs").innerHTML = TABS.filter(([k]) => (k !== "detail" || S.picked) && (k !== "poi" || S.poi)).map(([k, t]) =>
     `<button role="tab" id="tab-${k}" data-tab="${k}" aria-controls="tab-body" aria-selected="${S.tab === k}" tabindex="${S.tab === k ? 0 : -1}">${t}${k === "watch" ? watchBadge() : ""}</button>`).join("");
-  const body = $("#tab-body");
+  const body = $("#tab-body"), keepTop = body.scrollTop;
   body.setAttribute("aria-labelledby", "tab-" + S.tab);
   body.innerHTML = ({ overview: tabOverview, rank: tabRank, commute: tabCommute, roads: tabRoads, bldg: tabBldg, tx: tabTx, value: tabValue, cmp: tabCmp, projects: tabProjects, detail: tabDetail, poi: tabPoi, watch: tabWatch }[S.tab] || tabOverview)();
-  body.scrollTop = 0;
+  const key = [S.tab, S.current, D.county ? D.county.code : "", S.bldg, S.watchSel, S.addr ? S.addr.text : ""].join("|");
+  body.scrollTop = key === renderPanel.lastKey ? keepTop : 0;
+  renderPanel.lastKey = key;
   const on = $("#tabs [aria-selected='true']");
   if (on) { const bar = $("#tabs"); if (on.offsetLeft < bar.scrollLeft || on.offsetLeft + on.offsetWidth > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = on.offsetLeft - 16; }
   syncUrl();
@@ -586,7 +597,8 @@ function applyShared(params) {
   if (m === "u" || m === "t") S.metric = m;
   $("#chips").querySelectorAll("button").forEach(x => x.setAttribute("aria-checked", x.dataset.cat ? x.dataset.cat === S.cat : x.dataset.metric === S.metric));
   if (cmp) {
-    const list = cmp.split(",").map(s => s.split(":")).filter(a => a.length === 2 && a[1]).slice(0, CMP_MAX)
+    const okCode = code => D.tw ? D.tw.counties.some(c => c.code === code && c.has_data) : code === "D";
+    const list = cmp.split(",").map(s => s.split(":")).filter(a => a.length === 2 && a[1] && okCode(a[0])).slice(0, CMP_MAX)
       .map(([code, name]) => ({ code, name, county: D.tw ? ((D.tw.counties.find(c => c.code === code) || {}).short || "") : L.CITY }));
     if (list.length) { S.settings.cmp = list; saveStore(); }
   }
@@ -1336,6 +1348,7 @@ function bindUI() {
       saveStore(); const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; return;
     }
     if (act === "watch-seen" && it) {
+      if (!D.txs) { toast("先進入這個物件所在的縣市，再按「我看過了」。"); return; }
       it.seen = D.txs.reduce((m, x) => x.date > m ? x.date : m, it.seen || ""); S.watchNews[it.id] = []; saveStore(); renderPanel(); return;
     }
     if (act === "cmp-clear") { S.settings.cmp = []; saveStore(); renderPanel(); return; }
@@ -1429,7 +1442,9 @@ function resetSelection() {
 function enterNation(fly = true) {
   D.county = null;
   L.setCity(D.tw.nation || "全台", "全台");
+  enterSeq++;
   D.book = D.twBook; D.rent = D.twRent; D.txs = null; D.txPromise = Promise.resolve();
+  D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   D.districts = D.tw.counties.map(c => ({ name: c.short, lat: c.lat, lng: c.lng, zone: c.region, code: c.code }));
   D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
   D.meta = { ...D.tw, road_districts: [] };
@@ -1441,6 +1456,7 @@ function enterNation(fly = true) {
   if (fly) view.flyHome();
   refreshAll();
 }
+let enterSeq = 0;           // 每次換縣市（含回全台）加一；載入完成時不是最新的那次就丟掉
 // 各縣市的統計與行政區（比較功能會同時用到好幾個縣市，讀過的留著）
 const COUNTY_CACHE = new Map();
 export function countyData(code) {
@@ -1457,11 +1473,13 @@ export async function enterCounty(code, fly = true) {
   S.cmpPick = null;                       // 比較分頁的縣市選單跟著換到這個縣市
   if (!c) return false;
   if (!c.has_data) { toast(`${c.short}的資料還在準備中（每次自動更新會補上）。`); return false; }
-  const base = `data/tw/${code}/`;
+  const base = `data/tw/${code}/`, seq = ++enterSeq;
   let book, dd, rent;
   try { ({ raw: book, dd, rent } = await countyData(code)); }
   catch (e) { logError(`載入${c.short}資料`, e); toast(`${c.short}的資料載入失敗，請檢查網路後再試。`); return false; }
+  if (seq !== enterSeq) return false;           // 等資料時使用者又換到別的縣市了
   D.county = c; D.rent = rent;
+  D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   L.setCity(c.short, c.short);
   D.book = new L.Book(book);
   D.districts = dd.districts; D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
@@ -1556,7 +1574,8 @@ export async function main() {
   bindUI(); bindSheetDrag();
   sheet("peek");
   if (tw) {
-    const want = (params.get("c") || S.settings.lastCounty || "").toUpperCase();
+    const shared = ["d", "tab", "cat", "m", "cmp", "q"].some(k => params.has(k));
+    const want = (params.get("c") || (shared ? "" : S.settings.lastCounty) || "").toUpperCase();
     enterNation(false); view.reset();
     if (want && !params.get("q")) await enterCounty(want, false);
   } else {
@@ -1571,9 +1590,10 @@ export async function main() {
   getJSON("data/status.json").then(st => { D.status = st; if (!st.ok) $("#btn-menu").classList.add("has-err"); }).catch(() => {});
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     // 程式檔先用快取開（離線也能用、開得快），新版本在背景下載；下載好就提示使用者重新整理，而不是默默等到下次開
-    const hadController = !!navigator.serviceWorker.controller;
+    let hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (hadController) toast("網站有新版本。", 0, { label: "重新整理", run: () => location.reload() });
+      hadController = true;
     });
     navigator.serviceWorker.register("sw.js").then(reg => {
       document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); });

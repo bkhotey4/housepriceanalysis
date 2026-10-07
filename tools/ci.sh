@@ -32,7 +32,7 @@ step roads   "各區道路位置（逐步補抓）"    0 python tools/fetch_road
 if [ -f web/data/tw/index.json ]; then
   step index "更新道路清單"               0 python tools/export_tw.py --refresh-roads
 fi
-step check   "資料檢查"                   1 python tools/check_data.py
+step check   "資料檢查"                   1 python tools/check_data.py --require-tw 18
 
 # 離線快取的版本號帶上 commit 和時間：每次部署（程式或資料有變）使用者都會收到「有新版本」提示
 STAMP="$(git rev-parse --short HEAD 2>/dev/null || echo local)-$(date +%Y%m%d%H%M)"

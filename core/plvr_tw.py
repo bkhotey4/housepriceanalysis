@@ -134,30 +134,43 @@ def update(progress=None, seasons_wanted=5, insecure=False, today=None):
         html = plvr.fetch(BASE_URL + "/DownloadHistory_ajax_list", timeout=60, insecure=insecure).decode("utf-8", "replace")
         dates = [d for d in plvr.parse_history_dates(html) if d > latest_end]
     except plvr.DownloadError as e:
-        _say(progress, "讀取前期發布清單失敗：%s" % e)
+        _say(progress, "讀取前期發布清單失敗：%s（沿用已下載的前期檔）" % e)
         dates = []
+        keep.update(n for n in os.listdir(CACHE) if n.startswith("hist_") and n[5:] > latest_end and is_done(n))
     for d in dates:
         name = "hist_" + d
         keep.add(name)
         if is_done(name):
             continue
         _say(progress, "下載前期檔 %s（全國）…" % d)
-        z = plvr.fetch("%s/DownloadHistory?type=history&fileName=%s" % (BASE_URL, d), timeout=600, insecure=insecure)
+        try:
+            z = plvr.fetch("%s/DownloadHistory?type=history&fileName=%s" % (BASE_URL, d), timeout=600, insecure=insecure)
+        except plvr.DownloadError as e:
+            _say(progress, "  前期檔 %s 下載失敗：%s（這次先跳過）" % (d, e))
+            continue
         if z[:2] == b"PK" and _extract_zip(z, name):
             _mark_done(name)
 
     # 本期檔：每次重抓
     _say(progress, "下載本期檔（全國）…")
-    shutil.rmtree(_dir("cur"), ignore_errors=True)
+    shutil.rmtree(_dir("cur_new"), ignore_errors=True)
     try:
         z = plvr.fetch("%s/Download?type=zip&fileName=lvr_landcsv.zip" % BASE_URL, timeout=600, insecure=insecure)
     except plvr.DownloadError:
         z = b""
-    if not (z[:2] == b"PK" and _extract_zip(z, "cur") >= len(CODES)):
-        _per_county("cur", lambda code, kind: "%s/Download?fileName=%s_lvr_land_%s.csv" % (BASE_URL, code, kind),
-                    progress, insecure)
-    _mark_done("cur", today.isoformat())
-    keep.add("cur")
+    got = _extract_zip(z, "cur_new") if z[:2] == b"PK" else 0
+    if got < len(CODES):
+        got = max(got, _per_county("cur_new", lambda code, kind: "%s/Download?fileName=%s_lvr_land_%s.csv" % (BASE_URL, code, kind),
+                                   progress, insecure))
+    if got:
+        shutil.rmtree(_dir("cur"), ignore_errors=True)
+        os.replace(_dir("cur_new"), _dir("cur"))
+        _mark_done("cur", today.isoformat())
+    else:
+        shutil.rmtree(_dir("cur_new"), ignore_errors=True)
+        _say(progress, "本期檔一個縣市都沒拿到，沿用上次下載的本期檔。")
+    if is_done("cur"):
+        keep.add("cur")
 
     # 清掉用不到的舊資料夾（被新季檔涵蓋的前期檔、太舊的季檔）
     for name in os.listdir(CACHE):
@@ -188,11 +201,13 @@ def load_county(code, cancels=None):
             with open(path, "rb") as f:
                 text = f.read().decode("utf-8-sig", "replace")
             if text.strip():
-                for x in prices.parse_csv_text(text, keep_cancelled=cancels is not None):
+                for x in prices.parse_csv_text(text, presale=(kind == "b"), keep_cancelled=True):
                     (cx if x.get("cancel") else txs).append(x)
+    cx = prices.dedupe(cx)
+    gone = {x["id"] for x in cx if x["id"]}
     if cancels is not None:
-        cancels.extend(prices.dedupe(cx))
-    return prices.dedupe(txs)
+        cancels.extend(cx)
+    return prices.dedupe([x for x in txs if x["id"] not in gone])
 
 
 def load_county_rent(code):

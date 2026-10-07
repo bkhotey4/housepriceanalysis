@@ -8,6 +8,7 @@
   * 以「交易年月日」歸月，統計值一律取中位數。
   * 預售屋另成一類（實價登錄的預售屋檔），已解約的案件不計；「全部合併」只含成屋買賣，不含預售。
 """
+import calendar
 import csv
 import io
 import json
@@ -87,9 +88,10 @@ def cn_number(s):
 def floor_of(level):
     """移轉層次（「五層」「十二層」）→ 樓層數字；整棟（「全」）、地下室、跨好幾層或看不懂的回傳 None。"""
     level = (level or "").strip()
-    if not level.endswith("層") or level.startswith("地下") or "，" in level or "," in level:
+    floors = [p for p in re.split("[，,、]", level) if p.endswith("層") and not p.startswith("地下")]
+    if len(floors) != 1 or any(p.startswith("地下") for p in re.split("[，,、]", level)):
         return None
-    return cn_number(level[:-1])
+    return cn_number(floors[0][:-1])
 
 
 def parking_of(r):
@@ -165,7 +167,7 @@ def reduce_row(r, presale=False, keep_cancelled=False):
     pk, pka, pkp = parking_of(r)
     return {
         "id": r[C_ID], "dist": r[C_DIST], "ym": "%04d-%02d" % (year, month),
-        "date": "%04d-%02d-%02d" % (year, month, max(1, min(day, 31))),
+        "date": "%04d-%02d-%02d" % (year, month, max(1, min(day, calendar.monthrange(year, month)[1]))),
         "cat": cat, "btype": r[C_BTYPE].split("(")[0], "addr": r[C_ADDR],
         "tw": tw, "u": u, "ping": area / PING_M2, "built": built_year,
         "floors": r[C_FLOORS], "note": r[C_NOTE],
@@ -467,10 +469,14 @@ _ROAD = re.compile("^(.+?(?:大道|路|街)(?:[一二三四五六七八九十]+�
 _VILLAGE = re.compile("^[\u4e00-\u9fff]{1,4}里(?=[\u4e00-\u9fff])")
 
 
-def road_of(addr, dist=""):
-    """由門牌取出路段名稱，例如「臺南市善化區中山路１２３號」->「中山路」。取不出來回傳「其他」。"""
+def road_of(addr, dist="", strip=True):
+    """由門牌取出路段名稱，例如「臺南市善化區中山路１２３號」->「中山路」。取不出來回傳「其他」。
+
+    strip=False：addr 已經去掉縣市與行政區（例如 address._parts），不要再去一次縣市名稱，
+    否則「新北八街」「台中港路」「新竹一路」這類以縣市名開頭的路名會被切掉開頭。"""
     s = (addr or "").translate(_FULLWIDTH).strip()
-    s = strip_county(s)
+    if strip:
+        s = strip_county(s)
     if dist and s.startswith(dist):
         s = s[len(dist):]
     s = _VILLAGE.sub("", s)

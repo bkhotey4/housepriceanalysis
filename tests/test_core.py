@@ -82,6 +82,18 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(sum(n for _d, _p, n in counts), len(cancelled))
         self.assertEqual(dists[counts[0][0]], cancelled[0]["dist"])
 
+    def test_roads_starting_with_county_names(self):
+        """路名開頭剛好是縣市名稱（新北八街、台中港路、新竹一路）不能被當成縣市切掉。"""
+        from core import address
+        for addr, dist, road in (("臺南市新營區新北八街５３號", "新營區", "新北八街"), ("臺中市沙鹿區台中港路１２３號", "沙鹿區", "台中港路"),
+                                 ("新竹縣竹北市新竹一路1號", "竹北市", "新竹一路"), ("臺南市東區中華東路一段1號", "東區", "中華東路一段")):
+            self.assertEqual(address.tx_parts({"addr": addr, "dist": dist})[0], road, addr)
+            self.assertEqual(prices.road_of(addr, dist), road, addr)
+
+    def test_floor_with_notes(self):
+        for text, want in (("四層，走廊", 4), ("五層，見其他登記事項", 5), ("四層，五層", None), ("地下一層，一層", None)):
+            self.assertEqual(prices.floor_of(text), want, text)
+
     def test_dedupe(self):
         self.assertEqual(len(prices.dedupe(self.txs + self.txs)), 8)
 

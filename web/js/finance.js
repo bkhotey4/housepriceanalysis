@@ -3,7 +3,7 @@ import * as L from "./logic.js";
 import { $, D, S, esc } from "./main.js";
 
 // ---- 房貸試算：總價預設帶入這一區的中位總價，其他條件記在這台裝置
-export const LOAN_DEFAULT = { price: "", down: 20, rate: 2.2, years: 30, grace: 0, youth: false };
+export const LOAN_DEFAULT = { price: "", down: 20, rate: L.NORMAL_LOAN.rate, years: L.NORMAL_LOAN.years, grace: 0, youth: false };
 export function loanState() { return Object.assign({}, LOAN_DEFAULT, S.settings.loan || {}); }
 // 依目前的條件試算；選了「新青安」時，超過 1,000 萬的部分用一般房貸的利率與年限另外算
 function loanCalc(st, price) {
