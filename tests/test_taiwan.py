@@ -224,26 +224,6 @@ class TransitTest(unittest.TestCase):
         self.assertEqual(kinds.get("台鐵"), "台鐵")
         self.assertTrue(os.path.exists(web))
 
-    def test_desktop_clips_tra_to_county(self):
-        """電腦版：台鐵只畫目前縣市範圍內的路段與車站。"""
-        import json as _json
-        from core import region
-        tmp = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, tmp, True)
-        path = os.path.join(tmp, "transit.json")
-        seg = [25.05, 121.52, 24.8, 121.0, 23.0, 120.21, 22.9, 120.2]          # 台北 → 新竹 → 台南
-        with open(path, "w", encoding="utf-8") as f:
-            _json.dump({"lines": [{"name": "台鐵", "kind": "台鐵", "color": "#5b6b7c", "counties": ["A", "D"], "segments": [seg],
-                                   "stations": [["臺北站", 25.0478, 121.517], ["臺南站", 22.997, 120.212]]}]}, f)
-        old = region.TRANSIT_PATH
-        region.TRANSIT_PATH = path
-        self.addCleanup(setattr, region, "TRANSIT_PATH", old)
-        tn = region.transit_lines("D")["台鐵"]
-        self.assertEqual([s[0] for s in tn["stations"]], ["臺南站"])
-        pts = [p for sg in tn["segments"] for p in sg["points"]]
-        self.assertTrue(pts and all(p[0] < 23.5 for p in pts))
-        self.assertEqual(region.transit_lines("B"), {})
-
     def test_build_tra(self):
         """台鐵：抓軌道與車站合成一條；高鐵、糖鐵的軌道與捷運、高鐵車站都不算。"""
         from tools import build_transit
@@ -330,26 +310,7 @@ class TownListTest(unittest.TestCase):
 
 
 
-class ErrorLogTest(unittest.TestCase):
-    def test_desktop_errlog(self):
-        from core import errlog
-        tmp = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, tmp, True)
-        old = errlog.LOG_DIR, errlog.LOG_PATH
-        errlog.LOG_DIR, errlog.LOG_PATH = tmp, os.path.join(tmp, "app_errors.log")
-        try:
-            try:
-                1 / 0
-            except ZeroDivisionError:
-                errlog.write("測試")
-        finally:
-            path = errlog.LOG_PATH
-            errlog.LOG_DIR, errlog.LOG_PATH = old
-        with open(path, encoding="utf-8") as f:
-            text = f.read()
-        self.assertIn("測試", text)
-        self.assertIn("ZeroDivisionError", text)
-
+class CiReportTest(unittest.TestCase):
     def test_ci_report(self):
         import subprocess
         tmp = tempfile.mkdtemp()

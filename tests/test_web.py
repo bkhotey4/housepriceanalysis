@@ -1,5 +1,5 @@
 """網頁版（web/）的瀏覽器測試：用 Playwright 開手機與電腦尺寸，操作一遍主要功能，
-並確認網頁版的地址解析、門牌位置推估、路段行情和桌面版的 Python 結果一致。
+並確認網頁版的地址解析、門牌位置推估、路段行情和 Python（core/）算出來的結果一致。
 
 需要 playwright（pip install playwright && playwright install chromium）；沒有就自動略過。
 先執行 python tools/export_web.py 產生 web/data。

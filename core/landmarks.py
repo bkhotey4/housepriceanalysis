@@ -890,7 +890,7 @@ def brightness(normal):
 
 
 def load(county="D"):
-    """讀取 data/landmarks.json，回傳地標清單。county=None 回傳全台；預設只回傳臺南市（桌面版目前只畫台南）。"""
+    """讀取 data/landmarks.json，回傳地標清單。county=None 回傳全台；預設只回傳臺南市。"""
     items = load_json("landmarks.json")["items"]
     for i, it in enumerate(items):
         it.setdefault("id", "lm%d" % i)

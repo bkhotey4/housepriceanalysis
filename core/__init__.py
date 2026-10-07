@@ -1,1 +1,1 @@
-"""deep_tainan_house 核心模組（只使用 Python 標準函式庫 + tkinter，方便在 Pydroid 3 執行）。"""
+"""deep_tainan_house 核心模組：實價登錄下載與解析、房價統計、道路與門牌等，產生網頁版資料用（只使用 Python 標準函式庫）。"""

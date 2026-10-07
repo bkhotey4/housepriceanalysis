@@ -1,5 +1,5 @@
 // 資料與計算：房價統計、逐筆成交、路段、地址解析與門牌位置推估。
-// 和桌面版 core/prices.py、core/roads.py、core/address.py 的邏輯一致（測試會比對結果）。
+// 和 Python 的 core/prices.py、core/roads.py、core/address.py 邏輯一致（測試會比對結果）。
 
 // 投影原點：台南版用台南中心；全台版啟動時改成台灣中心（setOrigin）。import 的變數是「活的」，改了大家都看得到。
 export let LAT0 = 23.145, LNG0 = 120.34;
@@ -60,7 +60,7 @@ export function priceHistogram(values, bins = 14) {
   return { lo, hi, w, n: s.length, counts, p25: quantile(s, 0.25), p50: quantile(s, 0.5), p75: quantile(s, 0.75),
     below: b => s.filter(v => v <= b).length / s.length };
 }
-// 和 Python 的 round() 一樣：剛好在中間時取偶數（統計值才會和桌面版完全一致）
+// 和 Python 的 round() 一樣：剛好在中間時取偶數（統計值才會和 Python 產生的資料完全一致）
 export function pyRound(x, nd = 0) {
   if (x == null) return x;
   // 用精確的十進位展開判斷是不是「剛好一半」；是的話取偶數，否則照一般四捨五入（toFixed 依精確值處理）

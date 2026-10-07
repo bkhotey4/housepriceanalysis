@@ -1,4 +1,4 @@
-// 3D 地圖（Canvas 2D）：正交投影＋畫家演算法，和桌面版 core/view3d.py 同一套座標與投影。
+// 3D 地圖（Canvas 2D）：正交投影＋畫家演算法。
 // 手機：單指拖曳平移、雙指捏合縮放＋旋轉、雙指上下滑動調整俯角；點一下選取。
 // 滑鼠：左鍵拖曳平移、右鍵（或 Shift）拖曳旋轉、滾輪對著游標縮放。
 import { toXY, toLatLng, LAT0, LNG0, KM_LAT, KM_LNG } from "./logic.js";

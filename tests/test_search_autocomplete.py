@@ -105,7 +105,7 @@ class SearchAutocompleteTest(unittest.TestCase):
         page.goto(self.url)
         page.wait_for_function("window.__app && __app.D.districts && __app.D.txs")
 
-        # 1. 桌面版輸入地址並按 Enter 直接搜尋
+        # 1. 寬螢幕：輸入地址並按 Enter 直接搜尋
         page.fill("#q", "善化區中山路123號")
         page.press("#q", "Enter")
         page.wait_for_timeout(500)

@@ -1,4 +1,4 @@
-"""全台實價登錄下載器（給 GitHub Actions／桌面版的全台模式用；只用標準函式庫）。
+"""全台實價登錄下載器（給 GitHub Actions 產生全台網頁資料用；只用標準函式庫）。
 
 和 plvr.py（只抓臺南市）同樣的三種檔案，但一次拿全國：
   1. 季檔     DownloadSeason?season=115S2&type=zip&fileName=lvr_landcsv.zip   （全國 zip）

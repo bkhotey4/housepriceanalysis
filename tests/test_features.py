@@ -1,4 +1,4 @@
-"""新功能的核心邏輯測試：預售屋、路段行情、房貸試算、看屋清單、疊圖與高解析圖磚。"""
+"""資料處理的核心邏輯測試：預售屋、路段行情、房貸試算、上班地點、疊圖與高解析圖磚。"""
 import io
 import json
 import os
@@ -11,7 +11,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "data"))
 
-from core import basemap, geo, landmarks, plvr, prices, roads, watchlist  # noqa: E402
+from core import basemap, geo, landmarks, plvr, prices, roads  # noqa: E402
 
 FIXTURE_A = os.path.join(ROOT, "tests", "fixture_d_lvr_land_a.csv")
 FIXTURE_B = os.path.join(ROOT, "tests", "fixture_d_lvr_land_b.csv")
@@ -114,30 +114,7 @@ class RoadAndLoanTest(unittest.TestCase):
         self.assertTrue(u.startswith("https://www.google.com/maps/dir/?api=1"))
 
 
-class WatchlistTest(unittest.TestCase):
-    def test_legacy_import_and_crud(self):
-        import house_data
-        with tempfile.TemporaryDirectory() as tmp:
-            path = os.path.join(tmp, "watchlist.json")
-            w = watchlist.Watchlist(path).load(legacy=house_data.SHANHUA_PROPERTIES)
-            self.assertEqual(len(w.items), 6)
-            self.assertTrue(all(it["sample"] and it["district"] == "善化區" for it in w.items))
-            self.assertEqual(w.items[0]["type"], "店面／透店")
-            self.assertFalse(os.path.exists(path))                 # 匯入時還不寫檔
-            it = w.add({"name": "測試透天", "district": "善化區", "type": "透天厝", "price": 1500, "ping": 40})
-            self.assertTrue(os.path.exists(path))
-            self.assertAlmostEqual(watchlist.unit_price(it), 37.5)
-            w.update(it["id"], {"price": 1600, "lat": 23.13, "lng": 120.3})
-            w.update("legacy0", {"name": "改過的"})
-            again = watchlist.Watchlist(path).load(legacy=house_data.SHANHUA_PROPERTIES)
-            self.assertEqual(len(again.items), 7)                  # 已有檔案就不再重複匯入
-            self.assertEqual(again.get(it["id"])["price"], 1600)
-            self.assertNotIn("sample", again.get("legacy0"))       # 編輯過就不再視為示意資料
-            again.remove(it["id"])
-            self.assertIsNone(watchlist.Watchlist(path).load().get(it["id"]))
-        self.assertIsNone(watchlist.unit_price({"price": None, "ping": 30}))
-        self.assertIsNone(watchlist.unit_price({"price": "abc", "ping": 30}))
-
+class WorkplaceTest(unittest.TestCase):
     def test_workplaces_inside_map(self):
         t = geo.Terrain()
         places = [p for p in geo.load_json("workplaces.json")["places"] if p.get("county", "D") == "D"]
@@ -674,48 +651,6 @@ class ProjectTest(unittest.TestCase):
         errs = datacheck.check_intel(bad)
         self.assertTrue(any("phase" in e for e in errs))
         self.assertTrue(any("晚於" in e for e in errs))
-
-
-class ReportTest(unittest.TestCase):
-    """行情報告：產生一頁可以列印的 HTML。"""
-
-    def test_build_and_save(self):
-        import datetime as dt
-        from core import address, geo, prices, report
-        book = prices.PriceBook(geo.load_json("price_snapshot.json"))
-        names = [d["name"] for d in geo.load_districts()]
-        txs = [{"dist": "善化區", "addr": "臺南市善化區中正路６６７巷５號", "date": "2026-05-01", "cat": "house", "btype": "透天厝",
-                "tw": 1200, "u": 30.0, "ping": 40.0, "built": 2010},
-               {"dist": "善化區", "addr": "臺南市善化區中正路３００號", "date": "2026-06-01", "cat": "apt", "btype": "華廈",
-                "tw": 800, "u": 25.0, "ping": 32.0, "built": None}]
-        intel = geo.load_json("intel.json")["items"]
-        q = address.parse("善化區中正路667巷5號", names)
-        d = next(x for x in geo.load_districts() if x["name"] == "善化區")
-        text = report.build(book, txs, intel, "善化區", "all", q=q, point=(d["lat"], d["lng"]),
-                            agent={"name": "王<b>小明</b>", "phone": "0912", "client": "林先生", "note": "週六\n下午"},
-                            works=[("南科台南園區", 3.8)], today=dt.date(2026, 10, 2))
-        self.assertIn("善化區 中正路 667 巷 5 號 房價行情報告", text)
-        self.assertIn("王&lt;b&gt;小明&lt;/b&gt;", text)                       # 使用者輸入一律跳脫
-        self.assertNotIn("王<b>小明", text)
-        self.assertIn("同門牌（同一棟）", text)
-        self.assertIn("善化區中正路667巷5號", text)
-        self.assertIn("<svg", text)
-        self.assertIn("附近的重大建設", text)
-        self.assertIn("南科特定區", text)                                       # 5 公里內的建設
-        self.assertIn("約 3.8 公里", text)
-        self.assertIn("週六<br>下午", text)
-        self.assertIn("不構成投資或購屋建議", text)
-        no_tx = report.build(book, [], intel, "永康區", "apt", today=dt.date(2026, 10, 2))
-        self.assertIn("更新實價登錄", no_tx)
-        saved = report.REPORT_DIR
-        with tempfile.TemporaryDirectory() as tmp:
-            report.REPORT_DIR = os.path.join(tmp, "reports")
-            try:
-                path = report.save(text, "善化區 中正路/667巷", today=dt.date(2026, 10, 2))
-                self.assertTrue(path.endswith("20261002_善化區中正路667巷.html"))
-                self.assertEqual(open(path, encoding="utf-8").read(), text)
-            finally:
-                report.REPORT_DIR = saved
 
 
 class LandmarkTest(unittest.TestCase):

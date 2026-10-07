@@ -3,7 +3,7 @@
 這個資料夾就是整個網頁版：純靜態檔案，所有計算都在使用者的瀏覽器裡完成，不需要伺服器。
 
 * `index.html`、`css/`、`js/`：畫面與程式（不需要編譯）。
-  `js/main.js` 是進入點（狀態、地圖、分頁切換）；`logic.js` 放純計算（和桌面版 Python 對照測試）；
+  `js/main.js` 是進入點（狀態、地圖、分頁切換）；`logic.js` 放純計算（和 core/ 的 Python 對照測試）；
   各功能拆在 `search.js`（搜尋與自動補全）、`poi.js`（周邊設施）、`finance.js`（房貸／新青安、交屋現金、租金、租或買）、
   `watch.js`（看屋清單）、`compare.js`（區域比較）、`value.js`（估價）、`report.js`（行情報告）、`view3d.js`（3D 地圖）。
   新增 js 檔時記得加進 `sw.js` 的 SHELL 清單，離線才打得開。
