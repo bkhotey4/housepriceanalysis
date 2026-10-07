@@ -44,6 +44,22 @@ export function median(a) {
   const s = [...a].sort((p, q) => p - q), m = s.length >> 1;
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
+// 分位數（線性內插，和 numpy 預設一樣）；s 必須已由小到大排序
+export function quantile(s, q) {
+  if (!s.length) return null;
+  const i = (s.length - 1) * q, lo = Math.floor(i), hi = Math.ceil(i);
+  return s[lo] + (s[hi] - s[lo]) * (i - lo);
+}
+// 價格分佈：切成 bins 格；最便宜 2%、最貴 5% 併進頭尾兩格，少數豪宅或怪價不會把圖拉得很扁
+export function priceHistogram(values, bins = 14) {
+  const s = values.filter(v => v > 0).sort((a, b) => a - b);
+  if (s.length < 8) return null;
+  const lo = quantile(s, 0.02), hi = quantile(s, 0.95), w = (hi - lo) / bins || 1;
+  const counts = new Array(bins).fill(0);
+  for (const v of s) counts[Math.max(0, Math.min(bins - 1, Math.floor((v - lo) / w)))]++;
+  return { lo, hi, w, n: s.length, counts, p25: quantile(s, 0.25), p50: quantile(s, 0.5), p75: quantile(s, 0.75),
+    below: b => s.filter(v => v <= b).length / s.length };
+}
 // 和 Python 的 round() 一樣：剛好在中間時取偶數（統計值才會和桌面版完全一致）
 export function pyRound(x, nd = 0) {
   if (x == null) return x;
@@ -109,7 +125,9 @@ export function decodeTx(raw) {
   for (const r of raw.rows) {
     out.push({ dist: dists[r[0]], date: r[1], ym: r[1].slice(0, 7), cat: cats[r[2]], btype: r[3], addr: r[4],
                tw: r[5], u: r[6], ping: r[7], built: r[8] || null, presale: r[9] === 1, proj: r[10],
-               road: r[11], lane: r[12] < 0 ? null : r[12], alley: r[13] < 0 ? null : r[13], num: r[14] < 0 ? null : r[14] });
+               road: r[11], lane: r[12] < 0 ? null : r[12], alley: r[13] < 0 ? null : r[13], num: r[14] < 0 ? null : r[14],
+               // 舊資料沒有下面四欄：樓層（null 不明）、車位數、車位坪數、車位價（萬）
+               fl: r[15] == null || r[15] < 0 ? null : r[15], pk: r[16] || 0, pka: r[17] || 0, pkp: r[18] || 0 });
   }
   return out;
 }
@@ -439,6 +457,20 @@ export function buildings(txs, district, cat, sinceYm) {
   return out.sort((a, b) => b.n - a.n || (b.last > a.last ? 1 : -1));
 }
 
+// 同一個建案／社區每一季的成交：預售屋看得出開賣以來單價怎麼走（首批 vs 最近）
+export function quarterSeries(rows) {
+  const g = new Map();
+  for (const x of rows) {
+    const q = x.ym.slice(0, 4) + "Q" + (((+x.ym.slice(5, 7)) - 1) / 3 + 1 | 0);
+    if (!g.has(q)) g.set(q, []);
+    g.get(q).push(x.u);
+  }
+  const out = [...g].sort((a, b) => a[0] < b[0] ? -1 : 1).map(([q, us]) => ({ q, n: us.length, u: pyRound(median(us), 1) }));
+  if (out.length < 2) return null;
+  const first = out[0], last = out[out.length - 1];
+  return { rows: out, first, last, pct: first.u ? (last.u - first.u) / first.u * 100 : null };
+}
+
 // ------------------------------------------------------------------ 到其他平台找物件（用 Google 站內搜尋，不爬取對方網站）
 export const PLATFORMS = [["591", "sale.591.com.tw"], ["樂屋網", "rakuya.com.tw"], ["樂居", "leju.com.tw"],
                           ["永慶", "yungching.com.tw"], ["信義", "sinyi.com.tw"], ["住商", "hbhousing.com.tw"]];
@@ -615,10 +647,27 @@ export function mortgage(priceWan, downPct, ratePct, years, grace = 0) {
     income: monthly * 3 };     // 一般建議月付不超過月收入的三分之一
 }
 
+// 青年安心成家購屋優惠貸款（新青安）：貸款上限 1,000 萬、最長 40 年、寬限期最長 5 年。
+// 利率是公股銀行一段式機動利率（政府補貼後）的參考值，會隨央行升降息調整，實際以承辦銀行公告為準。
+export const YOUTH_LOAN = { rate: 1.775, years: 40, grace: 5, cap: 1000 };
+// 有額度上限的優惠貸款：上限內用優惠條件，超過的部分當成另一筆一般房貸（restRate、restYears，不設寬限期）
+export function mortgageCapped(priceWan, downPct, ratePct, years, grace, capWan, restRate, restYears) {
+  const loanWan = Math.max(0, priceWan * (1 - downPct / 100));
+  const main = mortgage(Math.min(loanWan, capWan), 0, ratePct, years, grace);
+  if (!main) return null;
+  const rest = loanWan > capWan ? mortgage(loanWan - capWan, 0, restRate, restYears, 0) : null;
+  const extra = rest ? rest.monthly : 0;
+  return { loan: loanWan, down: priceWan * downPct / 100, rest: rest ? rest.loan : 0,
+    graceMonthly: main.graceMonthly ? main.graceMonthly + extra : 0, monthly: main.monthly + extra,
+    totalInterest: main.totalInterest + (rest ? rest.totalInterest : 0), income: (main.monthly + extra) * 3 };
+}
+
 // ------------------------------------------------------------------ 合理價估算：從實價登錄找條件相近的成交
-// q: {dist, cat("house"|"apt"|"presale"|"all"), ping, age(屋齡，年), road, lane, alley, num, todayYm}
-// 相似度＝坪數接近 × 屋齡接近 × 越新的成交越重要 × 位置（同一棟 > 同巷 > 同路 > 同區），
+// q: {dist, cat("house"|"apt"|"presale"|"all"), ping, age(屋齡，年), road, lane, alley, num, todayYm, floor(樓層), park(車位數)}
+// 相似度＝坪數接近 × 屋齡接近 × 樓層接近（大樓） × 越新的成交越重要 × 位置（同一棟 > 同巷 > 同路 > 同區），
 // 用加權分位數算單價區間（25%～75%），再乘上坪數得到總價區間。
+// 有車位時：實價登錄的單價已扣掉車位（有分開登錄車位價時），所以總價＝單價 ×（坪數 − 車位坪數）＋ 車位價，
+// 車位的坪數與價格取比對成交裡有分開登錄車位的加權中位數。
 const ymIndex = ym => +ym.slice(0, 4) * 12 + (+ym.slice(5, 7)) - 1;
 function wQuantile(pairs, q) {        // pairs: [[value, weight]]，已排序
   const tot = pairs.reduce((s, p) => s + p[1], 0);
@@ -646,6 +695,7 @@ export function estimate(txs, q) {
       let w = Math.exp(-ago / 18) * [1, 1.6, 2.4, 3.5][lv];
       if (q.ping && x.ping) w *= Math.exp(-Math.pow(Math.log(x.ping / q.ping) / 0.3, 2));
       if (q.age != null && age != null) w *= Math.exp(-Math.pow((age - q.age) / 8, 2));
+      if (q.floor != null && x.fl != null && x.cat !== "house") w *= 0.3 + 0.7 * Math.exp(-Math.pow((x.fl - q.floor) / 6, 2));
       pool.push({ x, w, lv, age, ago });
     }
     used = { months, pTol, aTol };
@@ -658,8 +708,20 @@ export function estimate(txs, q) {
   const comps = pool.slice().sort((a, b) => b.w - a.w).slice(0, 12)
     .map(p => ({ ...p.x, age: p.age, level: p.lv, weight: p.w }));
   const r1 = v => Math.round(v * 10) / 10;
+  // 車位：比對成交裡有分開登錄車位價格的，取每個車位的坪數與價格（加權中位數）
+  let park = null;
+  if (q.park > 0 && q.ping) {
+    const withPark = pool.filter(p => p.x.pk > 0 && p.x.pkp > 0 && p.x.pka > 0);
+    if (withPark.length >= 3) {
+      const med = f => wQuantile(withPark.map(p => [f(p.x), p.w]).sort((a, b) => a[0] - b[0]), 0.5);
+      const area = med(x => x.pka / x.pk), price = med(x => x.pkp / x.pk);
+      if (area * q.park < q.ping * 0.6) park = { n: withPark.length, area: r1(area), price: Math.round(price), count: q.park };
+    }
+  }
+  const total = u => !q.ping ? null : Math.round(park ? u * (q.ping - park.area * park.count) + park.price * park.count : u * q.ping);
+  const floorN = q.floor != null ? pool.filter(p => p.x.fl != null && Math.abs(p.x.fl - q.floor) <= 3).length : null;
   return { ok: true, n: pool.length, months: used.months, uLo: r1(lo), uMid: r1(mid), uHi: r1(hi),
-    tLo: q.ping ? Math.round(lo * q.ping) : null, tMid: q.ping ? Math.round(mid * q.ping) : null, tHi: q.ping ? Math.round(hi * q.ping) : null,
+    tLo: total(lo), tMid: total(mid), tHi: total(hi), park, floorN,
     level: ["同區", "同一條路", "同一條巷", "同一棟"][best], nearN: pool.filter(p => p.lv === best).length, comps, year };
 }
 // 開價和合理區間比：回傳 {pos: "低於"|"區間內"|"高於", pct}
@@ -776,8 +838,8 @@ export function safetyBid(est, askingWan = null) {
 
 // ------------------------------------------------------------------ 新青安寬限期斷崖與家庭所得體檢
 export function youthLoanCliff(priceWan, downPct = 20, incomeMonthly = 0, opt = {}) {
-  const youthMax = opt.youthMaxWan ?? 1000;
-  const yRate = opt.youthRate ?? 1.775;
+  const youthMax = opt.youthMaxWan ?? YOUTH_LOAN.cap;
+  const yRate = opt.youthRate ?? YOUTH_LOAN.rate;
   const nRate = opt.normalRate ?? 2.30;
   const loanTotalWan = Math.max(0, priceWan * (1 - downPct / 100));
   if (!(loanTotalWan > 0)) return null;
@@ -785,7 +847,7 @@ export function youthLoanCliff(priceWan, downPct = 20, incomeMonthly = 0, opt = 
   const youthWan = Math.min(loanTotalWan, youthMax);
   const normalWan = Math.max(0, loanTotalWan - youthMax);
 
-  const yMonths = 40 * 12, yGrace = 5 * 12;
+  const yMonths = YOUTH_LOAN.years * 12, yGrace = YOUTH_LOAN.grace * 12;
   const yr = yRate / 100 / 12;
   const yGraceMonthly = youthWan * 10000 * yr;
   const yPostMonthly = youthWan * 10000 * yr / (1 - Math.pow(1 + yr, -(yMonths - yGrace)));

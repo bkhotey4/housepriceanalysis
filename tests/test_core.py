@@ -47,6 +47,23 @@ class ParseTest(unittest.TestCase):
         x = next(t for t in self.txs if t["dist"] == "歸仁區")
         self.assertAlmostEqual(x["u"], (23950000 - 4000000) / (197.8 - 50.88) * prices.PING_M2 / 10000, places=1)
 
+    def test_floor_and_parking(self):
+        # 移轉層次轉成樓層數字；整棟（全）、地下室、跨層看不懂的不給樓層
+        for text, want in (("五層", 5), ("十層", 10), ("十二層", 12), ("二十三層", 23), ("四十層", 40),
+                           ("全", None), ("地下一層", None), ("四層，五層", None), ("", None)):
+            self.assertEqual(prices.floor_of(text), want, text)
+        self.assertEqual([x["fl"] for x in self.txs], [4, 5, 3, 6, None, None, 20, 5])
+        # 歸仁高鐵大道：2 個車位、車位 50.88 平方公尺、400 萬
+        x = next(t for t in self.txs if t["dist"] == "歸仁區")
+        self.assertEqual(x["pk"], 2)
+        self.assertAlmostEqual(x["pka"], 50.88 / prices.PING_M2, places=3)
+        self.assertEqual(x["pkp"], 400)
+        self.assertEqual(sum(t["pk"] for t in self.txs), 2)
+        # 網頁版 tx.json 的最後四欄；舊快取沒有這些欄位時給預設值
+        self.assertEqual(prices.tx_extra(x), [6, 2, round(50.88 / prices.PING_M2, 2), 400.0])
+        self.assertEqual(prices.tx_extra({}), [])                               # 全是預設值：整段省略
+        self.assertEqual(prices.tx_extra({"fl": 7}), [7])
+
     def test_dedupe(self):
         self.assertEqual(len(prices.dedupe(self.txs + self.txs)), 8)
 

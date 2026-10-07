@@ -306,7 +306,8 @@ class MapTab(tk.Frame):
         self._init_basemap()
         self.after(AUTO_START_MS, self.check_auto_update)
         ctl_outer = tk.Frame(left, bg=kit.SURFACE, padx=6, pady=5)
-        ctl_outer.pack(fill="x")
+        # 先排控制列、地圖拿剩下的高度：畫面矮（字放大、兩列面板都打開）時縮的是地圖，按鈕不會被切掉
+        ctl_outer.pack(side="bottom", fill="x", before=self.view)
         ctl = kit.FlowFrame(ctl_outer, bg=kit.SURFACE, gap=(2, 4))
         ctl.pack(fill="x")
         self._flows.append(ctl)
@@ -386,8 +387,9 @@ class MapTab(tk.Frame):
         # 只用分頁那一份，排行等清單才有地方顯示；由 _apply_panel_mode() 切換。
         self.chart = TrendChart(right, font_family=f.family, font_size=max(7, f.size - 1), height=self._chart_height(f.size))
 
-        links_outer = tk.Frame(right, bg=kit.SURFACE, padx=9)
-        links_outer.pack(fill="x")
+        links_outer = tk.Frame(right, bg=kit.SURFACE, padx=9, pady=4)
+        # 連結按鈕固定在面板最下方，而且最先分配高度：畫面再矮也不會被切掉
+        links_outer.pack(side="bottom", fill="x", before=head)
         links = kit.FlowFrame(links_outer, bg=kit.SURFACE, gap=(4, 4))     # 放不下時自動換行
         links.pack(fill="x")
         self._flows.append(links)
@@ -783,7 +785,7 @@ class MapTab(tk.Frame):
             self.sub.add(self.chart_tab)             # 重新顯示「走勢」分頁（位置不變）
             self.sub.select(self.chart_tab)
         else:
-            self.chart.pack(fill="x", padx=11, pady=(4, 6), before=self._links)
+            self.chart.pack(fill="x", padx=11, pady=(4, 6), after=self.lbl_insight)
             self.sub.hide(self.chart_tab)
         self.sub.tab(self._info_tab, text="建設" if compact else "捷運與開發")
 

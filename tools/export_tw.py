@@ -97,10 +97,10 @@ def export_tx(code, txs, dists):
                      round(x["tw"], 1), round(x["u"], 2), round(x["ping"], 2), x.get("built") or 0,
                      1 if x.get("kind") == "presale" else 0, x.get("proj") or "",
                      road or "", lane if lane is not None else -1, alley if alley is not None else -1,
-                     num if num is not None else -1])
+                     num if num is not None else -1] + prices.tx_extra(x))
     rows.sort(key=lambda r: r[1], reverse=True)
     fields = ["d", "date", "cat", "btype", "addr", "tw", "u", "ping", "built", "presale", "proj",
-              "road", "lane", "alley", "num"]
+              "road", "lane", "alley", "num", "fl", "pk", "pka", "pkp"]
     return _dump("%s/tx.json" % code, {"fields": fields, "cats": ["house", "apt", "other"], "dists": dists, "rows": rows}), len(rows)
 
 

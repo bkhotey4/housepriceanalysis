@@ -1,6 +1,7 @@
 // 離線快取：程式本身先用快取（有新版本時背景更新），資料檔先抓網路、抓不到再用快取。
-const VERSION = "v14";
-const SHELL = ["./", "index.html", "css/app.css", "js/main.js", "js/logic.js", "js/view3d.js", "js/report.js", "manifest.webmanifest", "img/icon-192.png"];
+const VERSION = "v15";        // 部署時 tools/ci.sh 會換成「v15-<commit>」，每次上線自動換版，不用手動改
+const SHELL = ["./", "index.html", "css/app.css", "js/main.js", "js/logic.js", "js/view3d.js", "js/report.js",
+               "js/search.js", "js/poi.js", "js/finance.js", "js/watch.js", "js/compare.js", "js/value.js", "manifest.webmanifest", "img/icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open("shell-" + VERSION).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => !k.endsWith(VERSION)).map(k => caches.delete(k)))));

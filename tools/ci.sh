@@ -34,4 +34,8 @@ if [ -f web/data/tw/index.json ]; then
 fi
 step check   "資料檢查"                   1 python tools/check_data.py
 
+# 離線快取的版本號帶上 commit 和時間：每次部署（程式或資料有變）使用者都會收到「有新版本」提示
+STAMP="$(git rev-parse --short HEAD 2>/dev/null || echo local)-$(date +%Y%m%d%H%M)"
+sed -i -E "s/^const VERSION = \"([^\"-]+)[^\"]*\";/const VERSION = \"\1-$STAMP\";/" web/sw.js
+
 python tools/ci_report.py "$EVENT"

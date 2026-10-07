@@ -226,11 +226,22 @@ class FlowFrame(tk.Frame):
         self._items = []
         self._gap = gap
         self._width = None
+        self._pending = None
         self.bind("<Configure>", self._on_configure)
 
     def add(self, widget, right=False):
         self._items.append((widget, right))
+        # 子元件大小變了（字級改變、文字變長）就重排，免得換行後高度沒跟上
+        widget.bind("<Configure>", self._on_child_configure, add="+")
         return widget
+
+    def _on_child_configure(self, _e):
+        if self._pending is None:
+            self._pending = self.after_idle(self._relayout_pending)
+
+    def _relayout_pending(self):
+        self._pending = None
+        self.relayout()
 
     def _on_configure(self, e):
         if e.width != self._width:
@@ -266,7 +277,9 @@ class FlowFrame(tk.Frame):
                     xr -= gx
             y += h + gy
         self.rows = len(rows)
-        self.configure(height=max(1, y - gy))
+        height = max(1, y - gy)
+        if int(self.cget("height")) != height:
+            self.configure(height=height)
 
 
 def scrolled(parent, widget_factory):

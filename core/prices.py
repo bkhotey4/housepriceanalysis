@@ -38,6 +38,7 @@ _TYPE_CAT = (("透天厝", "house"), ("住宅大樓", "apt"), ("華廈", "apt"),
 C_DIST, C_TARGET, C_ADDR, C_DATE = 0, 1, 2, 7
 C_FLOORS, C_BTYPE, C_BUILT, C_AREA = 10, 11, 14, 15
 C_TOTAL, C_UNIT, C_NOTE, C_ID = 21, 22, 26, 27
+C_PIECES, C_LEVEL, C_PARK_AREA, C_PARK_PRICE = 8, 9, 24, 25
 # 預售屋檔（31 欄）前 28 欄相同，後面是 建案名稱、棟及號、解約情形
 C_PROJ, C_CANCEL = 28, 30
 
@@ -63,6 +64,49 @@ def _num(s):
         return float(s)
     except (TypeError, ValueError):
         return 0.0
+
+
+_CN_DIGIT = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+_PARKS = re.compile(r"車位(\d+)")
+
+
+def cn_number(s):
+    """一～九十九的中文數字（「十二」「二十三」「四十」）轉成整數；看不懂回傳 None。"""
+    if not s:
+        return None
+    if "十" in s:
+        a, _, b = s.partition("十")
+        tens = _CN_DIGIT.get(a, 1 if a == "" else None)
+        ones = _CN_DIGIT.get(b, 0 if b == "" else None)
+        return None if tens is None or ones is None else tens * 10 + ones
+    return _CN_DIGIT.get(s) if len(s) == 1 else None
+
+
+def floor_of(level):
+    """移轉層次（「五層」「十二層」）→ 樓層數字；整棟（「全」）、地下室、跨好幾層或看不懂的回傳 None。"""
+    level = (level or "").strip()
+    if not level.endswith("層") or level.startswith("地下") or "，" in level or "," in level:
+        return None
+    return cn_number(level[:-1])
+
+
+def parking_of(r):
+    """(車位數, 車位總面積（坪）, 車位總價（萬）)；交易筆棟數寫「土地1建物1車位2」。車位價格沒有分開登錄時為 0。"""
+    m = _PARKS.search(r[C_PIECES]) if len(r) > C_PIECES else None
+    n = int(m.group(1)) if m else 0
+    if not n:
+        return 0, 0.0, 0.0
+    return n, _num(r[C_PARK_AREA]) / PING_M2, _num(r[C_PARK_PRICE]) / 10000.0
+
+
+def tx_extra(x):
+    """網頁版 tx.json 每列最後的四欄：樓層（-1 不明）、車位數、車位坪數、車位價（萬）。
+    結尾是預設值的欄位省略（網頁讀不到就當預設值），全台資料三十萬筆，能省不少流量。"""
+    lvl = x.get("fl")
+    out = [lvl if lvl is not None else -1, x.get("pk") or 0, round(x.get("pka") or 0, 2), round(x.get("pkp") or 0, 1)]
+    while out and out[-1] in (0, -1):
+        out.pop()
+    return out
 
 
 def category_of(btype):
@@ -103,6 +147,7 @@ def reduce_row(r, presale=False):
         return None
     built = r[C_BUILT].strip()
     built_year = int(built[:3]) + 1911 if len(built) == 7 and built.isdigit() else None
+    pk, pka, pkp = parking_of(r)
     return {
         "id": r[C_ID], "dist": r[C_DIST], "ym": "%04d-%02d" % (year, month),
         "date": "%04d-%02d-%02d" % (year, month, max(1, min(day, 31))),
@@ -110,6 +155,7 @@ def reduce_row(r, presale=False):
         "tw": tw, "u": u, "ping": area / PING_M2, "built": built_year,
         "floors": r[C_FLOORS], "note": r[C_NOTE],
         "kind": "presale" if presale else "sale", "proj": r[C_PROJ].strip() if presale else "",
+        "fl": floor_of(r[C_LEVEL]), "pk": pk, "pka": pka, "pkp": pkp,
     }
 
 
@@ -348,7 +394,8 @@ def load_book():
     raise RuntimeError("找不到房價資料（data/price_snapshot.json 遺失）")
 
 
-_TX_FIELDS = ["id", "dist", "date", "cat", "btype", "addr", "tw", "u", "ping", "built", "floors", "note", "kind", "proj"]
+_TX_FIELDS = ["id", "dist", "date", "cat", "btype", "addr", "tw", "u", "ping", "built", "floors", "note", "kind", "proj",
+              "fl", "pk", "pka", "pkp"]
 
 
 def save_transactions(txs, path=TX_CACHE_PATH):
@@ -356,7 +403,8 @@ def save_transactions(txs, path=TX_CACHE_PATH):
     for x in txs:
         rows.append([x["id"], x["dist"], x["date"], x["cat"], x["btype"], x["addr"], round(x["tw"], 1),
                      round(x["u"], 2), round(x["ping"], 1), x["built"], x["floors"], x["note"][:60],
-                     x.get("kind", "sale"), x.get("proj", "")])
+                     x.get("kind", "sale"), x.get("proj", ""),
+                     x.get("fl"), x.get("pk") or 0, round(x.get("pka") or 0, 2), round(x.get("pkp") or 0, 1)])
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump({"fields": _TX_FIELDS, "rows": rows}, f, ensure_ascii=False, separators=(",", ":"))
