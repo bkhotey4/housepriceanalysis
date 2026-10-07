@@ -127,9 +127,15 @@ export function decodeTx(raw) {
                tw: r[5], u: r[6], ping: r[7], built: r[8] || null, presale: r[9] === 1, proj: r[10],
                road: r[11], lane: r[12] < 0 ? null : r[12], alley: r[13] < 0 ? null : r[13], num: r[14] < 0 ? null : r[14],
                // 舊資料沒有下面四欄：樓層（null 不明）、車位數、車位坪數、車位價（萬）
-               fl: r[15] == null || r[15] < 0 ? null : r[15], pk: r[16] || 0, pka: r[17] || 0, pkp: r[18] || 0 });
+               fl: r[15] == null || r[15] < 0 ? null : r[15], pk: r[16] || 0, pka: r[17] || 0, pkp: r[18] || 0, pkt: r[19] || 0 });
   }
   return out;
+}
+// 已解約的預售屋筆數："區|建案" → 筆數（tx.json 的 cancel 欄；舊資料沒有就是空的）
+export function decodeCancel(raw) {
+  const m = new Map();
+  for (const [d, proj, n] of raw.cancel || []) m.set(raw.dists[d] + "|" + proj, n);
+  return m;
 }
 export function inCat(x, cat) {
   if (cat === "presale") return x.presale;
@@ -469,6 +475,83 @@ export function quarterSeries(rows) {
   if (out.length < 2) return null;
   const first = out[0], last = out[out.length - 1];
   return { rows: out, first, last, pct: first.u ? (last.u - first.u) / first.u * 100 : null };
+}
+
+// ------------------------------------------------------------------ 進階行情：樓層價差、屋齡折舊、車位、市場冷熱
+const monthsBack = (ym, n) => { const i = +ym.slice(0, 4) * 12 + (+ym.slice(5, 7)) - 1 - n; return `${Math.floor(i / 12)}-${String(i % 12 + 1).padStart(2, "0")}`; };
+export const FLOOR_BANDS = [[1, 1, "1 樓"], [2, 3, "2～3 樓"], [4, 6, "4～6 樓"], [7, 9, "7～9 樓"], [10, 14, "10～14 樓"], [15, 19, "15～19 樓"], [20, 99, "20 樓以上"]];
+// 樓層價差：同一棟（同門牌或同建案）裡，每一筆的單價 ÷ 這一棟的中位單價，再依樓層分組取中位數。
+// 用「同棟比同棟」才不會被地段、屋齡混在一起；透天沒有樓層的問題，不算。
+export function floorPremium(txs, district, sinceYm, minN = 8) {
+  const g = new Map();
+  for (const x of txs) {
+    if (x.dist !== district || x.ym < sinceYm || x.cat === "house" || x.fl == null) continue;
+    const k = bldgKey(x);
+    if (!k) continue;
+    if (!g.has(k)) g.set(k, []);
+    g.get(k).push(x);
+  }
+  const ratios = FLOOR_BANDS.map(() => []);
+  let bldgs = 0;
+  for (const rows of g.values()) {
+    if (rows.length < 4 || new Set(rows.map(x => x.fl)).size < 2) continue;
+    const m = median(rows.map(x => x.u));
+    if (!m) continue;
+    bldgs++;
+    for (const x of rows) { const i = FLOOR_BANDS.findIndex(([a, b]) => x.fl >= a && x.fl <= b); if (i >= 0) ratios[i].push(x.u / m); }
+  }
+  const bands = FLOOR_BANDS.map(([a, b, label], i) => ({ label, n: ratios[i].length, pct: ratios[i].length >= minN ? pyRound((median(ratios[i]) - 1) * 100, 1) : null }));
+  return bands.some(b => b.pct != null) ? { bands, bldgs } : null;
+}
+// 同一棟每層的中位單價（社區明細用）
+export function floorProfile(rows) {
+  const g = new Map();
+  for (const x of rows) if (x.fl != null) { if (!g.has(x.fl)) g.set(x.fl, []); g.get(x.fl).push(x.u); }
+  if (g.size < 2) return null;
+  return [...g].sort((a, b) => a[0] - b[0]).map(([fl, us]) => ({ fl, n: us.length, u: pyRound(median(us), 1) }));
+}
+export const AGE_BANDS = [[0, 5, "5 年內"], [6, 10, "6～10 年"], [11, 20, "11～20 年"], [21, 30, "21～30 年"], [31, 200, "30 年以上"]];
+// 屋齡和單價：近兩年的中古成交（不含預售）依屋齡分組；pct 是相對「5 年內」（樣本不夠就用下一組）的差距
+export function ageCurve(txs, district, cat, endYm, minN = 5) {
+  const since = monthsBack(endYm, 23), groups = AGE_BANDS.map(() => []);
+  for (const x of txs) {
+    if (x.dist !== district || x.presale || x.ym < since || !x.built || !inCat(x, cat === "presale" ? "all" : cat)) continue;
+    const age = +x.date.slice(0, 4) - x.built, i = AGE_BANDS.findIndex(([a, b]) => age >= a && age <= b);
+    if (i >= 0) groups[i].push(x.u);
+  }
+  const bands = AGE_BANDS.map(([, , label], i) => ({ label, n: groups[i].length, u: groups[i].length >= minN ? pyRound(median(groups[i]), 1) : null }));
+  const base = bands.find(b => b.u != null);
+  if (!base || bands.filter(b => b.u != null).length < 2) return null;
+  for (const b of bands) b.pct = b.u != null ? pyRound((b.u - base.u) / base.u * 100, 0) : null;
+  return { bands, base: base.label, since };
+}
+// 車位行情：只看「一個車位、而且有分開登錄車位價」的成交，依平面／機械分
+export function parkingStats(txs, district, endYm) {
+  const since = monthsBack(endYm, 23), out = { flat: [], mech: [], other: [] };
+  for (const x of txs) {
+    if (x.dist !== district || x.ym < since || x.pk !== 1 || !(x.pkp > 0)) continue;
+    (x.pkt === 1 ? out.flat : x.pkt === 2 ? out.mech : out.other).push(x);
+  }
+  const st = rows => rows.length >= 3 ? { n: rows.length, price: pyRound(median(rows.map(x => x.pkp)), 0), area: pyRound(median(rows.map(x => x.pka).filter(a => a > 0)) || 0, 1),
+    lo: pyRound(quantile(rows.map(x => x.pkp).sort((a, b) => a - b), 0.25), 0), hi: pyRound(quantile(rows.map(x => x.pkp).sort((a, b) => a - b), 0.75), 0) } : null;
+  const r = { flat: st(out.flat), mech: st(out.mech), other: st(out.other), since };
+  return r.flat || r.mech || r.other ? r : null;
+}
+// 市場冷熱：價格（近 3 個月 vs 前 3 個月）＋成交量（近 6 個月 vs 前 6 個月，只算資料到齊的月份）
+export function marketHeat(book, name, cat = "all") {
+  const c = book.cell(name, cat);
+  if (!c) return null;
+  const done = book.months.map((m, i) => [m, i]).filter(([m]) => m <= book.complete_through).map(([, i]) => i);
+  if (done.length < 12) return null;
+  const sum = idx => idx.reduce((a, i) => a + (c.n[i] || 0), 0);
+  const recent = sum(done.slice(-6)), prev = sum(done.slice(-12, -6));
+  const vol = prev >= 10 && recent >= 5 ? (recent - prev) / prev * 100 : null;
+  const price = book.trend(name, cat, "u");
+  if (vol == null && price == null) return null;
+  const clamp = v => Math.max(-1, Math.min(1, v));
+  const score = (price != null ? clamp(price / 6) : 0) * 0.55 + (vol != null ? clamp(vol / 30) : 0) * 0.45;
+  const label = score >= 0.35 ? "升溫" : score <= -0.35 ? "降溫" : "持平";
+  return { score, label, price, vol, recent, prev };
 }
 
 // ------------------------------------------------------------------ 到其他平台找物件（用 Google 站內搜尋，不爬取對方網站）
@@ -884,6 +967,17 @@ export function youthLoanCliff(priceWan, downPct = 20, incomeMonthly = 0, opt = 
   };
 }
 
+// 用收入和手上現金反推可負擔總價：月付不超過收入 1/3（貸款以新青安＋一般房貸計），自備款不少於總價 downPct%；
+// 另外要留交屋稅費雜支（約總價 3%）。回傳兩個限制取比較小的那個。
+export function budgetFromIncome(incomeMonthly, cashWan, downPct = 20) {
+  const a = affordableBudget(incomeMonthly, downPct);
+  if (!a) return null;
+  const cash = +cashWan > 0 ? +cashWan : null;
+  const byCash = cash ? Math.floor(cash / (downPct / 100 + 0.03)) : null;
+  const byIncome = Math.round(a.maxLoanWan + (cash ? Math.max(0, cash - (a.maxLoanWan + cash) * 0.03) : a.downWan));
+  const price = byCash != null ? Math.min(byCash, byIncome) : a.maxPriceWan;
+  return { price, byCash, byIncome: byCash != null ? byIncome : a.maxPriceWan, limit: byCash != null && byCash < byIncome ? "cash" : "income", safeMonthly: a.safeMonthly };
+}
 export function affordableBudget(incomeMonthly, downPct = 20, opt = {}) {
   if (!(incomeMonthly > 0)) return null;
   const safeMonthly = incomeMonthly / 3;

@@ -469,3 +469,5 @@ table.list tr.cheaper td:nth-child(4) { color: #1e8a4c; font-weight: 700; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) table.list tr.cheaper td:nth-child(4) { color: #7fd18a; } }
 .qbar { height: 8px; border-radius: 4px; background: var(--accent-2); opacity: .55; }
 .cmp-pick select { flex: 1 1 8em; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; background: var(--surface); font-size: 16px; }
+.pbar { height: 8px; border-radius: 4px; background: #c0302f; opacity: .6; }
+.pbar.neg { background: #1c5cab; }

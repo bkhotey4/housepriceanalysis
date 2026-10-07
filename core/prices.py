@@ -38,7 +38,9 @@ _TYPE_CAT = (("透天厝", "house"), ("住宅大樓", "apt"), ("華廈", "apt"),
 C_DIST, C_TARGET, C_ADDR, C_DATE = 0, 1, 2, 7
 C_FLOORS, C_BTYPE, C_BUILT, C_AREA = 10, 11, 14, 15
 C_TOTAL, C_UNIT, C_NOTE, C_ID = 21, 22, 26, 27
-C_PIECES, C_LEVEL, C_PARK_AREA, C_PARK_PRICE = 8, 9, 24, 25
+C_PIECES, C_LEVEL, C_PARK_TYPE, C_PARK_AREA, C_PARK_PRICE = 8, 9, 23, 24, 25
+# 車位類別：平面（坡道平面、升降平面、一樓平面）＝1、機械（坡道機械、升降機械、塔式）＝2、其他＝0
+PARK_FLAT, PARK_MECH = 1, 2
 # 預售屋檔（31 欄）前 28 欄相同，後面是 建案名稱、棟及號、解約情形
 C_PROJ, C_CANCEL = 28, 30
 
@@ -99,11 +101,21 @@ def parking_of(r):
     return n, _num(r[C_PARK_AREA]) / PING_M2, _num(r[C_PARK_PRICE]) / 10000.0
 
 
+def park_type_of(text):
+    text = (text or "").strip()
+    if "機械" in text or "塔式" in text:
+        return PARK_MECH
+    if "平面" in text:
+        return PARK_FLAT
+    return 0
+
+
 def tx_extra(x):
-    """網頁版 tx.json 每列最後的四欄：樓層（-1 不明）、車位數、車位坪數、車位價（萬）。
+    """網頁版 tx.json 每列最後的五欄：樓層（-1 不明）、車位數、車位坪數、車位價（萬）、車位類別（0 不明、1 平面、2 機械）。
     結尾是預設值的欄位省略（網頁讀不到就當預設值），全台資料三十萬筆，能省不少流量。"""
     lvl = x.get("fl")
-    out = [lvl if lvl is not None else -1, x.get("pk") or 0, round(x.get("pka") or 0, 2), round(x.get("pkp") or 0, 1)]
+    out = [lvl if lvl is not None else -1, x.get("pk") or 0, round(x.get("pka") or 0, 2), round(x.get("pkp") or 0, 1),
+           x.get("pkt") or 0]
     while out and out[-1] in (0, -1):
         out.pop()
     return out
@@ -116,8 +128,10 @@ def category_of(btype):
     return None
 
 
-def reduce_row(r, presale=False):
-    """把一列實價登錄原始資料轉成精簡交易 dict；不符口徑回傳 None。"""
+def reduce_row(r, presale=False, keep_cancelled=False):
+    """把一列實價登錄原始資料轉成精簡交易 dict；不符口徑回傳 None。
+
+    keep_cancelled=True 時，已解約的預售屋也會回傳（帶 "cancel": True），給「建案解約率」用；統計房價時一律不要用它們。"""
     if len(r) < (31 if presale else 28):
         return None
     if not r[C_TARGET].startswith("房地"):
@@ -136,7 +150,8 @@ def reduce_row(r, presale=False):
         return None
     if _EXCL.search(r[C_NOTE]):
         return None
-    if presale and r[C_CANCEL].strip():
+    cancelled = bool(presale and r[C_CANCEL].strip())
+    if cancelled and not keep_cancelled:
         return None                     # 已解約
     unit = _num(r[C_UNIT])
     if unit <= 0:
@@ -156,13 +171,15 @@ def reduce_row(r, presale=False):
         "floors": r[C_FLOORS], "note": r[C_NOTE],
         "kind": "presale" if presale else "sale", "proj": r[C_PROJ].strip() if presale else "",
         "fl": floor_of(r[C_LEVEL]), "pk": pk, "pka": pka, "pkp": pkp,
+        "pkt": park_type_of(r[C_PARK_TYPE]) if pk else 0, "cancel": cancelled,
     }
 
 
-def parse_csv_text(text, presale=None):
+def parse_csv_text(text, presale=None, keep_cancelled=False):
     """解析一份實價登錄 CSV 文字（含中文表頭與英文表頭兩列），回傳精簡交易 list。
 
     presale=None 時由表頭自動判斷是不是預售屋檔（第 29 欄為「建案名稱」）。
+    keep_cancelled=True 時連已解約的預售屋一起回傳（cancel=True），呼叫端要自己分開。
     """
     if text.startswith("\ufeff"):
         text = text[1:]
@@ -176,10 +193,21 @@ def parse_csv_text(text, presale=None):
             continue
         if r[0].startswith("The villages"):
             continue
-        x = reduce_row(r, presale=bool(presale))
+        x = reduce_row(r, presale=bool(presale), keep_cancelled=keep_cancelled)
         if x:
             out.append(x)
     return out
+
+
+def cancel_counts(cancels, dists):
+    """已解約預售屋 → 網頁版 tx.json 的 "cancel" 欄：[[行政區索引, 建案名稱, 解約筆數], …]（依筆數多到少）。"""
+    di = {n: i for i, n in enumerate(dists)}
+    c = {}
+    for x in cancels:
+        if x["dist"] in di and x.get("proj"):
+            k = (di[x["dist"]], x["proj"])
+            c[k] = c.get(k, 0) + 1
+    return sorted([[d, p, n] for (d, p), n in c.items()], key=lambda r: (-r[2], r[0], r[1]))
 
 
 def in_cat(x, cat):

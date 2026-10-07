@@ -80,7 +80,7 @@ def road_list(code):
     return sorted(f[:-5] for f in os.listdir(d) if f.endswith(".json")) if os.path.isdir(d) else []
 
 
-def export_tx(code, txs, dists):
+def export_tx(code, txs, dists, cancels=()):
     di = {n: i for i, n in enumerate(dists)}
     cats = {"house": 0, "apt": 1, "other": 2}
     rows = []
@@ -100,8 +100,9 @@ def export_tx(code, txs, dists):
                      num if num is not None else -1] + prices.tx_extra(x))
     rows.sort(key=lambda r: r[1], reverse=True)
     fields = ["d", "date", "cat", "btype", "addr", "tw", "u", "ping", "built", "presale", "proj",
-              "road", "lane", "alley", "num", "fl", "pk", "pka", "pkp"]
-    return _dump("%s/tx.json" % code, {"fields": fields, "cats": ["house", "apt", "other"], "dists": dists, "rows": rows}), len(rows)
+              "road", "lane", "alley", "num", "fl", "pk", "pka", "pkp", "pkt"]
+    return _dump("%s/tx.json" % code, {"fields": fields, "cats": ["house", "apt", "other"], "dists": dists, "rows": rows,
+                                       "cancel": prices.cancel_counts(cancels, dists)}), len(rows)
 
 
 def main():
@@ -128,9 +129,10 @@ def main():
     all_tx, all_rent, counties, books = [], [], [], {}
     for c in COUNTIES:
         if args.legacy_tainan:
-            txs = prices.load_transactions() if c["code"] == "D" else []
+            txs, cancels = (prices.load_transactions() if c["code"] == "D" else []), []
         else:
-            txs = plvr_tw.load_county(c["code"])
+            cancels = []
+            txs = plvr_tw.load_county(c["code"], cancels)
         entry = {k: c[k] for k in ("code", "name", "short", "region", "lat", "lng", "zoom")}
         entry["has_data"] = bool(txs)
         dl = town_list(c, towns.get(c["code"], []), txs) if (txs or towns.get(c["code"])) else []
@@ -144,7 +146,7 @@ def main():
                                     note="內政部不動產交易實價查詢服務網開放資料", today_ym=today.strftime("%Y-%m"))
             _dump("%s/book.json" % c["code"], raw)
             books[c["code"]] = raw
-            size, n = export_tx(c["code"], txs, names)
+            size, n = export_tx(c["code"], txs, names, cancels)
             entry["tx_count"] = n
             entry["complete_through"] = raw["complete_through"]
             print("%s：%d 筆、%d 區（%.1f MB）" % (c["short"], n, len(names), size / 1e6), flush=True)

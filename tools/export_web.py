@@ -60,7 +60,7 @@ def export_prices(book, txs):
                      num if num is not None else -1] + prices.tx_extra(x))
     rows.sort(key=lambda r: r[1], reverse=True)
     fields = ["d", "date", "cat", "btype", "addr", "tw", "u", "ping", "built", "presale", "proj",
-              "road", "lane", "alley", "num", "fl", "pk", "pka", "pkp"]
+              "road", "lane", "alley", "num", "fl", "pk", "pka", "pkp", "pkt"]
     return _dump("tx.json", {"fields": fields, "cats": ["house", "apt", "other"], "dists": dists, "rows": rows}), len(rows)
 
 

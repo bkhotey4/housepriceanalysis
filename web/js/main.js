@@ -122,7 +122,7 @@ export function toast(msg, ms = 4200, action = null) {
 
 // ------------------------------------------------------------------ 錯誤紀錄（存在這台裝置；「☰ → 問題回報」可以一鍵到 GitHub 回報）
 // 記在手機上，並匿名送到維護者的 Google 表單（可在設定關閉）；也可以按一下帶著內容開 GitHub Issue（需要登入 GitHub）
-const ERR_KEY = "dth_errors", APP_VER = "2026-10-06a";
+const ERR_KEY = "dth_errors", APP_VER = "2026-10-07a";
 function loadErrors() { try { return JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); } catch { return []; } }
 export function logError(where, err, quiet = false) {
   const e = { t: new Date().toLocaleString("sv-SE").slice(0, 19), where, msg: String((err && err.message) || err || "").slice(0, 300),
@@ -221,7 +221,10 @@ function refreshBars() {
   view.bars = vals.map(([d, b, tr, yld]) => {
     const v = b.value, ok = !active || (budgetOK(d.name) && workOK(d.name));
     let color = NO_DATA;
-    if (S.settings.color === "yield") {
+    if (S.settings.color === "heat") {
+      const ht = L.marketHeat(D.book, d.name, S.cat);
+      color = ht ? trendColor(ht.score / 0.6 * TREND_SPAN) : NO_DATA;
+    } else if (S.settings.color === "yield") {
       color = yld == null ? NO_DATA : ramp(YIELD_RAMP, (yld - 1.5) / 3.0);
     } else if (S.settings.color === "trend") {
       color = trendColor(tr);
@@ -241,7 +244,9 @@ function renderLegend() {
   if (!D.barRange) return;
   const { lo, span } = D.barRange;
   let rows;
-  if (S.settings.color === "yield") {
+  if (S.settings.color === "heat") {
+    rows = [[trendColor(-TREND_SPAN), "降溫（量縮、價跌）"], [trendColor(0), "持平"], [trendColor(TREND_SPAN), "升溫（量增、價漲）"]];
+  } else if (S.settings.color === "yield") {
     rows = [[ramp(YIELD_RAMP, 0), "1.5%（低收租）"], [ramp(YIELD_RAMP, 0.5), "3.0%（中等）"], [ramp(YIELD_RAMP, 1.0), "4.5%+（高投報）"]];
   } else if (S.settings.color === "trend") {
     rows = [[-TREND_SPAN, "跌 8% 以上"], [0, "持平"], [TREND_SPAN, "漲 8% 以上"]].map(([p, t]) => [trendColor(p), t]);
@@ -250,7 +255,7 @@ function renderLegend() {
   }
   rows.push([NO_DATA, "樣本少／無資料"]);
   let html = `<div class="lg-head">圖例 ${el.classList.contains("collapsed") ? "▸" : "▾"}</div>` +
-    `<div><b>${S.settings.color === "yield" ? "毛租金報酬率（年化）" : S.metric === "u" ? "中位單價" : "中位總價"}</b>${S.settings.color === "trend" ? "｜顏色：近半年漲跌" : ""}</div>` +
+    `<div><b>${S.settings.color === "yield" ? "毛租金報酬率（年化）" : S.metric === "u" ? "中位單價" : "中位總價"}</b>${S.settings.color === "trend" ? "｜顏色：近半年漲跌" : S.settings.color === "heat" ? "｜顏色：市場冷熱" : ""}</div>` +
     rows.map(([c, t]) => `<div><span class="sw" style="background:${c}"></span>${esc(t)}</div>`).join("");
   if (D.barRange.matched != null) html += `<div style="margin-top:3px"><b>符合條件 ${D.barRange.matched} 區</b></div>`;
   if (view.roads.length && S.current !== L.CITY && D.roadRange) {
@@ -412,6 +417,14 @@ function tabPoi() {
     }
     return t + "</tbody></table>";
   };
+  const schools = (p.res.items || []).filter(x => x.cat === "school");
+  const near = re => schools.filter(x => re.test(x.name)).slice(0, 2);
+  const es = near(/國小|國民小學/), js = near(/國中|國民中學/);
+  if (es.length || js.length) {
+    const li = x => `${esc(x.name)} <span class="muted">${fmtD(x.d)}</span>`;
+    h += `<h2>學區參考</h2><div class="summary">${es.length ? `最近的國小：${es.map(li).join("、")}` : "1 公里內沒有國小"}<br>${js.length ? `最近的國中：${js.map(li).join("、")}` : "1 公里內沒有國中"}</div>` +
+      `<p class="muted">學區是依門牌（里、鄰）劃分的，不一定是最近的那一所，熱門學校還有設籍年限的規定；請以縣市教育局的學區查詢為準。</p>`;
+  }
   h += block("good", "生活機能") + block("bad", "嫌惡設施");
   h += `<div class="row">${reportButton()}</div>`;
   h += `<p class="muted">資料來自 OpenStreetMap 志工繪製，可能有缺漏或過時（特別是禮儀社、宮廟、小型工廠），看屋前請實地走一圈。宮廟是否算嫌惡因人而異。高壓電線、鐵路、快速道路量的是到線上最近一點的距離；機場看 4 公里內，實際航道噪音請看各機場公告的噪音管制區。</p>`;
@@ -567,6 +580,48 @@ function distSVG(name) {
     (budget ? `；總價在預算 ${L.fmtNum(budget)} 萬以內的約佔 <b>${Math.round(hg.below(budget) * 100)}%</b>` : "") + "。";
   return `<h3>${isU ? "單價" : "總價"}分佈</h3><svg class="dist" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(name)}近一年成交${isU ? "單價" : "總價"}分佈">${g}</svg><p class="muted">${note}</p>`;
 }
+// 學區：各縣市教育局的學區查詢系統不一樣，用 Google 搜尋帶到官方頁面（學區以教育局公告為準）
+function schoolLink(dist, road = "") {
+  const county = D.county ? D.county.name : "臺南市";
+  return `<a class="btn" target="_blank" rel="noopener" href="https://www.google.com/search?q=${encodeURIComponent(`${county}${dist}${road} 國小 國中 學區 查詢`)}">查學區</a>`;
+}
+// 概況裡的「進階行情」：市場冷熱、樓層價差、屋齡與單價、車位行情（都在裝置上用逐筆成交算）
+function heatText(h) {
+  if (!h) return "";
+  const bits = [h.price != null ? `價格近 3 個月${h.price >= 0 ? "漲" : "跌"} ${Math.abs(h.price).toFixed(1)}%` : "",
+    h.vol != null ? `成交量近半年${h.vol >= 0 ? "增" : "減"} ${Math.abs(h.vol).toFixed(0)}%（${h.prev}→${h.recent} 件）` : ""].filter(Boolean);
+  return `市場熱度：<b class="${h.label === "升溫" ? "up" : h.label === "降溫" ? "down" : ""}">${h.label}</b>（${bits.join("、")}）`;
+}
+function marketSection(name) {
+  if (!D.txs) return "";
+  const end = D.book.windows.y12[1], since = D.book.windows.y12[0];
+  let h = "";
+  const fp = S.cat !== "house" ? L.floorPremium(D.txs, name, since) : null;
+  if (fp) {
+    const max = Math.max(...fp.bands.map(b => Math.abs(b.pct || 0)), 1);
+    h += `<h3>樓層價差（大樓／華廈）</h3><table class="list"><tbody>` + fp.bands.map(b => `<tr${b.pct == null ? ' class="low"' : ""}><td>${b.label}</td>` +
+      `<td class="r">${b.pct == null ? "—" : `<b class="${b.pct >= 0 ? "up" : "down"}">${b.pct >= 0 ? "+" : ""}${b.pct.toFixed(1)}%</b>`}</td>` +
+      `<td style="width:42%"><div class="pbar${b.pct != null && b.pct < 0 ? " neg" : ""}" style="width:${b.pct == null ? 0 : Math.max(3, Math.abs(b.pct) / max * 100).toFixed(0)}%"></div></td>` +
+      `<td class="r muted">${b.n} 筆</td></tr>`).join("") +
+      `</tbody></table><p class="muted">同一棟裡比：每筆單價和那一棟的中位數差多少，再依樓層取中位數（近一年 ${fp.bldgs} 棟有樓層資料的大樓）。高樓層的景觀、採光通常比較貴，1 樓常因為隱私、潮濕比較便宜。</p>`;
+  }
+  const ac = L.ageCurve(D.txs, name, S.cat === "presale" ? "all" : S.cat, end);
+  if (ac) {
+    h += `<h3>屋齡與單價</h3><table class="list"><thead><tr><th>屋齡</th><th class="r">件</th><th class="r">中位萬/坪</th><th class="r">比${ac.base}</th></tr></thead><tbody>` +
+      ac.bands.map(b => `<tr${b.u == null ? ' class="low"' : ""}><td>${b.label}</td><td class="r">${b.n}</td><td class="r">${b.u == null ? "—" : b.u.toFixed(1)}</td>` +
+        `<td class="r">${b.pct == null || b.label === ac.base ? "—" : `${b.pct >= 0 ? "+" : ""}${b.pct}%`}</td></tr>`).join("") +
+      `</tbody></table><p class="muted">近兩年的中古屋成交（不含預售），依成交當時的屋齡分組。同一區的新舊屋常在不同地段，差距不全是「折舊」，但看得出買新一點的房子大約要多付多少。</p>`;
+  }
+  const pk = L.parkingStats(D.txs, name, end);
+  if (pk) {
+    const row = (label, x) => x ? `<tr><td>${label}</td><td class="r">${x.n}</td><td class="r"><b>${L.fmtNum(x.price)}</b></td><td class="r">${L.fmtNum(x.lo)}～${L.fmtNum(x.hi)}</td><td class="r">${x.area ? x.area.toFixed(1) : "—"}</td></tr>` : "";
+    h += `<h3>車位行情</h3><table class="list"><thead><tr><th>類別</th><th class="r">件</th><th class="r">中位（萬）</th><th class="r">一半落在</th><th class="r">坪</th></tr></thead><tbody>` +
+      row("平面車位", pk.flat) + row("機械車位", pk.mech) + row("其他／未註明", pk.other) +
+      `</tbody></table><p class="muted">近兩年「含一個車位、而且車位價格分開登錄」的成交；車位價併在房價裡的不算。</p>`;
+  }
+  if (!h) return "";
+  return `<details class="more" data-det="mktOpen"${S.settings.mktOpen !== false ? " open" : ""}><summary>樓層、屋齡、車位行情</summary>${h}</details>`;
+}
 function tabOverview() {
   const name = S.current, b = D.book, bt = b.best(name, S.cat, "t");
   let h = `<h2 style="margin-top:2px">${esc(name)}每月中位${S.metric === "u" ? "單價（萬/坪）" : "總價（萬）"}</h2>${trendSVG(b.series(name, S.cat, S.metric))}`;
@@ -575,10 +630,12 @@ function tabOverview() {
     const gap = b.presaleGap(name), w = workPlace(), d = D.dmap[name];
     const bits = [];
     if (gap != null) bits.push(`預售屋單價比中古大樓${gap >= 0 ? "高" : "低"} ${Math.abs(gap).toFixed(0)}%`);
+    const heat = L.marketHeat(D.book, name, S.cat);
+    if (heat) bits.push(heatText(heat));
     if (w) bits.push(`到${esc(w.name)}：${modeName()}約 ${minsTo(d.lat, d.lng, w)} 分鐘（直線 ${L.distKm(d.lat, d.lng, w.lat, w.lng).toFixed(1)} 公里，估計）`);
     if (bits.length) h += `<div class="summary">${bits.join("<br>")}</div>`;
-    h += distSVG(name);
-    h += `<div class="row">${reportButton()}<button class="btn small" data-act="cmp-add">加入比較</button><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a><a class="btn" target="_blank" rel="noopener" href="${FLOOD_URL}">淹水潛勢</a>` +
+    h += distSVG(name) + marketSection(name);
+    h += `<div class="row">${reportButton()}<button class="btn small" data-act="cmp-add">加入比較</button><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a><a class="btn" target="_blank" rel="noopener" href="${FLOOD_URL}">淹水潛勢</a>${schoolLink(name)}` +
       (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
     h += loanSection(bt.value) + costSection(bt.value) + rentSection(name) + rvbSection(name, bt.value);
   } else {
@@ -679,14 +736,30 @@ function tabBldg() {
   const all = L.buildings(D.txs, S.current, S.cat, since);
   let h = "";
   const b = S.bldg && all.find(r => r.key === S.bldg);
+  // 預售屋解約：已解約筆數 ÷（有效成交＋已解約）；資料是實價登錄「解約情形」欄
+  const cancelOf = r => {
+    if (!r.presale || !D.cancel) return null;
+    const c = D.cancel.get(S.current + "|" + r.name) || 0;
+    return { n: c, pct: c / (c + r.n) * 100, warn: c >= 3 && c / (c + r.n) >= 0.1 };
+  };
   if (b) {
     const age = b.built ? `屋齡約 ${Math.max(0, new Date().getFullYear() - b.built)} 年｜` : "";
     h += `<div class="summary"><b>${esc(b.name)}</b>｜${esc(S.current)}<br>${esc(b.btype)}｜${age}共 ${b.n} 筆，中位單價 ${b.u.toFixed(1)} 萬/坪、總價 ${L.fmtNum(b.t)} 萬` +
       (b.n12 ? `<br>近一年 ${b.n12} 筆：中位單價 ${b.u12.toFixed(1)} 萬/坪` : `<br>近一年沒有成交`) + `</div>`;
+    const cx = cancelOf(b);
+    if (cx && cx.n) h += `<div class="${cx.warn ? "note" : "summary"}">已解約 <b>${cx.n} 筆</b>（佔登錄的 ${cx.pct.toFixed(1)}%）。` +
+      (cx.warn ? "解約比例偏高，可能是投資客轉手不順、建案或建商出狀況，買之前多打聽、注意履約保證。" : "少量解約很常見（換約、貸款不過）。") + `</div>`;
+    else if (cx) h += `<p class="muted">這個建案在實價登錄沒有解約紀錄。</p>`;
     h += linksRow(S.current, b.presale ? b.name : b.name, "找這個社區正在賣的房子");
     h += `<div class="row"><button class="btn small" data-act="bldg-back">← 回社區列表</button></div>`;
     if (S.pin) h += poiButton(S.pin.lat, S.pin.lng, b.name);
     const rows = D.txs.filter(x => x.dist === S.current && L.inCat(x, S.cat) && L.bldgKey(x) === b.key);
+    const fpro = L.floorProfile(rows);
+    if (fpro) {
+      const mid = L.median(fpro.flatMap(r => Array(r.n).fill(r.u)));
+      h += `<h3>各樓層單價</h3><table class="list"><thead><tr><th>樓層</th><th class="r">件</th><th class="r">中位萬/坪</th><th class="r">比整棟中位</th></tr></thead><tbody>` +
+        fpro.map(r => `<tr><td>${r.fl} 樓</td><td class="r">${r.n}</td><td class="r">${r.u.toFixed(1)}</td><td class="r">${mid ? `${r.u >= mid ? "+" : ""}${((r.u - mid) / mid * 100).toFixed(1)}%` : "—"}</td></tr>`).join("") + `</tbody></table>`;
+    }
     const qs = L.quarterSeries(rows);
     if (qs) {
       const max = Math.max(...qs.rows.map(r => r.n));
@@ -706,11 +779,19 @@ function tabBldg() {
   h += `<div class="row"><input type="search" id="bldg-kw" placeholder="社區或路名，例如：成功路" value="${esc(kw)}"></div>`;
   h += `<p class="muted">${esc(S.current)}有 2 筆以上成交的${S.cat === "presale" ? "建案" : "社區／大樓"} ${list.length} 個。實價登錄沒有社區名稱，中古屋以「同一個門牌」當作同一棟；預售屋用建案名稱。點一列看每一筆成交。</p>`;
   if (!list.length) return h;
-  h += `<table class="list"><thead><tr><th>社區／門牌</th><th class="r">件</th><th class="r">萬/坪</th><th class="r">近一年</th><th class="r">屋齡</th></tr></thead><tbody>`;
+  const presale = S.cat === "presale" && D.cancel && D.cancel.size;
+  if (presale) {
+    const warn = list.filter(r => cancelOf(r)?.warn).length;
+    h += `<p class="muted">「解約」欄是實價登錄的已解約筆數與比例；${warn ? `<b class="up">${warn} 個建案</b>解約偏多（3 筆以上、而且超過 1 成），標成紅色。` : "目前沒有解約偏多的建案。"}</p>`;
+  }
+  h += `<table class="list"><thead><tr><th>社區／門牌</th><th class="r">件</th><th class="r">萬/坪</th><th class="r">近一年</th><th class="r">${presale ? "解約" : "屋齡"}</th></tr></thead><tbody>`;
   const yr = new Date().getFullYear();
-  for (const r of list.slice(0, 300))
+  for (const r of list.slice(0, 300)) {
+    const cx = presale ? cancelOf(r) : null;
     h += `<tr class="click" data-bldg="${esc(r.key)}"><td>${esc(r.name)}<div class="muted">${esc(r.btype)}｜最近 ${r.last.slice(2, 7).replace("-", "/")}</div></td><td class="r">${r.n}</td>` +
-      `<td class="r">${r.u.toFixed(1)}</td><td class="r">${r.u12 == null ? "—" : r.u12.toFixed(1)}</td><td class="r">${r.built ? Math.max(0, yr - r.built) : "—"}</td></tr>`;
+      `<td class="r">${r.u.toFixed(1)}</td><td class="r">${r.u12 == null ? "—" : r.u12.toFixed(1)}</td>` +
+      (presale ? `<td class="r${cx && cx.warn ? " up" : ""}">${cx && cx.n ? `${cx.n}（${cx.pct.toFixed(0)}%）` : "—"}</td></tr>` : `<td class="r">${r.built ? Math.max(0, yr - r.built) : "—"}</td></tr>`);
+  }
   return h + "</tbody></table>";
 }
 function txRows() {
@@ -837,10 +918,14 @@ function renderMenu() {
     <h3>地圖圖層</h3>${chk("town", "行政區界")}${chk("liq", "土壤液化潛勢")}${D.tw ? chk("slide", "山崩與地滑（地質敏感區）") : ""}${chk("fault", "活動斷層")}
     <p class="muted">淹水潛勢：官方圖資沒有開放疊圖，請到 <a target="_blank" rel="noopener" href="${FLOOD_URL}">國家災害防救科技中心 3D 災害潛勢地圖</a> 查詢（各區「概況」也有「淹水潛勢」按鈕）。</p>${chk("hires", "放大時載入高解析衛星影像（較耗流量）")}
     ${chk("lines", "捷運、輕軌、高鐵（營運中與規劃）")}${chk("markers", "開發案與情資（菱形）")}${chk("landmarks", "知名地標 3D")}${chk("projects", "重大建設 3D")}${chk("schools", "🎓 明星學區與額滿學校")}${chk("roads", "路段房價（選了行政區才畫）")}${chk("labels", "名稱標籤")}
-    <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option><option value="yield"${s.color === "yield" ? " selected" : ""}>毛租金投報率</option></select></div>
+    <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option><option value="yield"${s.color === "yield" ? " selected" : ""}>毛租金投報率</option><option value="heat"${s.color === "heat" ? " selected" : ""}>市場冷熱（量＋價）</option></select></div>
     <h3>外觀</h3><div class="row"><select data-set="theme" aria-label="外觀">${[["", "跟著系統"], ["light", "淺色"], ["dark", "深色"]].map(([v, t]) => `<option value="${v}"${(s.theme || "") === v ? " selected" : ""}>${t}</option>`).join("")}</select></div>
     <h3>篩選</h3>
     <div class="row"><span>總價預算</span><input type="text" inputmode="decimal" data-set="budget" value="${esc(s.budget)}" placeholder="萬，例 1500"></div>
+    <details class="more" data-det="incomeOpen"${s.incomeOpen ? " open" : ""}><summary>不知道預算多少？用收入算</summary>
+    <div class="row"><span>家庭月收入</span><input type="text" inputmode="numeric" data-set="incomeMonthly" value="${esc(s.incomeMonthly || "")}" placeholder="元，例 120000"></div>
+    <div class="row"><span>可用現金</span><input type="text" inputmode="decimal" data-set="cash" value="${esc(s.cash || "")}" placeholder="萬，自備款＋稅費，例 350"></div>
+    <div id="budget-calc">${budgetCalc()}</div></details>
     <div class="row"><span>上班地點</span><select data-set="work"><option value="">（不設定）</option>${workplaceOptions(s.work)}${s.workPt ? `<option value="__custom"${s.work === "__custom" ? " selected" : ""}>自訂地點</option>` : ""}</select></div>
     <div class="row"><span>通勤上限</span><input type="text" inputmode="numeric" data-set="commuteMin" value="${esc(s.commuteMin)}"> <span>分鐘（${modeName()}）</span></div>
     <p class="muted">不符合預算或通勤範圍的行政區，柱子會縮成灰色小方塊。</p>
@@ -852,6 +937,15 @@ function renderMenu() {
     手機瀏覽器選單裡的「加到主畫面」，之後可以像 App 一樣開啟。</p>
     ${problemSection()}`;
   $("#btn-menu").classList.remove("has-err");
+}
+function budgetCalc() {
+  const r = L.budgetFromIncome(parseFloat(S.settings.incomeMonthly), parseFloat(S.settings.cash));
+  if (!r) return `<p class="muted">填月收入（和可用現金）就能算出大約買得起多少。</p>`;
+  return `<div class="summary">大約可以買到 <b>${L.fmtNum(r.price)} 萬</b>` +
+    (r.byCash != null ? `<br>收入可負擔 ${L.fmtNum(r.byIncome)} 萬、現金夠付 ${L.fmtNum(r.byCash)} 萬的頭期款與稅費，${r.limit === "cash" ? "卡在現金" : "卡在收入"}` : `<br>（沒填現金：假設自備兩成）`) +
+    `<br>每月房貸控制在 ${L.fmtNum(r.safeMonthly)} 元（收入 1/3）以內</div>` +
+    `<div class="row"><button type="button" class="btn small primary" data-act="use-budget" data-budget="${r.price}">用 ${L.fmtNum(r.price)} 萬當預算，地圖標出買得起的區</button></div>` +
+    `<p class="muted">貸款以新青安（1,000 萬內）＋一般房貸試算，自備至少兩成，另留總價約 3% 的稅費雜支。銀行實際核貸要看信用與負債，這不是貸款建議。</p>`;
 }
 function problemSection() {
   const errs = loadErrors(), st = D.status;
@@ -1052,8 +1146,20 @@ function bindUI() {
     if (act === "err-report") reportOnGitHub();
     if (act === "err-copy") { (navigator.clipboard ? navigator.clipboard.writeText(errorReport()) : Promise.reject()).then(() => toast("已複製錯誤內容"), () => toast("這個瀏覽器不能自動複製，請改用「到 GitHub 回報」。")); }
     if (act === "err-clear") { try { localStorage.removeItem(ERR_KEY); } catch { /* 無妨 */ } renderMenu(); }
+    if (act === "use-budget") {
+      S.settings.budget = e.target.closest("[data-budget]").dataset.budget; saveStore();
+      const inp = $("#menu [data-set='budget']"); if (inp) inp.value = S.settings.budget;
+      refreshBars(); refreshPins(); renderPanel();
+      toast(`預算設為 ${L.fmtNum(+S.settings.budget)} 萬：買不起的區，柱子會縮成灰色小方塊（${D.barRange.matched} 區符合）。`);
+    }
   });
   $("#menu").addEventListener("change", e => { if (e.target.dataset.set) onSetting(e.target); });
+  // 收入、現金邊打邊算；選單裡的 <details> 開合也記住
+  $("#menu").addEventListener("input", e => {
+    const k = e.target.dataset.set;
+    if (k === "incomeMonthly" || k === "cash") { S.settings[k] = e.target.value; saveStore(); const el = $("#budget-calc"); if (el) el.innerHTML = budgetCalc(); }
+  });
+  $("#menu").addEventListener("toggle", e => { const d = e.target; if (d.dataset && d.dataset.det) { S.settings[d.dataset.det] = d.open; saveStore(); } }, true);
   $("#tabs").addEventListener("click", e => {
     const b = e.target.closest("button[data-tab]"); if (!b) return;
     S.tab = b.dataset.tab; renderPanel(); if (S.sheet !== "full") sheet("half");
@@ -1293,7 +1399,7 @@ export async function enterCounty(code, fly = true) {
   D.districts = dd.districts; D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
   D.meta = { ...D.tw, describe: D.tw.describe, tx_count: c.tx_count || 0, road_districts: c.roads || [] };
   D.txs = null;
-  D.txPromise = getJSON(base + "tx.json").then(raw => { if (D.county === c) { D.txs = L.decodeTx(raw); D.roadCatalog = L.buildRoadCatalog(D.txs); refreshRoads(); checkWatchNews(); renderPanel(); } })
+  D.txPromise = getJSON(base + "tx.json").then(raw => { if (D.county === c) { D.txs = L.decodeTx(raw); D.cancel = L.decodeCancel(raw); D.roadCatalog = L.buildRoadCatalog(D.txs); refreshRoads(); checkWatchNews(); renderPanel(); } })
     .catch(e => { logError("載入成交資料", e); toast("成交資料載入失敗，請檢查網路後重新整理。"); });
   S.current = L.CITY; resetSelection();
   view.setExtent(coreExtent(D.districts, D.book));
@@ -1388,7 +1494,7 @@ export async function main() {
   } else {
     refreshAll();
     // 逐筆成交比較大（壓縮後約 0.6MB），畫面先出來再載入
-    D.txPromise = getJSON("data/tx.json").then(raw => { D.txs = L.decodeTx(raw); D.roadCatalog = L.buildRoadCatalog(D.txs); refreshRoads(); checkWatchNews(); renderPanel(); })
+    D.txPromise = getJSON("data/tx.json").then(raw => { D.txs = L.decodeTx(raw); D.cancel = L.decodeCancel(raw); D.roadCatalog = L.buildRoadCatalog(D.txs); refreshRoads(); checkWatchNews(); renderPanel(); })
       .catch(e => { logError("載入成交資料", e); toast("成交資料載入失敗，請檢查網路後重新整理。"); });
   }
   applyShared(params);

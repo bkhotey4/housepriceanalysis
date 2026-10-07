@@ -59,10 +59,28 @@ class ParseTest(unittest.TestCase):
         self.assertAlmostEqual(x["pka"], 50.88 / prices.PING_M2, places=3)
         self.assertEqual(x["pkp"], 400)
         self.assertEqual(sum(t["pk"] for t in self.txs), 2)
-        # 網頁版 tx.json 的最後四欄；舊快取沒有這些欄位時給預設值
-        self.assertEqual(prices.tx_extra(x), [6, 2, round(50.88 / prices.PING_M2, 2), 400.0])
+        # 網頁版 tx.json 的最後五欄；舊快取沒有這些欄位時給預設值
+        self.assertEqual(prices.tx_extra(x), [6, 2, round(50.88 / prices.PING_M2, 2), 400.0, prices.PARK_FLAT])
         self.assertEqual(prices.tx_extra({}), [])                               # 全是預設值：整段省略
         self.assertEqual(prices.tx_extra({"fl": 7}), [7])
+
+    def test_parking_type_and_cancellations(self):
+        # 車位類別：坡道平面＝平面（1）
+        x = next(t for t in self.txs if t["dist"] == "歸仁區")
+        self.assertEqual(x["pkt"], prices.PARK_FLAT)
+        for text, want in (("坡道平面", 1), ("升降機械", 2), ("塔式車位", 2), ("一樓平面", 1), ("其他", 0), ("", 0)):
+            self.assertEqual(prices.park_type_of(text), want, text)
+        # 預售屋檔：已解約的平常會被排除；keep_cancelled=True 時帶 cancel 標記回傳，可以算建案解約率
+        text = open(os.path.join(ROOT, "tests", "fixture_d_lvr_land_b.csv"), encoding="utf-8-sig").read()
+        normal, everything = prices.parse_csv_text(text), prices.parse_csv_text(text, keep_cancelled=True)
+        cancelled = [t for t in everything if t["cancel"]]
+        self.assertEqual(len(everything), len(normal) + len(cancelled))
+        self.assertTrue(cancelled)
+        self.assertFalse(any(t["cancel"] for t in normal))
+        dists = sorted({t["dist"] for t in everything})
+        counts = prices.cancel_counts(cancelled, dists)
+        self.assertEqual(sum(n for _d, _p, n in counts), len(cancelled))
+        self.assertEqual(dists[counts[0][0]], cancelled[0]["dist"])
 
     def test_dedupe(self):
         self.assertEqual(len(prices.dedupe(self.txs + self.txs)), 8)

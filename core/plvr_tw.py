@@ -174,10 +174,12 @@ def folders():
                   and (is_done(n) or os.path.exists(os.path.join(_dir(n), "_done"))))
 
 
-def load_county(code):
-    """某縣市的所有交易（買賣＋預售），已去重。"""
+def load_county(code, cancels=None):
+    """某縣市的所有交易（買賣＋預售），已去重。
+
+    傳入 cancels（list）時，已解約的預售屋另外放進 cancels（去重後），給「建案解約率」用。"""
     code = code.lower()
-    txs = []
+    txs, cx = [], []
     for name in folders():
         for kind in KINDS:
             path = os.path.join(_dir(name), "%s_lvr_land_%s.csv" % (code, kind))
@@ -186,7 +188,10 @@ def load_county(code):
             with open(path, "rb") as f:
                 text = f.read().decode("utf-8-sig", "replace")
             if text.strip():
-                txs.extend(prices.parse_csv_text(text))
+                for x in prices.parse_csv_text(text, keep_cancelled=cancels is not None):
+                    (cx if x.get("cancel") else txs).append(x)
+    if cancels is not None:
+        cancels.extend(prices.dedupe(cx))
     return prices.dedupe(txs)
 
 
