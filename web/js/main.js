@@ -2106,8 +2106,10 @@ async function main() {
     }
     if (html && tooltip) {
       tooltip.innerHTML = html;
-      tooltip.style.left = `${e.clientX}px`;
-      tooltip.style.top = `${e.clientY}px`;
+      const x = Math.min(e.clientX + 14, window.innerWidth - 260);
+      const y = Math.min(e.clientY + 14, window.innerHeight - 100);
+      tooltip.style.left = `${Math.max(10, x)}px`;
+      tooltip.style.top = `${Math.max(10, y)}px`;
       tooltip.hidden = false;
     } else if (tooltip) {
       tooltip.hidden = true;

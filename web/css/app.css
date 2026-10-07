@@ -176,6 +176,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .kpi .v small { font-size: 0.7rem; font-weight: 400; color: var(--muted); }
 .up { color: var(--up); } .down { color: var(--down); }
 #tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); padding: 0 8px; flex: none; scrollbar-width: none; }
+#tabs::-webkit-scrollbar { display: none; }
 #tabs button { border: 0; background: none; padding: 9px 10px 7px; white-space: nowrap; border-bottom: 3px solid transparent; color: var(--muted); }
 #tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
 #tab-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px calc(16px + var(--safe-b)); }
