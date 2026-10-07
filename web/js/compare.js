@@ -14,6 +14,38 @@ export function cmpAdd() {
   S.settings.cmp = list.slice(-CMP_MAX); saveStore();
   toast(`已加入比較（${S.settings.cmp.length}/${CMP_MAX}）`); S.tab = "cmp"; renderPanel();
 }
+// 直接選縣市＋行政區加入比較（不用先在地圖上點到那一區）；全台版用 index.json 裡各縣市的 town_names
+function pickCounties() {
+  if (D.tw) return D.tw.counties.filter(c => c.has_data).map(c => ({ code: c.code, short: c.short, names: c.town_names || [] }));
+  return [{ code: "D", short: L.CITY, names: D.districts.map(d => d.name) }];
+}
+export function cmpPickAdd(code, name) {
+  const c = pickCounties().find(x => x.code === code);
+  if (!c || !name) return;
+  const list = cmpList().filter(x => !(x.code === code && x.name === name));
+  list.push({ code, name, county: c.short });
+  S.settings.cmp = list.slice(-CMP_MAX); saveStore(); renderPanel();
+}
+function cmpPicker() {
+  const cs = pickCounties();
+  if (!cs.length) return "";
+  const code = cs.some(c => c.code === S.cmpPick) ? S.cmpPick : (D.county ? D.county.code : cs[0].code);
+  const c = cs.find(x => x.code === code);
+  return `<div class="row cmp-pick">` +
+    (cs.length > 1 ? `<select id="cmp-county" aria-label="縣市">${cs.map(x => `<option value="${x.code}"${x.code === code ? " selected" : ""}>${esc(x.short)}</option>`).join("")}</select>` : "") +
+    `<select id="cmp-dist" data-code="${code}" aria-label="行政區">${c.names.map(n => `<option${n === S.current ? " selected" : ""}>${esc(n)}</option>`).join("")}</select>` +
+    `<button class="btn small primary" data-act="cmp-pick">加入比較</button></div>`;
+}
+// 「雙區 PK」預設帶入的兩區：目前所在縣市（或選中的區）成交最多的兩區；全台總覽時不預設，讓使用者自己挑
+export function cmpDefaultPair() {
+  if (isNation()) return null;
+  const code = cmpCode() || "D", county = D.county ? D.county.short : L.CITY;
+  const n = name => { const c = D.book.cell(name, "all"); return c && c.y12 ? c.y12[0] : 0; };
+  const names = D.districts.map(d => d.name).sort((a, b) => n(b) - n(a));
+  const first = S.current !== L.CITY && names.includes(S.current) ? S.current : names[0];
+  const second = names.find(x => x !== first);
+  return first && second ? [{ code, name: first, county }, { code, name: second, county }] : null;
+}
 const CMP_DATA = new Map();      // "代碼|區" → {book, d}
 function cmpEnsure() {
   const need = cmpList().filter(x => !CMP_DATA.has(x.code + "|" + x.name));
@@ -45,9 +77,10 @@ function cmpSeriesSVG(cols) {
 }
 export function tabCmp() {
   const list = cmpList();
-  let h = `<div class="row">${S.current !== L.CITY && !isNation() ? `<button class="btn primary" data-act="cmp-add">把${esc(S.current)}加入比較</button>` : ""}` +
+  let h = cmpPicker() + `<div class="row">${S.current !== L.CITY && !isNation() ? `<button class="btn" data-act="cmp-add">把目前的${esc(S.current)}加入</button>` : ""}` +
     (list.length ? `<button class="btn" data-act="cmp-clear">清空</button>` : "") + `</div>`;
-  if (!list.length) return h + `<p class="empty">還沒有要比較的區。選一個行政區後按「加入比較」，最多 ${CMP_MAX} 個，可以跨縣市。</p>`;
+  if (!list.length) return h + `<p class="empty">還沒有要比較的區。用上面的選單挑${D.tw ? "縣市和" : ""}行政區按「加入比較」，最多 ${CMP_MAX} 個${D.tw ? "，可以跨縣市（例如台北大安 vs 新北板橋）" : ""}。選兩個區會出現「雙區 PK」對決。</p>`;
+  if (list.length === 1) h += `<p class="muted">再加一個區，就會出現「雙區 PK」逐項對決。</p>`;
   if (!cmpEnsure()) return h + `<p class="empty">載入比較資料中…</p>`;
   const cols = list.map(x => ({ ...x, ...CMP_DATA.get(x.code + "|" + x.name), label: (D.tw ? x.county.replace(/[市縣]$/, "") + " " : "") + x.name }))
     .filter(c => c.book && c.d);

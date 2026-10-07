@@ -3,7 +3,7 @@
 import * as L from "./logic.js";
 import { View3D, mix } from "./view3d.js";
 import { buildReport } from "./report.js";
-import { CMP_MAX, cmpAdd, cmpCode, cmpList, tabCmp } from "./compare.js";
+import { CMP_MAX, cmpAdd, cmpCode, cmpDefaultPair, cmpList, cmpPickAdd, tabCmp } from "./compare.js";
 import { LOAN_DEFAULT, costResult, costSection, costState, loanPrice, loanResult, loanSection, loanState, rentSection, rentYield, rvbDefaultRent, rvbResult, rvbSection, rvbState } from "./finance.js";
 import { OVERPASS, refreshPois, showPoi } from "./poi.js";
 import { hideSuggestions, pinAt, renderSuggestions, search, selectSuggestion, showAddress, sugState, updateActiveSug } from "./search.js";
@@ -582,40 +582,16 @@ function tabOverview() {
       (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
     h += loanSection(bt.value) + costSection(bt.value) + rentSection(name) + rvbSection(name, bt.value);
   } else {
-    h += `
-    <div class="scenario-section">
-      <h3 style="margin:14px 0 8px">🧭 買房情境快捷導航</h3>
-      <div class="scenario-grid">
-        <div class="scenario-card" data-scenario="nanke">
-          <div class="sc-icon">🚄</div>
-          <div class="sc-content">
-            <div class="sc-title">南科通勤生活圈</div>
-            <div class="sc-desc">善化、新市、安南科技聚落</div>
-          </div>
-        </div>
-        <div class="scenario-card" data-scenario="school">
-          <div class="sc-icon">🎓</div>
-          <div class="sc-content">
-            <div class="sc-title">明星額滿學區地圖</div>
-            <div class="sc-desc">建興、後甲、復興熱門雙語學區</div>
-          </div>
-        </div>
-        <div class="scenario-card" data-scenario="youth">
-          <div class="sc-icon">💰</div>
-          <div class="sc-content">
-            <div class="sc-title">新青安首購試算</div>
-            <div class="sc-desc">40年期與5年寬限期斷崖體檢</div>
-          </div>
-        </div>
-        <div class="scenario-card" data-scenario="duel">
-          <div class="sc-icon">⚔️</div>
-          <div class="sc-content">
-            <div class="sc-title">雙區買房 PK 擂台</div>
-            <div class="sc-desc">東區 vs 永康、善化 vs 新市指標對決</div>
-          </div>
-        </div>
-      </div>
-    </div>`;
+    // 情境捷徑：南科、明星學區是台南限定，只在台南顯示；新青安與雙區 PK 全台都能用
+    const tainan = !D.tw || (D.county && D.county.code === "D");
+    const card = (k, icon, title, desc) => `<button type="button" class="scenario-card" data-scenario="${k}"><span class="sc-icon" aria-hidden="true">${icon}</span>` +
+      `<span class="sc-content"><span class="sc-title">${title}</span><span class="sc-desc">${desc}</span></span></button>`;
+    const pair = cmpDefaultPair();
+    h += `<div class="scenario-section"><h3 style="margin:14px 0 8px">🧭 買房情境快捷導航</h3><div class="scenario-grid">` +
+      (tainan ? card("nanke", "🚄", "南科通勤生活圈", "善化、新市、安南科技聚落") + card("school", "🎓", "明星額滿學區地圖", "建興、後甲、復興熱門雙語學區") : "") +
+      card("youth", "💰", "新青安首購試算", "40 年期與 5 年寬限期斷崖體檢") +
+      card("duel", "⚔️", "雙區買房 PK 擂台", pair ? `${esc(pair[0].name)} vs ${esc(pair[1].name)}，或自選任兩區` : "全台任選兩區（可跨縣市）指標對決") +
+      `</div></div>`;
     h += loanSection(bt.value) + costSection(bt.value) + rentSection(name);
     h += isNation() ? `<p class="muted">點地圖上的柱子（或「排行」）進入一個縣市，才會下載那個縣市的逐筆成交與路段；也可以直接搜尋「台北市大安區…」這樣的地址。透天厝的單價含土地，看透天請以總價為主。</p>`
       : `<p class="muted">點地圖上的柱子看各區，或在上方搜尋地址。透天厝的單價含土地，看透天請以總價為主。</p>`;
@@ -1109,22 +1085,18 @@ function bindUI() {
         selectDistrict("東區");
         toast("已前往明星學區重鎮：東區");
       } else if (mode === "youth") {
-        S.tab = "value";
-        renderPanel();
-        sheet("half");
-        toast("已切換至估價與新青安斷崖體檢");
+        // 直接把房貸試算切成新青安，捲到試算那一段（全台、各縣市都能用）
+        const y = L.YOUTH_LOAN;
+        S.settings.loan = { ...loanState(), rate: y.rate, years: y.years, grace: y.grace, youth: true }; saveStore();
+        renderPanel(); sheet("half");
+        $(".loan-presets")?.scrollIntoView({ block: "start" });
+        toast("房貸試算已切換成新青安，下方有和一般房貸的比較；估價分頁另有寬限期斷崖體檢。");
       } else if (mode === "duel") {
-        S.tab = "cmp";
-        if (!S.settings.cmp || S.settings.cmp.length < 2) {
-          S.settings.cmp = [
-            { code: "D", name: "東區", county: "台南市" },
-            { code: "D", name: "永康區", county: "台南市" }
-          ];
-          saveStore();
-        }
-        renderPanel();
-        sheet("half");
-        toast("已切換至東區 vs 永康區雙區擂台");
+        S.tab = "cmp"; S.cmpPick = null;       // 選單回到目前所在的縣市
+        const pair = cmpDefaultPair();
+        if (cmpList().length < 2 && pair) { S.settings.cmp = pair; saveStore(); }
+        renderPanel(); sheet("half");
+        toast(cmpList().length >= 2 ? "雙區 PK：可以用上方選單換成其他區（可跨縣市）" : "用上方選單挑兩個區（可跨縣市），就會開始 PK");
       }
       return;
     }
@@ -1193,6 +1165,7 @@ function bindUI() {
       it.seen = D.txs.reduce((m, x) => x.date > m ? x.date : m, it.seen || ""); S.watchNews[it.id] = []; saveStore(); renderPanel(); return;
     }
     if (act === "cmp-clear") { S.settings.cmp = []; saveStore(); renderPanel(); return; }
+    if (act === "cmp-pick") { const sel = $("#cmp-dist"); if (sel) cmpPickAdd(sel.dataset.code, sel.value); return; }
     if (act === "watch-edit" && it) watchDialog(it);
     if (act === "watch-value" && it) {
       const cat = TYPE_CAT[it.type] === "house" ? "house" : it.type === "預售屋" ? "presale" : "apt";
@@ -1215,6 +1188,7 @@ function bindUI() {
   });
   body.addEventListener("change", e => {
     if (e.target.dataset && e.target.dataset.set) { onSetting(e.target); renderPanel(); return; }
+    if (e.target.id === "cmp-county") { S.cmpPick = e.target.value; const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; return; }
     if (e.target.dataset && e.target.dataset.val) {
       S.settings.val = Object.assign(valState(), { [e.target.dataset.val]: e.target.value.trim() }); saveStore();
       const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; return;
@@ -1306,6 +1280,7 @@ export function countyData(code) {
 }
 export async function enterCounty(code, fly = true) {
   const c = D.tw.counties.find(x => x.code === code);
+  S.cmpPick = null;                       // 比較分頁的縣市選單跟著換到這個縣市
   if (!c) return false;
   if (!c.has_data) { toast(`${c.short}的資料還在準備中（每次自動更新會補上）。`); return false; }
   const base = `data/tw/${code}/`;

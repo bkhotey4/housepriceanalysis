@@ -318,11 +318,12 @@ table.list.cost tr.total td { font-weight: 700; border-top: 2px solid var(--line
 /* ---------- 買房情境快捷導航卡 (Scenario Quick Cards) ---------- */
 .scenario-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));   /* minmax(0,…)：說明文字很長時也不會把面板撐寬 */
   gap: 8px;
   margin: 10px 0 16px;
 }
 .scenario-card {
+  min-width: 0; width: 100%; font: inherit; color: inherit;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -347,6 +348,7 @@ table.list.cost tr.total td { font-weight: 700; border-top: 2px solid var(--line
   flex: 1;
   min-width: 0;
 }
+.scenario-card .sc-title, .scenario-card .sc-desc { display: block; }
 .scenario-card .sc-title {
   font-weight: 700;
   font-size: 0.9rem;
@@ -466,3 +468,4 @@ table.list tr.cheaper td:nth-child(4) { color: #1e8a4c; font-weight: 700; }
 :root[data-theme="dark"] table.list tr.cheaper td:nth-child(4) { color: #7fd18a; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) table.list tr.cheaper td:nth-child(4) { color: #7fd18a; } }
 .qbar { height: 8px; border-radius: 4px; background: var(--accent-2); opacity: .55; }
+.cmp-pick select { flex: 1 1 8em; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; background: var(--surface); font-size: 16px; }
