@@ -136,7 +136,7 @@ export function roadPrices(txs, district, cat, sinceYm) {
   }
   const out = [];
   for (const [name, rows] of groups) out.push({ name, dist: district, ...groupStats(rows) });
-  out.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  out.sort((a, b) => b.n - a.n || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   return out;
 }
 export function searchRoads(txs, kw, cat, sinceYm, limit = 200) {
@@ -1159,6 +1159,25 @@ export function quickSuggest(rawText, data, options = {}) {
         }
       }
     }
+  } else {
+    // 台南單一縣市專版：若使用者搜尋外縣市（台中、台北、高雄等），提示暫未收錄
+    for (const c of COUNTIES) {
+      if (c.code === "D") continue;
+      const cName = normTw(c.name).toLowerCase();
+      const cShort = normTw(c.short).toLowerCase();
+      if (cName.includes(query) || cShort.includes(query) || (query.length >= 2 && (cShort.includes(query) || query.includes(cShort)))) {
+        results.push({
+          type: "other_county",
+          title: c.short,
+          sub: `目前為台南實價專版，尚未收錄此縣市`,
+          icon: "🗺️",
+          badge: "其他縣市",
+          score: 820,
+          countyCode: c.code,
+          c
+        });
+      }
+    }
   }
 
   // 4. 明星學區比對 (Schools)
@@ -1234,16 +1253,22 @@ export function quickSuggest(rawText, data, options = {}) {
     }
 
     if (score > 0) {
+      const isOtherCounty = lm.county && lm.county !== "D";
+      const co = COUNTIES.find(x => x.code === lm.county);
+      const coShort = co ? co.short : "";
       if (lm.district === currentDist) score += 90;
       score += Math.max(0, (4 - (lm.rank || 2)) * 15);
+      if (isOtherCounty && !twCounties.length) score -= 80;
       results.push({
         type: "landmark",
         title: lm.name,
-        sub: `${lm.district || ""} · ${lm.note ? lm.note.slice(0, 24) + "..." : meta.badge}`,
+        sub: (isOtherCounty && !twCounties.length) ? `${lm.district || ""} · ${coShort}（台南專版暫未收錄行情）` : `${lm.district || ""} · ${lm.note ? lm.note.slice(0, 24) + "..." : meta.badge}`,
         icon: meta.icon,
-        badge: meta.badge,
+        badge: (isOtherCounty && !twCounties.length) ? `${coShort}（未收錄）` : meta.badge,
         score,
-        lm
+        lm,
+        isOtherCounty,
+        countyCode: lm.county || "D"
       });
     }
   }

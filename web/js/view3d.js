@@ -607,7 +607,14 @@ export class View3D {
       this.drag = true;
     });
     cv.addEventListener("pointermove", e => {
-      if (!ptrs.has(e.pointerId)) return;
+      if (!ptrs.has(e.pointerId)) {
+        if (e.pointerType === "mouse" && !this.drag) {
+          const hit = this.pick(e.offsetX, e.offsetY);
+          cv.style.cursor = hit ? "pointer" : "default";
+          this.onHover && this.onHover(hit, e);
+        }
+        return;
+      }
       ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
       if (!gesture) return;
       if (gesture.mode === "pinch" && ptrs.size >= 2) {
@@ -656,6 +663,10 @@ export class View3D {
     };
     cv.addEventListener("pointerup", end);
     cv.addEventListener("pointercancel", end);
+    cv.addEventListener("pointerleave", () => {
+      cv.style.cursor = "default";
+      if (this.onHover) this.onHover(null);
+    });
     cv.addEventListener("wheel", e => {
       e.preventDefault();
       const k = Math.max(-3, Math.min(3, -e.deltaY / (e.deltaMode === 1 ? 3 : 100)));

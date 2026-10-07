@@ -198,6 +198,73 @@ class SearchAutocompleteTest(unittest.TestCase):
 
         ctx.close()
 
+    def test_other_county_search_protection_and_scenario_cards(self):
+        ctx = self.browser.new_context(viewport={"width": 1366, "height": 820})
+        page = ctx.new_page()
+        page.goto(self.url)
+        page.wait_for_function("window.__app && __app.D.districts && __app.D.txs")
+
+        # 1. 搜尋「台中市政府」：即時選單應標註外縣市未收錄，且不應誤匹配台南
+        page.fill("#q", "台中市政府")
+        page.wait_for_selector("#search-sug:not([hidden]) .sug-item", timeout=3000)
+        items = page.eval_on_selector_all("#search-sug .sug-item", "els => els.map(e => ({ title: e.querySelector('.sug-title').innerText, badge: e.querySelector('.sug-badge').innerText, sub: e.querySelector('.sug-sub').innerText }))")
+        self.assertTrue(any("台中" in it["title"] and ("未收錄" in it["badge"] or "其他縣市" in it["badge"]) for it in items), f"Expected 台中 and 未收錄 in {items}")
+        # 不應出現台南市政府
+        self.assertFalse(any("臺南市政府" in it["title"] for it in items))
+
+        # 點擊台中市政府選單項目，應跳出台南專版提示，不改變台南視角
+        page.click("#search-sug .sug-item:has-text('臺中市政府')")
+        page.wait_for_timeout(300)
+        toast_text = page.eval_on_selector("#toast:not([hidden])", "e => e.innerText")
+        self.assertIn("台南房價專版", toast_text)
+        self.assertEqual(page.evaluate("__app.S.current"), "台南市")
+
+        # 2. 直接按 Enter 搜尋「台中市政府」
+        page.fill("#q", "台中市政府")
+        page.press("#q", "Enter")
+        page.wait_for_timeout(300)
+        toast_text = page.eval_on_selector("#toast:not([hidden])", "e => e.innerText")
+        self.assertIn("非台南地區", toast_text)
+        self.assertEqual(page.evaluate("__app.S.current"), "台南市")
+
+        # 3. 直接按 Enter 搜尋「台北101」
+        page.click("#btn-clear")
+        page.fill("#q", "台北101")
+        page.press("#q", "Enter")
+        page.wait_for_timeout(300)
+        toast_text = page.eval_on_selector("#toast:not([hidden])", "e => e.innerText")
+        self.assertIn("非台南地區", toast_text)
+
+        # 4. 搜尋「臺南市政府」應正常定位台南市政府
+        page.click("#btn-clear")
+        page.fill("#q", "臺南市政府")
+        page.press("#q", "Enter")
+        page.wait_for_timeout(400)
+        self.assertEqual(page.evaluate("__app.S.tab"), "detail")
+        detail_text = page.eval_on_selector("#tab-body", "e => e.innerText")
+        self.assertIn("臺南市政府", detail_text)
+
+        # 5. 測試買房情境快捷導航卡 (Scenario Quick Cards)
+        page.evaluate("__app.selectDistrict('台南市')")
+        page.wait_for_timeout(300)
+        self.assertEqual(page.evaluate("__app.S.current"), "台南市")
+        page.wait_for_selector(".scenario-card[data-scenario='nanke']", timeout=3000)
+        # 點擊「南科通勤生活圈」卡片
+        page.click(".scenario-card[data-scenario='nanke']")
+        page.wait_for_timeout(400)
+        self.assertEqual(page.evaluate("__app.S.current"), "善化區")
+
+        # 6. 測試常用坪數快速帶入膠囊 (Ping Chips)
+        page.click("button[data-tab='value']")
+        page.wait_for_timeout(300)
+        self.assertEqual(page.evaluate("__app.S.tab"), "value")
+        page.wait_for_selector(".ping-chip[data-ping='30']", timeout=3000)
+        page.click(".ping-chip[data-ping='30']")
+        page.wait_for_timeout(300)
+        self.assertEqual(page.evaluate("__app.S.settings.val.ping"), "30")
+
+        ctx.close()
+
 if __name__ == "__main__":
     unittest.main()
 

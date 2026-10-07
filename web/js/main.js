@@ -460,6 +460,23 @@ async function selectSuggestion(item) {
   $("#btn-clear").hidden = false;
   $("#q").blur();
 
+  if (item.type === "other_county") {
+    toast(`「${item.title}」非台南地區。目前本站為【台南房價專版】，暫未收錄該縣市實價行情。`);
+    return;
+  }
+  if (item.type === "landmark" && (item.isOtherCounty || (item.lm && item.lm.county && item.lm.county !== "D"))) {
+    const co = L.COUNTIES.find(x => x.code === (item.countyCode || (item.lm && item.lm.county)));
+    const coName = co ? co.short : "其他縣市";
+    toast(`「${item.title}」位於${coName}。目前本站為【台南房價專版】，暫未收錄該區實價行情。`);
+    return;
+  }
+  if (item.type === "school" && item.school && item.school.county && item.school.county !== "D") {
+    const co = L.COUNTIES.find(x => x.code === item.school.county);
+    const coName = co ? co.short : "其他縣市";
+    toast(`「${item.title}」位於${coName}。目前本站為【台南房價專版】，暫未收錄該區實價行情。`);
+    return;
+  }
+
   if (item.type === "district") {
     selectDistrict(item.name, true);
     toast(`已移到${item.name}`);
@@ -520,35 +537,76 @@ async function search(text) {
       if (!rest) { selectDistrict(L.CITY); return "county"; }
       text = rest;
     }
+  } else {
+    // 台南單一專版：若輸入帶有其他縣市名稱（如「台中市」、「台中市政府」、「台北101」）
+    const [c, rest] = L.splitCounty(text);
+    if (c && c.code !== "D") {
+      toast(`「${c.short}」非台南地區。目前本站為【台南房價專版】，暫未收錄${c.short}實價行情與圖資。`);
+      return "other_county";
+    }
   }
+
+  // 先以完整關鍵字尋找地標與學區（避免被 parseAddress 拆掉縣市名或路段名導致誤判為其他同名地點）
+  const normT = L.normTw(text);
+  let lmHit = D.landmarks.find(l => normT.length >= 2 && (L.normTw(l.name) === normT || L.normTw(l.name).startsWith(normT) || normT.startsWith(L.normTw(l.name))));
+  if (!lmHit && normT.length >= 2) {
+    lmHit = D.landmarks.find(l => L.normTw(l.name).includes(normT) || normT.includes(L.normTw(l.name)));
+  }
+  if (!lmHit) {
+    for (const al of L.SEARCH_ALIASES) {
+      if (al.keys.some(k => normT.includes(k) || k.includes(normT))) {
+        lmHit = D.landmarks.find(l => l.name.includes(al.target) || (l.note && l.note.includes(al.target)));
+        if (lmHit) break;
+      }
+    }
+  }
+  if (lmHit) {
+    if (!D.tw && lmHit.county && lmHit.county !== "D") {
+      const co = L.COUNTIES.find(x => x.code === lmHit.county);
+      const coName = co ? co.short : "其他縣市";
+      toast(`「${lmHit.name}」位於${coName}。目前本站為【台南房價專版】，暫未收錄該區實價行情。`);
+      return "other_county";
+    }
+    pick(["landmark", lmHit.id]);
+    toast(`已定位地標：${lmHit.name}`);
+    return "landmark";
+  }
+
+  // 學區完整名稱比對
+  let scHit = (D.schools || []).find(sc => normT.length >= 2 && (L.normTw(sc.name).includes(normT) || normT.includes(L.normTw(sc.name))));
+  if (!scHit) {
+    for (const al of L.SEARCH_ALIASES) {
+      if (al.keys.some(k => normT.includes(k) || k.includes(normT))) {
+        scHit = (D.schools || []).find(x => x.name.includes(al.target));
+        if (scHit) break;
+      }
+    }
+  }
+  if (scHit) {
+    if (!D.tw && scHit.county && scHit.county !== "D") {
+      const co = L.COUNTIES.find(x => x.code === scHit.county);
+      const coName = co ? co.short : "其他縣市";
+      toast(`「${scHit.name}」位於${coName}。目前本站為【台南房價專版】，暫未收錄該區實價行情。`);
+      return "other_county";
+    }
+    pick(["school", scHit.id]);
+    toast(`已定位學區：${scHit.name}`);
+    return "school";
+  }
+
+  // 重大建設完整名稱比對
+  const prHit = D.intel.find(it => it.build && normT.length >= 2 && it.name.includes(normT));
+  if (prHit) {
+    pick(["project", prHit.id]);
+    toast(`已定位建設：${prHit.name}`);
+    return "project";
+  }
+
+  // 行政區與門牌地址比對
   const names = D.districts.map(d => d.name), q = L.parseAddress(text, names), s = q.text;
   const only = names.includes(s) ? s : names.includes(s + "區") ? s + "區" : null;
   if (only || (q.district && !q.road)) {
     selectDistrict(only || q.district); toast(`已移到${only || q.district}`); sheet("peek"); return "district";
-  }
-  if (q.num == null && q.lane == null && !q.district) {
-    let lm = D.landmarks.find(l => s.length >= 2 && (l.name.includes(s) || s.includes(l.name)));
-    if (!lm) {
-      for (const al of L.SEARCH_ALIASES) {
-        if (al.keys.some(k => s.includes(k) || k.includes(s))) {
-          lm = D.landmarks.find(l => l.name.includes(al.target) || (l.note && l.note.includes(al.target)));
-          if (lm) break;
-        }
-      }
-    }
-    if (lm) { pick(["landmark", lm.id]); toast(`已定位地標：${lm.name}`); return "landmark"; }
-    let sc = (D.schools || []).find(sc => s.length >= 2 && (sc.name.includes(s) || s.includes(sc.name)));
-    if (!sc) {
-      for (const al of L.SEARCH_ALIASES) {
-        if (al.keys.some(k => s.includes(k) || k.includes(s))) {
-          sc = (D.schools || []).find(x => x.name.includes(al.target));
-          if (sc) break;
-        }
-      }
-    }
-    if (sc) { pick(["school", sc.id]); toast(`已定位學區：${sc.name}`); return "school"; }
-    const pr = D.intel.find(it => it.build && s.length >= 2 && it.name.includes(s));
-    if (pr) { pick(["project", pr.id]); toast(`已定位建設：${pr.name}`); return "project"; }
   }
   if (!q.road) { toast("看不出這是哪一條路。請輸入像「善化區中山路123號」「大同路一段」這樣的地址或路名。"); return "none"; }
   if (!q.district) {
@@ -852,6 +910,40 @@ function tabOverview() {
       (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
     h += loanSection(bt.value) + costSection(bt.value) + rentSection(name) + rvbSection(name, bt.value);
   } else {
+    h += `
+    <div class="scenario-section">
+      <h3 style="margin:14px 0 8px">🧭 買房情境快捷導航</h3>
+      <div class="scenario-grid">
+        <div class="scenario-card" data-scenario="nanke">
+          <div class="sc-icon">🚄</div>
+          <div class="sc-content">
+            <div class="sc-title">南科通勤生活圈</div>
+            <div class="sc-desc">善化、新市、安南科技聚落</div>
+          </div>
+        </div>
+        <div class="scenario-card" data-scenario="school">
+          <div class="sc-icon">🎓</div>
+          <div class="sc-content">
+            <div class="sc-title">明星額滿學區地圖</div>
+            <div class="sc-desc">建興、後甲、復興熱門雙語學區</div>
+          </div>
+        </div>
+        <div class="scenario-card" data-scenario="youth">
+          <div class="sc-icon">💰</div>
+          <div class="sc-content">
+            <div class="sc-title">新青安首購試算</div>
+            <div class="sc-desc">40年期與5年寬限期斷崖體檢</div>
+          </div>
+        </div>
+        <div class="scenario-card" data-scenario="duel">
+          <div class="sc-icon">⚔️</div>
+          <div class="sc-content">
+            <div class="sc-title">雙區買房 PK 擂台</div>
+            <div class="sc-desc">東區 vs 永康、善化 vs 新市指標對決</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
     h += loanSection(bt.value) + costSection(bt.value) + rentSection(name);
     h += isNation() ? `<p class="muted">點地圖上的柱子（或「排行」）進入一個縣市，才會下載那個縣市的逐筆成交與路段；也可以直接搜尋「台北市大安區…」這樣的地址。透天厝的單價含土地，看透天請以總價為主。</p>`
       : `<p class="muted">點地圖上的柱子看各區，或在上方搜尋地址。透天厝的單價含土地，看透天請以總價為主。</p>`;
@@ -1392,6 +1484,15 @@ function tabValue() {
   const { v, q } = valQuery();
   const inp = (k, label, ph, mode = "decimal") => `<label>${label}</label><input data-val="${k}" inputmode="${mode}" value="${esc(String(v[k] ?? ""))}" placeholder="${esc(ph)}">`;
   let h = `<p class="muted">輸入一間房子的條件，從實價登錄找條件相近的成交（坪數、屋齡接近、越新的越重要；同一棟、同一條巷、同一條路優先），算出合理價區間。</p>` +
+    `<div class="ping-chips-row">` +
+    `<span class="muted" style="font-size:12px;margin-right:4px">常用坪數快速帶入：</span>` +
+    [
+      ["20", "20坪 (小2房)"],
+      ["30", "30坪 (標準2房)"],
+      ["40", "40坪 (正3房)"],
+      ["50", "50坪 (4房大戶)"]
+    ].map(([p, label]) => `<button type="button" class="ping-chip${String(v.ping) === p ? " active" : ""}" data-ping="${p}">${label}</button>`).join("") +
+    `</div>` +
     `<div class="grid valform"><label>行政區</label><select data-val="dist">${D.districts.map(d => `<option${d.name === q.dist ? " selected" : ""}>${esc(d.name)}</option>`).join("")}</select>` +
     `<label>房型</label><select data-val="cat">${VAL_TYPES.map(([k, t]) => `<option value="${k}"${k === v.cat ? " selected" : ""}>${t}</option>`).join("")}</select>` +
     inp("ping", "建坪（含車位）", "例：35") + (v.cat === "presale" ? "" : inp("age", "屋齡（年）", "例：12", "numeric")) +
@@ -1720,6 +1821,43 @@ function bindUI() {
   const body = $("#tab-body");
   body.addEventListener("click", async e => {
     const t = e.target;
+    const scCard = t.closest(".scenario-card");
+    if (scCard) {
+      const mode = scCard.dataset.scenario;
+      if (mode === "nanke") {
+        selectDistrict("善化區");
+        toast("已前往南科生活圈：善化區");
+      } else if (mode === "school") {
+        selectDistrict("東區");
+        toast("已前往明星學區重鎮：東區");
+      } else if (mode === "youth") {
+        S.tab = "value";
+        renderPanel();
+        sheet("half");
+        toast("已切換至估價與新青安斷崖體檢");
+      } else if (mode === "duel") {
+        S.tab = "cmp";
+        if (!S.settings.cmp || S.settings.cmp.length < 2) {
+          S.settings.cmp = [
+            { code: "D", name: "東區", county: "台南市" },
+            { code: "D", name: "永康區", county: "台南市" }
+          ];
+          saveStore();
+        }
+        renderPanel();
+        sheet("half");
+        toast("已切換至東區 vs 永康區雙區擂台");
+      }
+      return;
+    }
+    const pChip = t.closest(".ping-chip");
+    if (pChip) {
+      const p = pChip.dataset.ping;
+      S.settings.val = Object.assign(valState(), { ping: p });
+      saveStore();
+      renderPanel();
+      return;
+    }
     const go = t.closest("[data-goto]"); if (go) { e.preventDefault(); selectDistrict(go.dataset.goto); return; }
     const tr = t.closest("tr.click");
     if (tr && tr.dataset.dist) { selectDistrict(tr.dataset.dist); return; }
@@ -1942,6 +2080,39 @@ async function main() {
     view.setExtent({ cx: 0, cy: 0, w: 260, h: 380 }, { x0: -320, x1: 160, y0: -230, y1: 320 }, 0.6);
   } else for (const [id, m] of Object.entries(D.meta.layers || {})) view.setLayer(id, m, "");
   view.onPick = pick;
+  const tooltip = $("#map-tooltip");
+  view.onHover = (hit, e) => {
+    if (!hit || window.innerWidth < 900) {
+      if (tooltip) tooltip.hidden = true;
+      return;
+    }
+    const [kind, id] = hit;
+    let html = "";
+    if (kind === "district") {
+      const bu = D.book && D.book.best(id, S.cat, "u");
+      const bt = D.book && D.book.best(id, S.cat, "t");
+      html = `<b>📍 ${esc(id)}</b><br><small>中位單價：${bu && bu.value != null ? bu.value.toFixed(1) + " 萬/坪" : "—"}<br>中位總價：${bt && bt.value != null ? L.fmtNum(bt.value) + " 萬" : "—"}</small>`;
+    } else if (kind === "landmark") {
+      const lm = (D.landmarks || []).find(l => l.id === id);
+      if (lm) html = `<b>🏛️ ${esc(lm.name)}</b><br><small>${esc(lm.district || "")} · ${esc(lm.note ? lm.note.slice(0, 30) : "知名地標")}</small>`;
+    } else if (kind === "school") {
+      const sc = (D.schools || []).find(s => s.id === id);
+      if (sc) html = `<b>🎓 ${esc(sc.name)}</b><br><small>${esc(sc.district || "")} · ${esc(sc.status)}（${esc(sc.type)}）</small>`;
+    } else if (kind === "project") {
+      const pr = (D.intel || []).find(p => p.id === id);
+      if (pr) html = `<b>🏗️ ${esc(pr.name)}</b><br><small>${esc(pr.status || "")} · ${esc(pr.agency || "")}</small>`;
+    } else if (kind === "road") {
+      html = `<b>🛣️ ${esc(id)}</b><br><small>點擊查看路段成交</small>`;
+    }
+    if (html && tooltip) {
+      tooltip.innerHTML = html;
+      tooltip.style.left = `${e.clientX}px`;
+      tooltip.style.top = `${e.clientY}px`;
+      tooltip.hidden = false;
+    } else if (tooltip) {
+      tooltip.hidden = true;
+    }
+  };
   const lg = $("#legend");
   if (window.innerWidth < 900 || S.settings.legendCollapsed) lg.classList.add("collapsed");
   lg.addEventListener("click", () => { lg.classList.toggle("collapsed"); S.settings.legendCollapsed = lg.classList.contains("collapsed"); saveStore(); renderLegend(); updateReserved(); });
