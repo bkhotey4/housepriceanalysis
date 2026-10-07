@@ -50,6 +50,8 @@ class WebAppTest(unittest.TestCase):
             else dict(viewport={"width": 1366, "height": 820})
         ctx = self.browser.new_context(**kw)
         ctx.route("https://wmts.nlsc.gov.tw/**", lambda r: r.abort())      # 測試不連外網
+        # 路線伺服器也不連：預設回失敗（程式退回直線距離估算）；要測道路時間的測試在頁面上另外 route
+        ctx.route("https://routing.openstreetmap.de/**", lambda r: r.abort())
         pg = ctx.new_page()
         errors = []
         pg.on("pageerror", lambda e: errors.append(str(e)))
@@ -265,6 +267,35 @@ class WebAppTest(unittest.TestCase):
             pg.wait_for_timeout(300)
             counts.append(pg.evaluate("__app.D.districts.filter(d => !__app.view.bars.find(b => b.id === d.name).dim).length"))
         self.assertLess(counts[0], counts[1])
+        # 實際道路的通勤時間：路線伺服器回應後改用道路時間（假回應：每一區都 600 秒），結果存在裝置上，換交通方式才再查
+        import json as _json
+        calls = []
+        def fake_table(route):
+            calls.append(route.request.url)
+            n = route.request.url.split("/driving/")[1].split("?")[0].count(";")
+            route.fulfill(status=200, content_type="application/json",
+                          headers={"Access-Control-Allow-Origin": "*"},
+                          body=_json.dumps({"code": "Ok", "durations": [[0] + [600] * n]}))
+        pg.route("https://routing.openstreetmap.de/**", fake_table)          # 頁面的 route 優先於 context 的
+        pg.evaluate("localStorage.removeItem('dth_route_v1')")
+        pg.reload()                                                            # 上班地點已經記住：載入時自動查一次
+        pg.wait_for_function("window.__app && window.__app.D.txs", timeout=30000)
+        pg.click("#tabs button[data-tab='commute']")
+        pg.wait_for_function("document.querySelector('#tab-body').innerText.includes('OpenStreetMap 道路')", timeout=8000)
+        self.assertEqual(len(calls), 1)
+        self.assertIn("/routed-car/table/v1/driving/", calls[0])
+        mins = pg.evaluate("__app.D.districts.map(d => __app.minsTo(d.lat, d.lng))")
+        self.assertEqual(set(mins), {round(600 / 60 * 1.25 + 3)})           # 10 分鐘 × 尖峰 1.25 ＋ 3 分鐘
+        pg.click("#tabs button[data-tab='rank']"); pg.click("#tabs button[data-tab='commute']")
+        pg.wait_for_timeout(1500)
+        self.assertEqual(len(calls), 1)                                        # 已經查過的不再查
+        # 房價所得比：總價 ÷ 家庭年收入
+        self.assertAlmostEqual(pg.evaluate("__app.L.priceIncomeRatio(1440, 100000)"), 12.0)
+        self.assertIsNone(pg.evaluate("__app.L.priceIncomeRatio(1440, 0)"))
+        pg.evaluate("__app.S.settings.incomeMonthly = '100000'")
+        pg.click("#tabs button[data-tab='rank']")
+        self.assertIn("不吃不喝幾年", pg.inner_text("#tab-body"))
+        pg.evaluate("__app.S.settings.incomeMonthly = ''; localStorage.removeItem('dth_route_v1')")
         # 地標：面板切到地標所在的行政區
         self.assertEqual(pg.evaluate("__app.search('赤崁樓')"), "landmark")
         self.assertEqual(pg.evaluate("__app.S.current"), "中西區")

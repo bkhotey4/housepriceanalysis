@@ -571,6 +571,28 @@ export function commuteMin(km, mode = "car") {
   const sp = (MODES[mode] || MODES.car)[1];
   return Math.round(FIXED_MIN + km * DETOUR / sp * 60);
 }
+// ---- 實際道路的通勤時間：FOSSGIS 的 OSRM 公開伺服器（OpenStreetMap 道路），一次請求算上班地點到所有行政區
+// 使用規則：每秒最多 1 次、不可大量使用、要標示來源；所以結果存在裝置上 30 天，同一個上班地點不重複查。
+export const ROUTE_HOST = "https://routing.openstreetmap.de";
+const ROUTE_PROFILE = { car: "routed-car", scooter: "routed-car", bike: "routed-bike" };
+// 路線時間是不塞車的理想值：開車、機車乘上尖峰係數，再加出發、停車的固定時間
+export const ROUTE_ADJ = { car: [1.25, 3], scooter: [1.15, 2], bike: [1.0, 2] };
+export function routeTableUrl(mode, from, dests) {
+  const pts = [from, ...dests].map(p => `${(+p.lng).toFixed(5)},${(+p.lat).toFixed(5)}`).join(";");
+  return `${ROUTE_HOST}/${ROUTE_PROFILE[mode] || ROUTE_PROFILE.car}/table/v1/driving/${pts}?sources=0&annotations=duration`;
+}
+// OSRM table 回應 → [分鐘]（跟 dests 同順序；到不了的是 null）
+export function parseRouteTable(json, mode, n) {
+  if (!json || json.code !== "Ok" || !json.durations || !json.durations[0]) return null;
+  const [f, fixed] = ROUTE_ADJ[mode] || ROUTE_ADJ.car;
+  return json.durations[0].slice(1, n + 1).map(s => s == null ? null : Math.round(s / 60 * f + fixed));
+}
+export const ptKey = (lat, lng) => `${(+lat).toFixed(4)},${(+lng).toFixed(4)}`;
+
+// ---- 房價所得比：總價 ÷ 家庭年收入＝「不吃不喝幾年」
+export function priceIncomeRatio(totalWan, incomeMonthly) {
+  return totalWan > 0 && incomeMonthly > 0 ? totalWan * 10000 / (incomeMonthly * 12) : null;
+}
 export function kmFor(min, mode = "car") {
   const sp = (MODES[mode] || MODES.car)[1];
   return Math.max(0, (min - FIXED_MIN) / 60 * sp / DETOUR);

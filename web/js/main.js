@@ -196,7 +196,60 @@ export function workPlace() {
   return D.workplaces.find(w => w.name === S.settings.work) || null;
 }
 export const modeName = () => (L.MODES[S.settings.mode] || L.MODES.car)[0];
-export const minsTo = (lat, lng, w = workPlace()) => w ? L.commuteMin(L.distKm(lat, lng, w.lat, w.lng), S.settings.mode) : null;
+// 通勤分鐘：查過實際道路就用道路時間（行政區中心），不然用直線距離估算
+export const minsTo = (lat, lng, w = workPlace()) => {
+  if (!w) return null;
+  const rt = routeTimes(w);
+  const m = rt && rt.mins[L.ptKey(lat, lng)];
+  return m != null ? m : L.commuteMin(L.distKm(lat, lng, w.lat, w.lng), S.settings.mode);
+};
+// ---- 實際道路的通勤時間（OSRM）：每個「上班地點＋交通方式＋縣市」查一次，存在這台裝置 30 天
+const ROUTE_KEY = "dth_route_v1", ROUTE_DAYS = 30;
+const routeState = { pending: null, failed: new Map(), last: 0 }, routeMem = new Map();      // failed：key → 失敗時間（5 分鐘後可再試）
+function routeCacheKey(w) { return [D.county ? D.county.code : D.tw ? "" : "D", S.settings.mode || "car", L.ptKey(w.lat, w.lng)].join("|"); }
+function routeStore() { try { return JSON.parse(localStorage.getItem(ROUTE_KEY) || "{}"); } catch { return {}; } }
+export function routeTimes(w = workPlace()) {
+  if (!w || isNation()) return null;
+  const k = routeCacheKey(w);
+  if (!routeMem.has(k)) routeMem.set(k, routeStore()[k] || null);      // 每組只讀一次 localStorage
+  const e = routeMem.get(k);
+  return e && Date.now() - e.t < ROUTE_DAYS * 864e5 ? e : null;
+}
+export function routeStatus(w = workPlace()) {
+  if (!w || isNation()) return "none";
+  if (routeTimes(w)) return "road";
+  const k = routeCacheKey(w);
+  return routeState.pending === k ? "loading" : Date.now() - (routeState.failed.get(k) || 0) < 5 * 60e3 ? "failed" : "estimate";
+}
+// 需要時才查（通勤分頁打開、或剛設定上班地點）；同一時間只查一個，兩次請求至少隔 1.1 秒
+export function ensureRouteTimes() {
+  const w = workPlace();
+  if (!w || isNation() || !D.districts.length || routeStatus(w) !== "estimate") return;
+  const k = routeCacheKey(w), mode = S.settings.mode || "car", dests = D.districts.slice();
+  routeState.pending = k;
+  const wait = Math.max(0, routeState.last + 1100 - Date.now());
+  setTimeout(async () => {
+    routeState.last = Date.now();
+    try {
+      const r = await fetch(L.routeTableUrl(mode, w, dests));
+      if (!r.ok) throw new Error("路線伺服器 " + r.status);
+      const mins = L.parseRouteTable(await r.json(), mode, dests.length);
+      if (!mins) throw new Error("路線伺服器沒有回傳結果");
+      const all = routeStore(), entry = { t: Date.now(), mins: {} };
+      dests.forEach((d, i) => { if (mins[i] != null) entry.mins[L.ptKey(d.lat, d.lng)] = mins[i]; });
+      all[k] = entry;
+      const keys = Object.keys(all).sort((a, b) => all[b].t - all[a].t).slice(0, 30);      // 最多留 30 組
+      try { localStorage.setItem(ROUTE_KEY, JSON.stringify(Object.fromEntries(keys.map(x => [x, all[x]])))); } catch { /* 存不下就只用這一次 */ }
+      routeMem.set(k, entry);
+    } catch (err) {
+      routeState.failed.set(k, Date.now()); logError("通勤路線", err, true);
+    } finally {
+      routeState.pending = null;
+      refreshBars(); refreshPins(); if (S.tab === "commute" || S.tab === "rank") renderPanel();
+    }
+  }, wait);
+}
+
 const commuteLimit = () => parseFloat(S.settings.commuteMin) || 0;
 function budgetOK(name) {
   const b = parseFloat(S.settings.budget);
@@ -213,6 +266,7 @@ function workOK(name) {
 const filtersOn = () => !!parseFloat(S.settings.budget) || (!!workPlace() && !!commuteLimit());
 
 function refreshBars() {
+  if (workPlace()) ensureRouteTimes();          // 已經設過上班地點：開網頁、換縣市時查一次實際道路時間
   const vals = D.districts.map(d => [d, D.book.best(d.name, S.cat, S.metric), D.book.trend(d.name, S.cat, S.metric), rentYield(d.name, S.cat === "house" ? "house" : "apt")]);
   let solid = vals.filter(([, b]) => b.value != null && !b.low).map(([, b]) => b.value);
   if (!solid.length) solid = vals.filter(([, b]) => b.value != null).map(([, b]) => b.value);
@@ -630,9 +684,12 @@ function tabOverview() {
     const gap = b.presaleGap(name), w = workPlace(), d = D.dmap[name];
     const bits = [];
     if (gap != null) bits.push(`預售屋單價比中古大樓${gap >= 0 ? "高" : "低"} ${Math.abs(gap).toFixed(0)}%`);
+    const pir = L.priceIncomeRatio(bt.value, parseFloat(S.settings.incomeMonthly));
+    if (pir) bits.push(`以家庭月收入 ${L.fmtNum(+S.settings.incomeMonthly)} 元計，這一區中位總價要<b>不吃不喝 ${pir.toFixed(1)} 年</b>（房價所得比）`);
     const heat = L.marketHeat(D.book, name, S.cat);
     if (heat) bits.push(heatText(heat));
-    if (w) bits.push(`到${esc(w.name)}：${modeName()}約 ${minsTo(d.lat, d.lng, w)} 分鐘（直線 ${L.distKm(d.lat, d.lng, w.lat, w.lng).toFixed(1)} 公里，估計）`);
+    if (w) { const road = routeTimes(w)?.mins[L.ptKey(d.lat, d.lng)] != null;
+      bits.push(`到${esc(w.name)}：${modeName()}約 ${minsTo(d.lat, d.lng, w)} 分鐘（${road ? ((L.ROUTE_ADJ[S.settings.mode] || L.ROUTE_ADJ.car)[0] > 1 ? "依道路路線、含尖峰" : "依道路路線") : `直線 ${L.distKm(d.lat, d.lng, w.lat, w.lng).toFixed(1)} 公里，估計`}）`); }
     if (bits.length) h += `<div class="summary">${bits.join("<br>")}</div>`;
     h += distSVG(name) + marketSection(name);
     h += `<div class="row">${reportButton()}<button class="btn small" data-act="cmp-add">加入比較</button><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a><a class="btn" target="_blank" rel="noopener" href="${FLOOD_URL}">淹水潛勢</a>${schoolLink(name)}` +
@@ -673,6 +730,8 @@ function tabCommute() {
     <div class="seg">${Object.entries(L.MODES).map(([k, m]) => `<button data-act="mode" data-mode="${k}" aria-checked="${s.mode === k}">${m[0]}</button>`).join("")}</div></div>
     <div class="year"><span>通勤上限</span><input type="range" id="commute-min" min="10" max="60" step="5" value="${lim}"><b id="commute-v">${lim} 分鐘</b></div>`;
   if (!w) return h + `<p class="muted">先選上班地點，或在地圖上點一下公司位置。地圖會畫出${modeName()} ${lim} 分鐘的範圍，下面列出範圍內每一區的房價。</p>`;
+  ensureRouteTimes();
+  const rs = routeStatus(w);
   const rows = D.districts.map(d => ({ d, m: minsTo(d.lat, d.lng, w), b: D.book.best(d.name, S.cat, "u"), t: D.book.best(d.name, S.cat, "t") }))
     .sort((a, b) => a.m - b.m);
   const inside = rows.filter(r => r.m <= lim && r.b.value != null);
@@ -685,20 +744,29 @@ function tabCommute() {
     h += `<tr class="click${r.b.low ? " low" : ""}" data-dist="${esc(r.d.name)}" style="${ok ? "" : "opacity:.4"}"><td>${esc(r.d.name)}</td><td class="r">${ok ? "<b>" + r.m + "</b>" : r.m} 分</td>` +
       `<td class="r">${r.b.value == null ? "—" : r.b.value.toFixed(1)}</td><td class="r">${L.fmtNum(r.t.value)}</td></tr>`;
   }
-  return h + `</tbody></table><p class="muted">通勤時間用直線距離 ×1.3 與平均車速（開車 32、機車 28、腳踏車 14 公里/時）加 3 分鐘出發時間估算，尖峰時段可能多 3～5 成；實際路線請按各區「概況」裡的「通勤路線」用 Google 地圖查。</p>`;
+  const [f] = L.ROUTE_ADJ[S.settings.mode] || L.ROUTE_ADJ.car;
+  const note = rs === "road" ? `通勤時間是依 OpenStreetMap 道路算的路線時間（到各區中心）${f > 1 ? `，${modeName()}已乘上尖峰係數 ${f}` : ""}，再加出發與停車的時間。` +
+      `路線：<a href="https://project-osrm.org/" target="_blank" rel="noopener">OSRM</a>（FOSSGIS 公開伺服器）／© OpenStreetMap 貢獻者，道路有錯可以<a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener">回報修正</a>。`
+    : rs === "loading" ? "正在向路線伺服器查實際道路的時間…（幾秒鐘）目前先顯示直線距離估算。"
+    : `通勤時間是用直線距離 ×1.3 與平均車速（開車 32、機車 28、腳踏車 14 公里/時）估算${rs === "failed" ? "（路線伺服器暫時連不上，之後重新整理會再試）" : ""}，尖峰時段可能多 3～5 成。`;
+  return h + `</tbody></table><p class="muted">${note}實際路線請按各區「概況」裡的「通勤路線」用 Google 地圖查。</p>`;
 }
 function tabRank() {
   const w = workPlace();
   const rows = D.districts.map(d => ({ d, b: D.book.best(d.name, S.cat, S.metric), t: D.book.best(d.name, S.cat, "t"), tr: D.book.trend(d.name, S.cat, S.metric),
     km: w ? minsTo(d.lat, d.lng, w) : null, ok: !filtersOn() || (budgetOK(d.name) && workOK(d.name)) }));
   rows.sort((a, b) => (b.b.value ?? -1) - (a.b.value ?? -1));
-  let h = `<table class="list"><thead><tr><th>行政區</th><th class="r">${S.metric === "u" ? "萬/坪" : "總價"}</th><th class="r">總價</th>${w ? '<th class="r">通勤</th>' : ""}<th class="r">半年</th></tr></thead><tbody>`;
+  const inc = parseFloat(S.settings.incomeMonthly) || 0;
+  let h = `<table class="list"><thead><tr><th>行政區</th><th class="r">${S.metric === "u" ? "萬/坪" : "總價"}</th><th class="r">總價</th>${inc ? '<th class="r" title="中位總價 ÷ 家庭年收入">年</th>' : ""}${w ? '<th class="r">通勤</th>' : ""}<th class="r">半年</th></tr></thead><tbody>`;
   for (const r of rows) {
     h += `<tr class="click${r.b.low ? " low" : ""}${r.d.name === S.current ? " sel" : ""}" data-dist="${esc(r.d.name)}" style="${r.ok ? "" : "opacity:.45"}"><td>${esc(r.d.name)}</td>` +
       `<td class="r">${r.b.value == null ? "—" : S.metric === "u" ? r.b.value.toFixed(1) : L.fmtNum(r.b.value)}</td><td class="r">${L.fmtNum(r.t.value)}</td>` +
+      (inc ? `<td class="r">${(v => v ? v.toFixed(1) : "—")(L.priceIncomeRatio(r.t.value, inc))}</td>` : "") +
       (w ? `<td class="r">${r.km}分</td>` : "") + `<td class="r">${L.trendText(r.tr).replace("樣本不足", "—")}</td></tr>`;
   }
-  return h + `</tbody></table><p class="muted">灰字是樣本少（近半年不到 5 件）。${filtersOn() ? "淡色是不符合預算／通勤條件。" : ""}</p>`;
+  return h + `</tbody></table><p class="muted">灰字是樣本少（近半年不到 5 件）。${filtersOn() ? "淡色是不符合預算／通勤條件。" : ""}` +
+    (inc ? `「年」是中位總價 ÷ 你的家庭年收入（${L.fmtNum(inc * 12 / 10000)} 萬），也就是不吃不喝幾年買得起。` : `在「☰ → 篩選 → 用收入算」填家庭月收入，這裡會多一欄「不吃不喝幾年」。`) +
+    ` 全國與各縣市的官方房價所得比：<a href="https://pip.moi.gov.tw/Publicize/Info/Index" target="_blank" rel="noopener">內政部不動產資訊平台</a>（每季發布）。</p>`;
 }
 export const needCounty = () => `<p class="muted">先在地圖上點一個縣市的柱子（或從「排行」選），才會載入那個縣市的逐筆成交、路段與社區。</p>`;
 function tabRoads() {
@@ -969,7 +1037,7 @@ function onSetting(el) {
   if (["landmarks", "projects", "markers", "schools"].includes(k)) refreshModels();
   if (k === "roads") refreshRoads();
   if (k === "theme") applyTheme();
-  if (k === "work" && workPlace()) { const w = workPlace(); view.flyTo(w.lat, w.lng, Math.max(view.zoom, 30)); }
+  if (k === "work" && workPlace()) { const w = workPlace(); view.flyTo(w.lat, w.lng, Math.max(view.zoom, 30)); ensureRouteTimes(); }
   view.request();
 }
 
@@ -1250,7 +1318,7 @@ function bindUI() {
     const it = S.watch.find(w => w.id === S.watchSel);
     if (act === "report") { if (S.current === L.CITY) toast("先選一個行政區或搜尋地址，再產生報告。"); else reportDialog(); return; }
     if (act === "poi") { const el = t.closest("[data-act]"); showPoi(+el.dataset.lat, +el.dataset.lng, el.dataset.label); return; }
-    if (act === "mode") { S.settings.mode = t.closest("[data-mode]").dataset.mode; saveStore(); refreshBars(); refreshPins(); renderPanel(); return; }
+    if (act === "mode") { S.settings.mode = t.closest("[data-mode]").dataset.mode; saveStore(); ensureRouteTimes(); refreshBars(); refreshPins(); renderPanel(); return; }
     if (act === "work-pick") {
       sheet("peek"); toast("在地圖上點一下上班地點 A", 6000);
       S.pickMode = ll => { S.settings.workPt = { name: "自訂地點", lat: +ll[0].toFixed(5), lng: +ll[1].toFixed(5) }; S.settings.work = "__custom";
@@ -1511,6 +1579,6 @@ export async function main() {
       document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); });
     }).catch(() => {});
   }
-  window.__app = { S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation, logError, shareUrl, renderSuggestions, selectSuggestion, hideSuggestions };   // 測試用
+  window.__app = { S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation, logError, shareUrl, renderSuggestions, selectSuggestion, hideSuggestions, minsTo };   // 測試用
 }
 main().catch(err => { logError("啟動", err); document.body.insertAdjacentHTML("beforeend", `<div class="note" style="position:fixed;top:60px;left:10px;right:10px;z-index:99">載入失敗：${esc(err.message)}</div>`); });
