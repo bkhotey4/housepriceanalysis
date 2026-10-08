@@ -1302,6 +1302,31 @@ export function popularLandmarks(data, options = {}) {
   }));
 }
 
+// ------------------------------------------------------------------ 車站搜尋（台鐵、高鐵、捷運、輕軌）
+// 「善化車站」「善化火車站」「台鐵善化站」「台南高鐵站」「捷運美麗島」都對到同一個站名主幹
+export function stationBase(s) {
+  return normTw(s || "").replace(/[（(].*$/, "").replace(/\s+/g, "")
+    .replace(/^(台鐵|捷運|高鐵|輕軌)/, "").replace(/(火車站|高鐵站|捷運站|輕軌站|車站|站|火車|車)$/, "");     // 結尾的「火車」「車」：邊打邊提示用
+}
+export function stationKindHint(text) {
+  const t = normTw(text || "");
+  return /高鐵/.test(t) ? "高鐵" : /捷運/.test(t) ? "捷運" : /輕軌/.test(t) ? "輕軌" : /火車|台鐵/.test(t) ? "台鐵" : "";
+}
+// lines: [{name, kind, operating, stations: [[站名, lat, lng], …]}]；回傳依「種類符合 → 營運中 → 台鐵優先」排序的 [{line, st}]
+export function findStations(text, lines, prefix = false) {
+  const base = stationBase(text), hint = stationKindHint(text);
+  if (!base) return [];
+  const out = [];
+  for (const ln of lines || []) for (const st of ln.stations || []) {
+    const b = stationBase(st[0]);
+    if (b === base || (prefix && base.length >= 2 && b.startsWith(base))) out.push({ line: ln, st, exact: b === base });
+  }
+  const kindOf = ln => ln.kind || (ln.operating === false ? "規劃" : "捷運");
+  const rank = x => (x.exact ? 0 : 4) + (hint && kindOf(x.line) === hint ? 0 : 2) + (x.line.operating === false ? 1 : 0)
+    + (!hint && kindOf(x.line) !== "台鐵" ? 0.5 : 0);
+  return out.sort((a, b) => rank(a) - rank(b));
+}
+
 export function quickSuggest(rawText, data, options = {}) {
   const query = normSearchQuery(rawText);
   if (!query) return [];
@@ -1557,6 +1582,25 @@ export function quickSuggest(rawText, data, options = {}) {
         dist: preferredDist,
         road: r.road,
         dists: r.dists
+      });
+    }
+  }
+
+  // 8. 車站（台鐵、高鐵、捷運、輕軌）：輸入有「站」字，或站名完全相同時才列出
+  if (data.lines && query.length >= 2) {
+    const hasStationWord = /[站車]$|站/.test(rawText);
+    for (const { line, st, exact } of findStations(rawText, data.lines, true).slice(0, 4)) {
+      if (!exact && !hasStationWord) continue;
+      const kind = line.kind || (line.operating === false ? "規劃捷運" : "捷運");
+      results.push({
+        type: "station",
+        title: st[0],
+        sub: `${line.name}${line.operating === false ? "（規劃中）" : ""}`,
+        icon: kind === "台鐵" ? "🚆" : kind === "高鐵" ? "🚄" : "🚇",
+        badge: kind === "台鐵" ? "火車站" : kind === "高鐵" ? "高鐵站" : kind.includes("輕軌") ? "輕軌站" : "捷運站",
+        score: (exact ? (hasStationWord ? 990 : 640) : 560) + (line.operating === false ? -40 : 0),
+        line: line.name,
+        st
       });
     }
   }

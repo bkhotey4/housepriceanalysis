@@ -1,6 +1,23 @@
 // 搜尋：即時自動補全、地址／地標／路名搜尋與標記（從 main.js 拆出來；共用的狀態與小工具從 main.js 匯入）
 import * as L from "./logic.js";
-import { $, D, S, ZOOM, enterCounty, esc, isNation, loadRoads, main, pick, refreshPins, refreshRoads, renderPanel, roadsNow, selectDistrict, sheet, toast, view } from "./main.js";
+import { $, D, S, ZOOM, allLines, enterCounty, esc, isNation, loadRoads, main, pick, refreshPins, refreshRoads, renderPanel, roadsNow, selectDistrict, sheet, toast, view } from "./main.js";
+
+// 車站：全台版先切到車站所在的縣市（看路線標的縣市；跨縣市的線用最近的縣市中心），再移到最近的行政區
+async function gotoStation(lineName, st) {
+  const [name, lat, lng] = st;
+  if (D.tw) {
+    const ln = allLines().find(l => l.name === lineName) || {};
+    const near = D.tw.counties.filter(c => c.has_data && (!(ln.counties || []).length || ln.counties.includes(c.code)))
+      .map(c => [c, L.distKm(lat, lng, c.lat, c.lng)]).sort((a, b) => a[1] - b[1]);
+    const code = (ln.counties || []).length === 1 ? ln.counties[0] : near.length ? near[0][0].code : null;
+    if (code && (!D.county || D.county.code !== code)) { if (!(await enterCounty(code, false))) return; }
+  }
+  const d = (D.districts || []).map(x => [x, L.distKm(lat, lng, x.lat, x.lng)]).sort((a, b) => a[1] - b[1])[0];
+  if (d && d[1] <= 15 && d[0].name !== S.current) selectDistrict(d[0].name, false);
+  pick(["station", [lineName, name]]);
+  view.flyTo(lat, lng, Math.max(view.zoom, ZOOM.point));
+  toast(`已定位車站：${name}（${lineName}）`);
+}
 
 // ------------------------------------------------------------------ 即時自動補全與搜尋提示（Google Maps 風格）
 export const sugState = { index: -1, list: [], timer: null };      // 目前的提示清單、鍵盤選到第幾個、輸入防抖計時器
@@ -50,7 +67,8 @@ export function renderSuggestions(query) {
     landmarks: D.landmarks || [],
     schools: D.schools || [],
     intel: D.intel || [],
-    twCounties: D.tw ? D.tw.counties : []
+    twCounties: D.tw ? D.tw.counties : [],
+    lines: allLines()
   };
 
   if (!query) {
@@ -155,6 +173,8 @@ export async function selectSuggestion(item) {
   } else if (item.type === "project") {
     pick(["project", item.pr.id]);
     toast(`已定位建設：${item.title}`);
+  } else if (item.type === "station") {
+    await gotoStation(item.line, item.st);
   } else if (item.type === "road") {
     await showAddress({ district: item.dist, road: item.road, text: item.road });
   } else if (item.type === "address") {
@@ -167,6 +187,12 @@ export async function search(text) {
   text = (text || "").trim();
   if (!text) return;
   hideSuggestions();
+  // 車站：有「站」字就先找站名（例如「善化車站」「善化火車站」「台南高鐵站」）；前面帶縣市的先拿掉
+  if (/站/.test(text)) {
+    const bare = L.splitCounty(text)[1] || text;
+    const hits = L.findStations(bare, allLines());
+    if (hits.length) { await gotoStation(hits[0].line.name, hits[0].st); return "station"; }
+  }
   if (D.tw) {
     // 全台版：先判斷縣市；地址開頭有縣市就切過去，沒有就在目前的縣市找，首頁時再用鄉鎮名稱猜縣市
     let [c, rest] = L.splitCounty(text);
