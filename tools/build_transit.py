@@ -404,6 +404,12 @@ def main():
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     os.makedirs(os.path.dirname(WEB_OUT), exist_ok=True)
     shutil.copyfile(OUT, WEB_OUT)
+    # 明細檔加上最後合成的路線清單（網站上 data/tw/transit_report.json 看得到，方便確認）
+    with open(REPORT, "w", encoding="utf-8") as f:
+        json.dump({"as_of": out["as_of"], "v": VERSION, "tra_failed": tra_failed, "tra_elements": len(tra_elements),
+                   "lines": [{"name": ln["name"], "kind": ln.get("kind"), "stations": len(ln["stations"]),
+                              "segments": len(ln["segments"]), "counties": ln["counties"]} for ln in lines],
+                   "relations": report}, f, ensure_ascii=False, indent=0)
     print("完成：%d 條路線、%d 個車站" % (len(lines), sum(len(ln["stations"]) for ln in lines)))
     for ln in lines:
         print("  %s %s（%s）%d 站" % (ln["kind"], ln["name"], "、".join(ln["counties"]), len(ln["stations"])))

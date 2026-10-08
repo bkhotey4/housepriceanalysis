@@ -18,7 +18,9 @@ import re
 from .prices import PING_M2, category_of, median, ym_add
 
 _EXCL = re.compile("親友|員工|特殊關係|二親等|關係人|公司宿舍|員工宿舍")
-REQUIRED = ("鄉鎮市區", "租賃年月日", "總額元", "建物總面積平方公尺")
+# 必要欄位（內政部歷年改版寫法不同：舊版租賃檔沿用買賣檔的欄名，例如「交易年月日」「總價元」）
+REQUIRED = {"dist": ("鄉鎮市區",), "date": ("租賃年月日", "交易年月日"), "total": ("總額元", "租金總額元", "總價元"),
+            "area": ("建物總面積平方公尺", "建物移轉總面積平方公尺", "租賃建物總面積平方公尺")}
 CATS = [("all", "全部"), ("apt", "大樓／華廈／公寓"), ("house", "透天"), ("room", "套房／雅房")]
 CAT_LABEL = dict(CATS)
 MIN_N = 5
@@ -38,7 +40,7 @@ def _col(header, *names):
             return header.index(n)
     for n in names:
         for i, h in enumerate(header):
-            if n in h:
+            if n in h and (n.startswith("車位") or not h.startswith("車位")):
                 return i
     return None
 
@@ -72,14 +74,14 @@ def parse_rent_csv(text):
         if header is None:
             if r[0].strip() == "鄉鎮市區":
                 header = [h.strip() for h in r]
-                idx = {k: _col(header, k) for k in REQUIRED}
+                idx = {k: _col(header, *names) for k, names in REQUIRED.items()}
                 if None in idx.values():
                     return []
                 idx.update({
                     "target": _col(header, "交易標的"), "addr": _col(header, "土地位置建物門牌", "建物門牌"),
                     "btype": _col(header, "建物型態"), "use": _col(header, "主要用途"),
                     "built": _col(header, "建築完成年月"), "rooms": _col(header, "建物現況格局-房"),
-                    "park": _col(header, "車位總額元", "車位總金額元"), "note": _col(header, "備註"),
+                    "park": _col(header, "車位總額元", "車位總金額元", "車位總價元"), "note": _col(header, "備註"),
                     "id": _col(header, "編號"), "mode": _col(header, "出租型態"),
                 })
             continue
@@ -93,14 +95,14 @@ def parse_rent_csv(text):
         cat = rent_cat(g("btype"), g("mode"), g("use"))
         if not cat:
             continue
-        d = g("租賃年月日")
+        d = g("date")
         if not (len(d) == 7 and d.isdigit()):
             continue
         year, month = int(d[:3]) + 1911, int(d[3:5])
         if not 1 <= month <= 12:
             continue
-        rent = _num(g("總額元")) - _num(g("park"))
-        area = _num(g("建物總面積平方公尺"))
+        rent = _num(g("total")) - _num(g("park"))
+        area = _num(g("area"))
         if area <= 0:
             continue
         ping = area / PING_M2
@@ -111,7 +113,7 @@ def parse_rent_csv(text):
             continue
         built = g("built")
         rooms = int(_num(g("rooms")))
-        out.append({"id": g("id"), "dist": g("鄉鎮市區"), "ym": "%04d-%02d" % (year, month), "cat": cat,
+        out.append({"id": g("id"), "dist": g("dist"), "ym": "%04d-%02d" % (year, month), "cat": cat,
                     "rent": rent, "ping": ping, "unit": unit, "rooms": rooms,
                     "built": int(built[:3]) + 1911 if len(built) == 7 and built.isdigit() else None})
     return out
@@ -190,3 +192,12 @@ def gross_yield(rent_unit, sale_unit_wan):
     if not rent_unit or not sale_unit_wan:
         return None
     return rent_unit * 12 / (sale_unit_wan * 10000) * 100
+
+
+def header_of(text):
+    """CSV 第一列（中文表頭），診斷用。"""
+    if text.startswith("\ufeff"):
+        text = text[1:]
+    for r in csv.reader(io.StringIO(text)):
+        return [h.strip() for h in r]
+    return []

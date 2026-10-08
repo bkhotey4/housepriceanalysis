@@ -75,6 +75,18 @@ def town_list(county, towns_osm, txs):
     return out
 
 
+def rent_diag(code, parsed):
+    files = plvr_tw.rent_files(code)
+    rows, header = 0, []
+    for path in files:
+        with open(path, "rb") as f:
+            text = f.read().decode("utf-8-sig", "replace")
+        rows += max(0, text.count("\n") - 2)
+        if not header and text.strip():
+            header = rent.header_of(text)
+    return {"files": len(files), "rows": rows, "parsed": parsed, "header": header}
+
+
 def road_list(code):
     d = os.path.join(OUT, code, "roads")
     return sorted(f[:-5] for f in os.listdir(d) if f.endswith(".json")) if os.path.isdir(d) else []
@@ -132,7 +144,7 @@ def main():
     if not towns.get("D"):           # 還沒跑過 build_towns：臺南市用內建的行政區位置
         towns["D"] = [{"name": d["name"], "lat": d["lat"], "lng": d["lng"], "zone": d.get("zone", "")} for d in geo.load_districts()]
     as_of = plvr_tw.as_of()
-    all_tx, all_rent, counties, books = [], [], [], {}
+    all_tx, all_rent, counties, books, rent_report = [], [], [], {}, {}
     for c in COUNTIES:
         if args.legacy_tainan:
             txs, cancels = (prices.load_transactions() if c["code"] == "D" else []), []
@@ -165,6 +177,8 @@ def main():
             for x in txs:
                 all_tx.append(dict(x, dist=c["short"]))
             rents = [] if args.legacy_tainan else plvr_tw.load_county_rent(c["code"])
+            if not args.legacy_tainan:
+                rent_report[c["code"]] = rent_diag(c["code"], len(rents))
             if rents:
                 rb = rent.build_rent_book(rents, names, raw["complete_through"], c["short"])
                 _dump("%s/rent.json" % c["code"], rb)
@@ -180,6 +194,8 @@ def main():
     nat = prices.build_book(all_tx, [c["short"] for c in counties if c["has_data"]], as_of=as_of, source="live",
                             total=NATION, note="內政部不動產交易實價查詢服務網開放資料", today_ym=today.strftime("%Y-%m"))
     _dump("book.json", nat)
+    # 租賃檔的診斷（網站上看得到 data/tw/rent_report.json）：有幾個檔、表頭、原始列數、解析出幾筆
+    _dump("rent_report.json", {"built": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "counties": rent_report})
     if all_rent:
         _dump("rent.json", rent.build_rent_book(all_rent, [c["short"] for c in counties if c.get("rent_n")],
                                                 nat["complete_through"], NATION))

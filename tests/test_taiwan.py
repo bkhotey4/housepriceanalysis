@@ -198,6 +198,16 @@ class RentTest(unittest.TestCase):
         self.assertEqual(len(rent.parse_rent_csv(buf2.getvalue())), 22)
         self.assertEqual(rent.parse_rent_csv("鄉鎮市區,交易標的\n東區,建物\n"), [])     # 缺必要欄位
 
+    def test_old_style_header(self):
+        """舊版租賃檔沿用買賣檔的欄名（交易年月日、總價元、建物移轉總面積平方公尺）也讀得到；車位欄不會被誤認成月租。"""
+        h = ("鄉鎮市區,交易標的,土地區段位置或建物區門牌,交易年月日,建物型態,主要用途,建物移轉總面積平方公尺,建物現況格局-房,"
+             "車位總價元,總價元,備註,編號")
+        row = "東區,房地(土地+建物),臺南市東區林森路1號,1150701,住宅大樓(11層含以上有電梯),住家用,99.2,3,2000,22000,,X1"
+        got = rent.parse_rent_csv(h + "\n" + row + "\n")
+        self.assertEqual(len(got), 1)
+        self.assertEqual(got[0]["rent"], 20000)
+        self.assertEqual(rent.header_of(h)[0], "鄉鎮市區")
+
     def test_book_and_yield(self):
         b = rent.build_rent_book(self.items, ["東區", "中西區", "永康區"], "2026-08", "臺南市")
         self.assertEqual(b["window"], ["2025-09", "2026-08"])

@@ -210,6 +210,17 @@ def load_county(code, cancels=None):
     return prices.dedupe([x for x in txs if x["id"] not in gone])
 
 
+def rent_files(code):
+    """某縣市已下載的租賃檔路徑（診斷用）。"""
+    code = code.lower()
+    out = []
+    for name in folders():
+        path = os.path.join(_dir(name), "%s_lvr_land_c.csv" % code)
+        if os.path.exists(path):
+            out.append(path)
+    return out
+
+
 def load_county_rent(code):
     """某縣市的所有住宅租賃（已去重）；沒有租賃檔回傳空 list。"""
     from . import rent
