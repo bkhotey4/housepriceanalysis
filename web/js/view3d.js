@@ -370,7 +370,8 @@ export class View3D {
   }
   _sprite(m, sel) {
     // 立體圖案先畫在小畫布上（快取），每一格只要貼圖
-    const sizePx = Math.max(42, Math.min(88, 36 + this.zoom * 0.35)) * (m.size || 1);
+    // 縣市總覽（縮得比較小）時，第一級地標放大一點，才看得出是什麼
+    const sizePx = Math.max(m.rank === 1 ? 54 : 42, Math.min(88, 36 + this.zoom * 0.35)) * (m.size || 1);
     const sizeQ = Math.round(sizePx / 4) * 4, azQ = Math.round(this.az / 2) * 2, pQ = Math.round(this.pitch / 2) * 2;
     const key = [m.model, m.state || "", sizeQ, azQ, pQ, sel ? 1 : 0].join("|");
     let sp = this.sprites.get(key);
@@ -495,7 +496,9 @@ export class View3D {
         c.drawImage(sp.cv, Math.round(sx + sp.dx), Math.round(sy + sp.dy), sp.w, sp.h);
         const box = [sx + sp.box[0], sy + sp.box[1], sx + sp.box[2], sy + sp.box[3]];
         this.hits.push({ kind: hk, id: o.id, x0: box[0] - 2, y0: box[1] - 2, x1: box[2] + 2, y1: box[3] + 2, depth: it.depth + 500 });
-        if (sel || (!fast && z >= (hk === "project" ? 22 : 26)))
+        // 名稱：第一級地標在縣市總覽就顯示，其他放大後才顯示（標籤會自動避開重疊）
+        const showAt = hk === "project" ? 22 : (o.rank || 3) === 1 ? 6 : (o.rank || 3) === 2 ? 18 : 26;
+        if (sel || (!fast && z >= showAt))
           labels.push({ prio: sel ? 2 : -1, n: 30 - (o.rank || 3), kind: hk, id: o.id, text: o.label, x: (box[0] + box[2]) / 2, y: box[1] - 2, small: true });
       } else if (it.kind === 4) {
         const [sx, sy] = it.g, sel = this.selected && this.selected[0] === "poi" && this.selected[1] === o.id, r = sel ? 10 : 8;
