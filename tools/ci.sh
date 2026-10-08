@@ -28,9 +28,8 @@ step static  "情資、捷運、地標"           1 python tools/export_web.py -
 step plvr    "全台實價登錄"               0 python tools/export_tw.py --update
 step long    "長期房價走勢（近 5 年）"     0 python tools/build_long.py
 git add data/tw/long 2>/dev/null || true              # 舊季檔的摘要存回專案（原始檔不保留）
-if [ "$EVENT" = "push" ]; then              # 人口資料集代碼探測（只在推送程式時跑，約 2～4 分鐘；結果在 web/data/tw/pop_probe.json）
-  step pop   "人口資料來源探測"           0 python tools/probe_population.py
-fi
+step pop     "人口成長與年齡結構"          0 python tools/build_population.py
+git add data/tw/population.json 2>/dev/null || true   # 戶政司資料整理結果存回專案（超過 25 天才重抓）
 step transit "捷運與高鐵路線"             0 python tools/build_transit.py
 git add data/tw/transit.json 2>/dev/null || true     # 和鄉鎮清單一起存回專案（每 30 天重抓一次）
 step roads   "各區道路位置（逐步補抓）"    0 python tools/fetch_roads_tw.py --minutes "$ROAD_MIN"

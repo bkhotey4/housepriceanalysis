@@ -107,8 +107,13 @@ def _season(name, progress, insecure):
     if got >= len(CODES) - 2:          # 離島偶爾整季沒有檔案
         _mark_done("season_" + name, "per-county %d" % got)
         return True
-    shutil.rmtree(_dir("season_" + name), ignore_errors=True)
+    if not _old_done("season_" + name):  # 舊版下載過（只有 _done）的保留，下次再補抓租賃檔；全新的半套才刪掉
+        shutil.rmtree(_dir("season_" + name), ignore_errors=True)
     return False
+
+
+def _old_done(name):
+    return os.path.exists(os.path.join(_dir(name), "_done"))
 
 
 def update(progress=None, seasons_wanted=5, insecure=False, today=None):
@@ -118,10 +123,10 @@ def update(progress=None, seasons_wanted=5, insecure=False, today=None):
     found = []
     for roc, q in plvr.season_candidates(today):
         name = plvr.season_name(roc, q)
-        if is_done("season_" + name) or _season(name, progress, insecure):
-            found.append((roc, q))
+        if is_done("season_" + name) or _season(name, progress, insecure) or _old_done("season_" + name):
+            found.append((roc, q))         # 這次下載失敗但舊版資料還在，也照樣用（不會因為一次忙線就刪掉舊季檔）
         elif found:
-            break
+            continue                       # 中間有一季抓不到：跳過，繼續找更舊的，湊滿 seasons_wanted 季
         if len(found) >= seasons_wanted:
             break
     if not found:
@@ -162,14 +167,14 @@ def update(progress=None, seasons_wanted=5, insecure=False, today=None):
     if got < len(CODES):
         got = max(got, _per_county("cur_new", lambda code, kind: "%s/Download?fileName=%s_lvr_land_%s.csv" % (BASE_URL, code, kind),
                                    progress, insecure))
-    if got:
+    if got >= len(CODES) - 2 or (got and not is_done("cur") and not _old_done("cur")):
         shutil.rmtree(_dir("cur"), ignore_errors=True)
         os.replace(_dir("cur_new"), _dir("cur"))
         _mark_done("cur", today.isoformat())
     else:
         shutil.rmtree(_dir("cur_new"), ignore_errors=True)
-        _say(progress, "本期檔一個縣市都沒拿到，沿用上次下載的本期檔。")
-    if is_done("cur"):
+        _say(progress, "本期檔只拿到 %d 個縣市，沿用上次下載的本期檔。" % got)
+    if is_done("cur") or _old_done("cur"):
         keep.add("cur")
 
     # 清掉用不到的舊資料夾（被新季檔涵蓋的前期檔、太舊的季檔）

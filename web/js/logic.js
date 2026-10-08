@@ -1670,7 +1670,7 @@ export function planTrip(pts, start = null) {
 export function tripUrl(order, start = null, mode = "car") {
   if (!order.length) return null;
   const ll = p => `${(+p.lat).toFixed(6)},${(+p.lng).toFixed(6)}`;
-  const origin = start || order[0], stops = start ? order : order.slice(1);
+  const origin = start || order[0], stops = (start ? order : order.slice(1)).slice(0, 10);     // 9 個中途點＋終點
   if (!stops.length) return `https://www.google.com/maps/search/?api=1&query=${ll(origin)}`;
   const dest = stops[stops.length - 1], way = stops.slice(0, -1).slice(0, 9);
   return `https://www.google.com/maps/dir/?api=1&origin=${ll(origin)}&destination=${ll(dest)}` +
@@ -1693,7 +1693,9 @@ export function sellHouse(o) {
   const sell = n(o.sell), buy = n(o.buy), years = n(o.years);
   if (!(sell > 0)) return null;
   const agent = sell * (n(o.agent) ?? 4) / 100, fees = n(o.fees) ?? 1.5, loan = n(o.loan) ?? 0, landTax = n(o.landTax) ?? 0;
-  const old = n(o.bought) != null && n(o.bought) < 2016;
+  let bought = n(o.bought);
+  if (bought != null && bought > 0 && bought < 1000) bought += 1911;      // 填民國年（例如 105）也認得
+  const old = bought != null && bought < 2016;
   let tax = 0, gain = null, taxable = null, rate = null, rule;
   if (old) {
     const hv = n(o.oldHouseVal) ?? sell * 0.1;
@@ -1750,5 +1752,46 @@ export function longChange(series, years, minN = 10) {
   const a = [pick(last), pick(last - 1)], b = [back(a[0].m), back(a[1].m)].map(m => idx.has(m) ? series[idx.get(m)] : null);
   if (b.some(x => !x) || [...a, ...b].some(x => x.n < minN / 2) || a[0].n + a[1].n < minN || b[0].n + b[1].n < minN) return null;
   const avg = xs => xs.reduce((s, x) => s + x.v * x.n, 0) / xs.reduce((s, x) => s + x.n, 0);
-  return { pct: (avg(a) / avg(b) - 1) * 100, from: b[1].m, to: end };
+  return { pct: (avg(a) / avg(b) - 1) * 100, from: b[1].m, to: end, years };
+}
+
+// ------------------------------------------------------------------ 人口成長與年齡結構（tools/build_population.py 產生的 pop.json）
+export function popInfo(pd, name) {
+  const c = pd && pd.data && (pd.data[name] || pd.data[normTw(name)]);
+  if (!c) return null;
+  const ys = (pd.years || []).map(String).filter(y => c.pop[y]);
+  const first = ys[0], last = ys[ys.length - 1], prev = ys[ys.length - 2];
+  const pct = (a, b) => a && b ? (b / a - 1) * 100 : null;
+  const age = c.age || [], tot = age.reduce((a, b) => a + b, 0);
+  const share = tot ? age.map(v => v / tot * 100) : null;
+  const work = tot ? age[1] + age[2] + age[3] : 0;
+  const now = c.now || (last ? c.pop[last] : 0);
+  const nm = (pd.mig_months || []).length, net = nm ? Math.round(((c.in12 || 0) - (c.out12 || 0)) * 12 / nm) : 0;   // 不滿 12 個月時換算成一年
+  return {
+    now, hh: c.hh || null, perHH: c.hh && c.now ? c.now / c.hh : null,
+    chgAll: pct(c.pop[first], c.pop[last]), span: first && last ? +last - +first : 0, from: first, to: last,
+    chg1: pct(c.pop[prev], c.pop[last]),
+    share, old: share ? share[4] : null, young: share ? share[2] : null, kids: share ? share[0] : null,
+    depOld: work ? age[4] / work * 100 : null,
+    net: pd.mig_months && pd.mig_months.length ? net : null, netRate: now && pd.mig_months && pd.mig_months.length ? net / now * 1000 : null,
+  };
+}
+
+// ------------------------------------------------------------------ 房價時光機：各區每一季的中位價（近 5 年），給地圖上的柱子用
+// 件數太少（少於 minN）的季不畫，避免單一筆成交讓柱子忽高忽低；回傳 {quarters, vals: {區: [值或 null…]}, lo, hi}
+export function timeTable(lb, names, cat, metric = "u", minN = 3) {
+  if (!lb) return null;
+  const series = Object.fromEntries(names.map(n => [n, longSeries(lb, n, cat, metric)]));
+  const qs = [...new Set(Object.values(series).flatMap(s => s.map(p => p.m)))].sort();
+  if (qs.length < 4) return null;
+  const vals = {}, all = [];
+  for (const n of names) {
+    const m = new Map(series[n].filter(p => p.n >= minN).map(p => [p.m, p.v]));
+    vals[n] = qs.map(q => m.has(q) ? m.get(q) : null);
+    all.push(...vals[n].filter(v => v != null));
+  }
+  if (!all.length) return null;
+  all.sort((a, b) => a - b);
+  const pick = f => all[Math.min(all.length - 1, Math.max(0, Math.round(f * (all.length - 1))))];
+  return { quarters: qs, vals, lo: pick(0.05), hi: pick(0.98) };
 }

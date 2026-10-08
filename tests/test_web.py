@@ -309,6 +309,11 @@ class WebAppTest(unittest.TestCase):
         self.assertAlmostEqual(r["net"], 1800 - 500 - 72 - 1.5 - 17 - 20)
         r = pg.evaluate("__app.L.sellHouse({sell: 1800, buy: 1200, years: 1.5, self: true})")
         self.assertEqual(r["rate"], 45)
+        self.assertFalse(pg.evaluate("__app.L.sellHouse({sell: 1800, buy: 1200, years: 9, bought: 106}).old"))   # 民國年 106＝2017
+        self.assertTrue(pg.evaluate("__app.L.sellHouse({sell: 1800, bought: 103}).old"))
+        url = pg.evaluate("__app.L.tripUrl(Array.from({length: 12}, (_, i) => ({lat: 23 + i / 100, lng: 120.3})))")
+        self.assertEqual(url.count("%7C"), 8)                       # 9 個中途點
+        self.assertIn("destination=23.100000", url)                 # 終點是第 11 間（沒有跳過中間的）
         self.assertAlmostEqual(pg.evaluate("__app.L.rebuyRefund(100, 1800, 900)"), 50)
         pg.evaluate("__app.S.tab = 'overview'; __app.selectDistrict('善化區')")
         pg.evaluate("document.querySelector(`details[data-det='sellOpen'] > summary`).click()")
@@ -339,6 +344,12 @@ class WebAppTest(unittest.TestCase):
         pg.evaluate("document.querySelector(`#tab-body tr[data-watch='a'] td:nth-child(2)`).click()")
         pg.select_option("select[data-wcheck='light']", "2"); pg.select_option("select[data-wcheck='noise']", "0")
         pg.select_option("select[data-wnote='rating']", "4")
+        # 優點打完直接按「編輯」：一次就打開（不會被重畫吃掉）
+        pg.fill("textarea[data-wnote='pros']", "邊間採光好")
+        pg.click("#tab-body [data-act='watch-edit']")
+        self.assertTrue(pg.evaluate("!!document.querySelector('dialog[open]')"))
+        pg.evaluate("document.querySelector('dialog[open]').close()")
+        self.assertEqual(pg.evaluate("__app.S.watch.find(w => w.id === 'a').pros"), "邊間採光好")
         body = pg.inner_text("#tab-body")
         self.assertIn("得分 50%", body); self.assertIn("要注意：噪音", body)
         self.assertEqual(pg.evaluate("__app.S.watch.find(w => w.id === 'a').rating"), 4)
@@ -436,6 +447,18 @@ def _make_tw_fixture(root):
                         "u": 80 + k * 0.3 + j * 0.05, "tw": 2500 + k * 10})
     months = prices.ym_range("2021-04", raw["complete_through"])
     export_tw._dump("A/long.json", longterm.long_book(longterm.summarize(old, "台北市"), months, raw, raw["months"][0]))
+    from tools import build_population             # 人口：大安區近 5 年增加、信義區減少
+    pop = {"years": [110, 111, 112, 113, 114], "month": "11508", "mig_months": ["114%02d" % m for m in range(9, 13)] + ["115%02d" % m for m in range(1, 9)], "counties": {"A": {
+        "大安區": {"pop": {str(y): 300000 + (y - 110) * 2000 for y in range(110, 115)}, "now": 308500, "hh": 120000,
+                 "age": [30000, 30000, 90000, 90000, 68500], "in12": 9000, "out12": 7000},
+        "信義區": {"pop": {str(y): 220000 - (y - 110) * 3000 for y in range(110, 115)}, "now": 208000, "hh": 90000,
+                 "age": [20000, 20000, 50000, 60000, 58000], "in12": 5000, "out12": 6500}}}}
+    old_web = build_population.WEB_TW
+    build_population.WEB_TW = export_tw.OUT
+    try:
+        build_population.write_web(pop)
+    finally:
+        build_population.WEB_TW = old_web
     line = [25.0335, 121.5300, 25.0337, 121.5400, 25.0339, 121.5500]
     export_tw._dump("A/roads/大安區.json", {"roads": {"信義路三段": [line]}, "places": {}, "fetched": "2026-10-02"})
     # 全台首頁的統計：原本的臺南市＋假的臺北市
@@ -607,6 +630,38 @@ class TaiwanWebTest(unittest.TestCase):
         pg.evaluate("document.querySelector(`#tab-body [data-act='span'][data-span='5']`).click()")
         self.assertIn("每季中位單價", pg.inner_text("#tab-body h2"))
         self.assertEqual(pg.evaluate("__app.S.settings.span"), 5)
+        # 房價時光機：縣市總覽拉到第一季 → 柱子變成那一季的價格、圖例顯示季別；按「回到現在」恢復
+        pg.evaluate("__app.S.tab = 'overview'; __app.selectDistrict(__app.L.CITY)")
+        self.assertIn("房價時光機", pg.inner_text("#tab-body"))
+        now_label = pg.evaluate("__app.view.bars.find(b => b.id === '大安區').label")
+        pg.evaluate("(() => { const r = document.querySelector('#tm-range'); r.value = 0; r.dispatchEvent(new Event('input', {bubbles: true})); })()")
+        self.assertIn("⏳ 2021 年第 2 季", pg.inner_text("#legend"))
+        old_label = pg.evaluate("__app.view.bars.find(b => b.id === '大安區').label")
+        self.assertNotEqual(old_label, now_label)
+        self.assertRegex(old_label, r"大安區 8\d\.\d")                 # 2021 年的單價約 80 出頭
+        self.assertEqual(pg.evaluate("__app.view.bars.find(b => b.id === '中正區').value"), None)
+        pg.evaluate("document.querySelector('#tm-play').click()"); pg.wait_for_timeout(1600)
+        self.assertGreater(pg.evaluate("__app.S.tm.i"), 0)
+        # 播放中換成總價：下一格用總價的表（不會跳回單價）
+        pg.evaluate("document.querySelector(`#chips [data-metric='t']`).click()"); pg.wait_for_timeout(900)
+        self.assertGreater(pg.evaluate("__app.view.bars.find(b => b.id === '大安區').value || 0"), 1000)
+        pg.evaluate("document.querySelector(`#chips [data-metric='u']`).click()")
+        # 播放中點一個區：時光機停止、柱子回到現在
+        pg.evaluate("__app.selectDistrict('大安區')")
+        self.assertIsNone(pg.evaluate("__app.S.tm"))
+        self.assertNotIn("⏳", pg.inner_text("#legend"))
+        pg.evaluate("__app.S.tab = 'overview'; __app.selectDistrict(__app.L.CITY)")
+        pg.evaluate("document.querySelector('#tm-play').click()"); pg.wait_for_timeout(300)
+        pg.evaluate("document.querySelector('#tm-stop').click()")
+        self.assertIsNone(pg.evaluate("__app.S.tm"))
+        self.assertNotIn("⏳", pg.inner_text("#legend"))
+        pg.evaluate("__app.selectDistrict('大安區')")
+        # 人口與年齡結構
+        body = pg.inner_text("#tab-body")
+        self.assertIn("人口與年齡結構", body); self.assertIn("308,500", body); self.assertRegex(body, r"近 4 年 \+2\.7%")
+        self.assertIn("遷入比遷出多 2,000 人", body)
+        pg.evaluate("__app.S.settings.color = 'pop'; __app.selectDistrict('大安區')")
+        self.assertIn("近 5 年人口增減", pg.inner_text("#legend"))
         pg.evaluate("document.querySelector(`#tabs [data-tab='rank']`).click()")
         self.assertIn("5 年", pg.inner_text("#tab-body thead"))
         self.assertRegex(pg.inner_text("#tab-body"), r"\+\d+%")
@@ -625,6 +680,9 @@ class TaiwanWebTest(unittest.TestCase):
         pg.wait_for_function("window.__app && __app.D.county && __app.S.current === '信義區'")
         st = pg.evaluate("({cat: __app.S.cat, m: __app.S.metric, tab: __app.S.tab})")
         self.assertEqual(st, {"cat": "apt", "m": "t", "tab": "rank"})
+        # 柱子也要換成「大樓總價」（不能還是全部合併的單價）
+        bar = pg.evaluate("__app.view.bars.find(b => b.id === '信義區').value")
+        self.assertEqual(bar, pg.evaluate("__app.D.book.best('信義區', 'apt', 't').value"))
         self.assertEqual(pg.evaluate("document.querySelector('#chips [data-cat=apt]').getAttribute('aria-checked')"), "true")
         self.assertIn("d=%E4%BF%A1%E7%BE%A9%E5%8D%80", pg.evaluate("location.search"))
         pg.evaluate("__app.selectDistrict('大安區')")

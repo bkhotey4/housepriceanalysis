@@ -153,6 +153,25 @@ class NationalDownloadTest(unittest.TestCase):
         self.assertTrue(rents)
         self.assertEqual(plvr_tw.load_county_rent("A"), [])
 
+    def test_failed_redownload_keeps_old_seasons(self):
+        """舊版季檔重抓時忙線失敗：舊資料照樣保留、照樣讀得到，不會把其他季也一起刪掉。"""
+        today = datetime.date(2026, 10, 2)
+        plvr_tw.update(seasons_wanted=2, today=today, progress=lambda m: None)
+        before = sorted(n for n in plvr_tw.folders() if n.startswith("season_"))
+        self.assertEqual(len(before), 2)
+        d = plvr_tw._dir(before[0])
+        os.rename(os.path.join(d, plvr_tw.DONE), os.path.join(d, "_done"))
+        good = plvr.fetch
+
+        def busy(url, **kw):
+            if "DownloadSeason" in url:
+                raise plvr.DownloadError("忙線")
+            return good(url, **kw)
+        plvr.fetch = busy
+        plvr_tw.update(seasons_wanted=2, today=today, progress=lambda m: None)
+        self.assertEqual(sorted(n for n in plvr_tw.folders() if n.startswith("season_")), before)
+        self.assertTrue(plvr_tw.load_county("D"))
+
     def test_old_cache_still_readable_and_refetched(self):
         """舊版下載的資料夾（只有 _done、沒有租賃檔）照樣讀得到；更新時會重抓一次補上租賃檔。"""
         plvr_tw.update(seasons_wanted=2, today=datetime.date(2026, 10, 2), progress=lambda m: None)
@@ -219,6 +238,13 @@ class LongTermTest(unittest.TestCase):
                 lb = json.load(f)
             self.assertIn("台南市", lb["data"])
             self.assertEqual(len(lb["months"]), len(set(lb["months"])))
+            with open(os.path.join(build_long.WEB_TW, "long.json"), encoding="utf-8") as f:
+                nat = json.load(f)
+            self.assertEqual(nat["data"]["全台"]["all"]["n"], nat["data"]["台南市"]["all"]["n"])     # 全台合計也有長期資料
+            # 壞掉的摘要檔：會被當成沒有、重抓
+            bad = sorted(os.listdir(build_long.LONG_DIR))[0]
+            with open(os.path.join(build_long.LONG_DIR, bad), "w") as f:
+                f.write("{broken")
             # 再跑一次：已經有的不重抓，再補 2 季
             n0 = sum("DownloadSeason" in u for u in calls)
             _sys.argv = ["build_long.py", "--max", "2"]
@@ -226,10 +252,64 @@ class LongTermTest(unittest.TestCase):
                 build_long.main()
             finally:
                 _sys.argv = argv
-            self.assertEqual(len(os.listdir(build_long.LONG_DIR)), 4)
-            self.assertLessEqual(sum("DownloadSeason" in u for u in calls) - n0, 3)
+            self.assertEqual(len(os.listdir(build_long.LONG_DIR)), 3)       # 壞掉的那季重抓＋新補 1 季（一次最多 2 季）
+            with open(os.path.join(build_long.LONG_DIR, bad), encoding="utf-8") as f:
+                self.assertEqual(json.load(f)["season"], bad[:-5])
+            self.assertLessEqual(sum("DownloadSeason" in u for u in calls) - n0, 4)
         finally:
             build_long.LONG_DIR, build_long.WEB_TW, plvr.fetch, plvr_tw.CACHE = old
+
+
+class PopulationTest(unittest.TestCase):
+    """人口：戶政司 API（假回應）→ 各區人口、5 年增減、年齡結構、近 12 個月遷入遷出。"""
+
+    def fake(self, url):
+        import re as _re
+        m = _re.search(r"/(ODRP\d+)/(\d+)\?page=(\d+)", url)
+        code, period, page = m.group(1), m.group(2), int(m.group(3))
+        if code == "ODRP048" and period in ("110", "111", "112", "113", "114"):
+            y = int(period)
+            return {"totalPage": "1", "responseData": [
+                {"statistic_yyy": period, "site_id": "臺南市善化區", "people_total": str(48000 + (y - 110) * 500)},
+                {"statistic_yyy": period, "site_id": "臺南市東區", "people_total": str(185000 - (y - 110) * 300)},
+                {"statistic_yyy": period, "site_id": "外星市某區", "people_total": "1"}]}
+        if code == "ODRP014" and period == "11508":
+            rows = [{"site_id": "臺南市善化區", "village": "v%d" % (page * 10 + i), "household_no": "100", "people_total": "300",
+                     "people_age_010_m": "50", "people_age_030_f": "100", "people_age_070_m": "100", "people_age_100up_f": "50"} for i in range(2)]
+            return {"totalPage": "2", "responseData": rows}
+        if code == "ODRP011" and period.startswith("11"):
+            return {"totalPage": "1", "responseData": [{"site_id": "臺南市善化區", "village": "v", "in_total_m": "10", "in_total_f": "10",
+                                                        "out_total_m": "5", "out_total_f": "5"}]}
+        return {"responseCode": "OD-0102-S", "responseMessage": "查無資料"}
+
+    def test_collect_and_web(self):
+        from tools import build_population as bp
+        pop = bp.collect(datetime.date(2026, 10, 8), fetch=self.fake, log=lambda m: None)
+        self.assertEqual(pop["years"], [110, 111, 112, 113, 114])
+        self.assertEqual(pop["month"], "11508")
+        self.assertEqual(len(pop["mig_months"]), 12)
+        sh = pop["counties"]["D"]["善化區"]
+        self.assertEqual(sh["pop"]["114"], 50000)
+        self.assertEqual(sh["now"], 1200)                     # 2 頁 × 2 個村里 × 300
+        self.assertEqual(sh["hh"], 400)
+        self.assertEqual(sh["age"], [200, 0, 400, 0, 600])    # 10 歲、30 歲、70 歲、100 歲以上
+        self.assertEqual((sh["in12"], sh["out12"]), (240, 120))
+        self.assertNotIn("外星市", json.dumps(pop, ensure_ascii=False))
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        old = bp.WEB_TW
+        bp.WEB_TW = tmp
+        try:
+            bp.write_web(pop)
+        finally:
+            bp.WEB_TW = old
+        with open(os.path.join(tmp, "D", "pop.json"), encoding="utf-8") as f:
+            d = json.load(f)
+        self.assertEqual(d["data"]["台南市"]["pop"]["114"], 50000 + 183800)
+        with open(os.path.join(tmp, "pop.json"), encoding="utf-8") as f:
+            self.assertIn("全台", json.load(f)["data"])
+        self.assertEqual(bp.split_site("臺南市善化區"), ("D", "善化區"))
+        self.assertEqual(bp.split_site("台北市大安區"), ("A", "大安區"))
 
 
 class RentTest(unittest.TestCase):
@@ -340,6 +420,33 @@ class TransitTest(unittest.TestCase):
         self.assertIn("淡水信義線", kinds)
         self.assertEqual(kinds.get("台鐵"), "台鐵")
         self.assertTrue(os.path.exists(web))
+
+    def test_main_keeps_old_hsr_when_hsr_fails(self):
+        """高鐵查詢失敗：捷運照常更新，高鐵沿用上一次的資料（不會整份路線都不更新）。"""
+        import json as _json
+        from unittest import mock
+        from tools import build_transit as bt
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        out, web, rep = (os.path.join(tmp, n) for n in ("transit.json", "web/transit.json", "web/report.json"))
+        old_hsr = {"name": "台灣高鐵", "kind": "高鐵", "color": "#e36f1e", "counties": ["A"], "segments": [[25.0, 121.5, 24.9, 121.4]],
+                   "stations": [["台北站", 25.04, 121.51]], "operating": True, "approved": True}
+        with open(out, "w", encoding="utf-8") as f:
+            _json.dump({"as_of": "2026-01-01", "v": 3, "lines": [old_hsr]}, f)
+
+        def fake_ask(ql):
+            if "高鐵" in ql:
+                raise RuntimeError("500")
+            return _transit_fixture() if "subway" in ql else {"elements": []}
+        with mock.patch.object(bt, "ask", fake_ask), mock.patch.object(bt, "OUT", out), mock.patch.object(bt, "WEB_OUT", web), \
+                mock.patch.object(bt, "REPORT", rep), mock.patch.object(bt.time, "sleep", lambda s: None), \
+                mock.patch.object(bt, "load_towns", lambda: {"A": [{"name": "信義區", "lat": 25.033, "lng": 121.567}]}), \
+                mock.patch.object(sys, "argv", ["build_transit.py"]):
+            bt.main()
+        with open(out, encoding="utf-8") as f:
+            names = {ln["name"]: ln.get("kind") for ln in _json.load(f)["lines"]}
+        self.assertIn("淡水信義線", names)
+        self.assertEqual(names.get("台灣高鐵"), "高鐵")
 
     def test_build_tra(self):
         """台鐵：抓軌道與車站合成一條；高鐵、糖鐵的軌道與捷運、高鐵車站都不算。"""

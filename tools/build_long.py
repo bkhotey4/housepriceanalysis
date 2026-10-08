@@ -17,7 +17,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from core import longterm, plvr, plvr_tw, prices  # noqa: E402
-from core.taiwan import COUNTIES  # noqa: E402
+from core.taiwan import COUNTIES, NATION  # noqa: E402
 
 LONG_DIR = os.path.join(ROOT, "data", "tw", "long")
 WEB_TW = os.path.join(ROOT, "web", "data", "tw")
@@ -64,7 +64,7 @@ def write_web(today):
             with open(bp, encoding="utf-8") as f:
                 recent = json.load(f)
         last = max((m for cats in merged.values() for ms in cats.values() for m in ms), default=start)
-        months_end = max(last, (recent or {}).get("complete_through") or last)
+        months_end = (recent or {}).get("complete_through") or last     # 只畫到資料到齊的月份，最後一季才不會偏低
         months = prices.ym_range(start, months_end)
         recent_from = (recent or {}).get("months", [None])[0]
         book = longterm.long_book(merged, months, recent, recent_from)
@@ -75,12 +75,14 @@ def write_web(today):
         if c["short"] in merged:
             nation_merged[c["short"]] = merged[c["short"]]
     if nation_merged:
-        months = prices.ym_range(start, max(m for cats in nation_merged.values() for ms in cats.values() for m in ms))
         nat = None
         bp = os.path.join(WEB_TW, "book.json")
         if os.path.exists(bp):
             with open(bp, encoding="utf-8") as f:
                 nat = json.load(f)
+        months = prices.ym_range(start, (nat or {}).get("complete_through") or
+                                 max(m for cats in nation_merged.values() for ms in cats.values() for m in ms))
+        nation_merged[NATION] = longterm.combine(list(nation_merged.values()))     # 全台合計（不然只有近一年的統計）
         book = longterm.long_book(nation_merged, months, nat, (nat or {}).get("months", [None])[0])
         with open(os.path.join(WEB_TW, "long.json"), "w", encoding="utf-8") as f:
             json.dump(book, f, ensure_ascii=False, separators=(",", ":"))
@@ -97,7 +99,7 @@ def main():
     today = datetime.date.today()
     os.makedirs(LONG_DIR, exist_ok=True)
     want = wanted_seasons(today)
-    have = {n[:-5] for n in os.listdir(LONG_DIR) if n.endswith(".json")}
+    have = {f["season"] for f in longterm.load_season_files(LONG_DIR) if f.get("season")}     # 壞掉的檔案不算，會重抓
     missing = [s for s in want if s not in have]
     fetched, failed = 0, []
     if not args.no_fetch:
@@ -106,7 +108,7 @@ def main():
                 break
             try:
                 r = fetch_season(name, args.insecure)
-            except plvr.DownloadError as e:
+            except Exception as e:                  # 下載失敗、憑證錯誤、壞掉的 zip：這季先跳過，下次再補
                 print("%s：下載失敗（%s）" % (name, e), flush=True)
                 failed.append(name)
                 continue
@@ -114,9 +116,11 @@ def main():
                 print("%s：尚未釋出或沒有檔案" % name, flush=True)
                 continue
             summ, counts, how = r
-            with open(os.path.join(LONG_DIR, name + ".json"), "w", encoding="utf-8") as f:
+            tmp = os.path.join(LONG_DIR, name + ".json.tmp")      # 先寫暫存檔再改名：中途中斷也不會留下壞檔
+            with open(tmp, "w", encoding="utf-8") as f:
                 json.dump({"season": name, "built": today.isoformat(), "counts": counts, "counties": summ},
                           f, ensure_ascii=False, separators=(",", ":"))
+            os.replace(tmp, os.path.join(LONG_DIR, name + ".json"))
             fetched += how == "download"
             print("%s：%s，%d 筆" % (name, "快取" if how == "cache" else "下載", sum(counts.values())), flush=True)
     # 超過 5 年的舊摘要刪掉，專案不會越來越大

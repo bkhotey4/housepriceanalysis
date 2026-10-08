@@ -152,7 +152,7 @@ export function sellResult(median) {
   const w = v => `${v < 0 ? "−" : ""}${wan(Math.abs(v))} 萬`;
   let h = `<table class="list cost"><tbody>` + row("賣價", w(r.sell), "", "strong") +
     row("還清剩餘房貸", "−" + w(r.loan), "", "") +
-    row("仲介服務費（賣方）", "−" + w(r.agent), `賣價 ${+st.agent || 0}%（行情約 2～4%，可議價）`) +
+    row("仲介服務費（賣方）", "−" + w(r.agent), `賣價 ${+(r.agent / r.sell * 100).toFixed(2)}%（行情約 2～4%，可議價）`) +
     row("代書、塗銷抵押、雜費", "−" + w(r.fees), "") +
     row("房地合一稅（或舊制所得稅）", "−" + w(r.tax), r.rule + (r.taxable != null ? `；課稅所得約 ${wan(r.taxable)} 萬` : "")) +
     row("土地增值稅", r.missingLandTax ? "未填" : "−" + w(r.landTax), "依公告土地現值的漲幅計算；自用住宅（一生一次）稅率 10%，請代書或地方稅務局試算") +

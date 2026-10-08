@@ -272,7 +272,64 @@ function workOK(name) {
 }
 const filtersOn = () => !!parseFloat(S.settings.budget) || (!!workPlace() && !!commuteLimit());
 
+// ---- 房價時光機：柱子改成某一季的中位價（近 5 年），可以拉時間軸或按播放
+function tmTable() {
+  if (!D.long) return null;
+  const key = `${D.county ? D.county.code : ""}|${S.cat}|${S.metric}`;
+  if (!D._tm || D._tm.key !== key || D._tm.long !== D.long) D._tm = { key, long: D.long, t: L.timeTable(D.long, D.districts.map(d => d.name), S.cat, S.metric) };
+  return D._tm.t;
+}
+function tmBars(t) {
+  const i = Math.max(0, Math.min(t.quarters.length - 1, S.tm.i)), span = (t.hi - t.lo) || 1;
+  view.bars = D.districts.map(d => {
+    const v = (t.vals[d.name] || [])[i] ?? null;
+    return { id: d.name, lat: d.lat, lng: d.lng, value: v, frac: v == null ? 0 : Math.min(1.15, v / t.hi),
+             color: v == null ? NO_DATA : ramp(SEQ, (v - t.lo) / span),
+             label: `${d.name} ${v == null ? "—" : S.metric === "u" ? v.toFixed(1) : L.fmtNum(v)}`, n: 0, dim: false };
+  });
+  D.barRange = { lo: t.lo, hi: t.hi, span, matched: null, tm: t.quarters[i] };
+  renderLegend();
+  view.request();
+}
+function tmStop() {
+  if (S.tm && S.tm.timer) clearInterval(S.tm.timer);
+  S.tm = null; refreshBars();
+}
+function tmPlay() {
+  const t = tmTable(); if (!t) return;
+  if (!S.tm) S.tm = { i: 0 };
+  if (S.tm.timer) { clearInterval(S.tm.timer); S.tm.timer = null; tmUi(); return; }       // 再按一次＝暫停
+  if (S.tm.i >= t.quarters.length - 1) S.tm.i = 0;
+  S.tm.timer = setInterval(() => {
+    const cur = tmTable();                          // 播放中換了房型或單價／總價：用新的表
+    if (!S.tm || !cur) { if (S.tm && S.tm.timer) clearInterval(S.tm.timer); return; }
+    if (S.tm.i >= cur.quarters.length - 1) { clearInterval(S.tm.timer); S.tm.timer = null; tmUi(); return; }
+    S.tm.i++; tmBars(cur); tmUi();
+  }, 700);
+  tmBars(t); tmUi();
+}
+// 只更新時光機那一小塊（播放時不要整個面板重畫）
+function tmUi() {
+  const t = tmTable(), el = $("#tm-box");
+  if (!el || !t) return;
+  const i = Math.min(t.quarters.length - 1, S.tm ? S.tm.i : t.quarters.length - 1);
+  const r = $("#tm-range"); if (r) { r.max = t.quarters.length - 1; r.value = i; }
+  const lab = $("#tm-q"); if (lab) lab.textContent = t.quarters[i].replace("Q", " 年第 ") + " 季";
+  const btn = $("#tm-play"); if (btn) btn.textContent = S.tm && S.tm.timer ? "⏸ 暫停" : "▶ 播放";
+  const stop = $("#tm-stop"); if (stop) stop.hidden = !S.tm;
+}
+function tmSection() {
+  const t = tmTable();
+  if (!t) return "";
+  const i = Math.min(t.quarters.length - 1, S.tm ? S.tm.i : t.quarters.length - 1);
+  return `<div id="tm-box" class="tm"><h3 style="margin:10px 0 4px">⏳ 房價時光機（近 5 年）</h3>` +
+    `<div class="row"><button class="btn primary small" id="tm-play" data-act="tm-play">${S.tm && S.tm.timer ? "⏸ 暫停" : "▶ 播放"}</button>` +
+    `<b id="tm-q">${t.quarters[i].replace("Q", " 年第 ")} 季</b><button class="btn small" id="tm-stop" data-act="tm-stop"${S.tm ? "" : " hidden"}>回到現在</button></div>` +
+    `<input type="range" id="tm-range" min="0" max="${t.quarters.length - 1}" value="${i}" aria-label="選擇季別" style="width:100%">` +
+    `<p class="muted">地圖上的柱子會變成那一季的中位${S.metric === "u" ? "單價" : "總價"}（${L.CAT_LABEL[S.cat]}），顏色與高度用同一把尺，看得出哪一區先漲、哪一區後漲。件數太少的季不畫（灰色）。資料是季檔的近似值。</p></div>`;
+}
 function refreshBars() {
+  if (S.tm) { const t = tmTable(); if (t) { tmBars(t); return; } S.tm = null; }
   if (workPlace()) ensureRouteTimes();          // 已經設過上班地點：開網頁、換縣市時查一次實際道路時間
   const vals = D.districts.map(d => [d, D.book.best(d.name, S.cat, S.metric), D.book.trend(d.name, S.cat, S.metric), rentYield(d.name, S.cat === "house" ? "house" : "apt")]);
   let solid = vals.filter(([, b]) => b.value != null && !b.low).map(([, b]) => b.value);
@@ -282,7 +339,10 @@ function refreshBars() {
   view.bars = vals.map(([d, b, tr, yld]) => {
     const v = b.value, ok = !active || (budgetOK(d.name) && workOK(d.name));
     let color = NO_DATA;
-    if (S.settings.color === "heat") {
+    if (S.settings.color === "pop") {
+      const p = L.popInfo(D.pop, d.name);
+      color = p && p.chgAll != null ? trendColor(p.chgAll) : NO_DATA;
+    } else if (S.settings.color === "heat") {
       const ht = L.marketHeat(D.book, d.name, S.cat);
       color = ht ? trendColor(ht.score / 0.6 * TREND_SPAN) : NO_DATA;
     } else if (S.settings.color === "yield") {
@@ -305,7 +365,11 @@ function renderLegend() {
   if (!D.barRange) return;
   const { lo, span } = D.barRange;
   let rows;
-  if (S.settings.color === "heat") {
+  if (D.barRange.tm) {
+    rows = [0, 0.5, 1].map(k => [ramp(SEQ, k), (S.metric === "u" ? (lo + span * k).toFixed(0) : L.fmtNum(lo + span * k)) + " " + unit]);
+  } else if (S.settings.color === "pop") {
+    rows = [[trendColor(-TREND_SPAN), "人口減少 8% 以上"], [trendColor(0), "持平"], [trendColor(TREND_SPAN), "人口增加 8% 以上"]];
+  } else if (S.settings.color === "heat") {
     rows = [[trendColor(-TREND_SPAN), "降溫（量縮、價跌）"], [trendColor(0), "持平"], [trendColor(TREND_SPAN), "升溫（量增、價漲）"]];
   } else if (S.settings.color === "yield") {
     rows = [[ramp(YIELD_RAMP, 0), "1.5%（低收租）"], [ramp(YIELD_RAMP, 0.5), "3.0%（中等）"], [ramp(YIELD_RAMP, 1.0), "4.5%+（高投報）"]];
@@ -316,7 +380,8 @@ function renderLegend() {
   }
   rows.push([NO_DATA, "樣本少／無資料"]);
   let html = `<div class="lg-head">圖例 ${el.classList.contains("collapsed") ? "▸" : "▾"}</div>` +
-    `<div><b>${S.settings.color === "yield" ? "毛租金報酬率（年化）" : S.metric === "u" ? "中位單價" : "中位總價"}</b>${S.settings.color === "trend" ? "｜顏色：近半年漲跌" : S.settings.color === "heat" ? "｜顏色：市場冷熱" : ""}</div>` +
+    (D.barRange.tm ? `<div class="tm-badge">⏳ ${esc(D.barRange.tm.replace("Q", " 年第 "))} 季</div>` : "") +
+    `<div><b>${S.settings.color === "yield" ? "毛租金報酬率（年化）" : S.metric === "u" ? "中位單價" : "中位總價"}</b>${S.settings.color === "trend" ? "｜顏色：近半年漲跌" : S.settings.color === "heat" ? "｜顏色：市場冷熱" : S.settings.color === "pop" ? "｜顏色：近 5 年人口增減" : ""}</div>` +
     rows.map(([c, t]) => `<div><span class="sw" style="background:${c}"></span>${esc(t)}</div>`).join("");
   if (D.barRange.matched != null) html += `<div style="margin-top:3px"><b>符合條件 ${D.barRange.matched} 區</b></div>`;
   if (view.roads.length && S.current !== L.CITY && D.roadRange) {
@@ -408,6 +473,7 @@ function refreshAll() { refreshBars(); refreshModels(); refreshPins(); refreshRo
 export function selectDistrict(name, fly = true) {
   if (isNation() && name !== L.CITY) { const c = D.tw.counties.find(x => x.short === name); if (c) enterCounty(c.code); return; }
   if (name !== L.CITY && !D.dmap[name]) return;
+  if (S.tm && name !== L.CITY) { if (S.tm.timer) clearInterval(S.tm.timer); S.tm = null; refreshBars(); }   // 時光機只在縣市總覽用
   S.current = name; S.roadFilter = null; S.addr = null; S.pin = null; S.bldg = null;
   if (S.poi) { S.poi = null; refreshPois(); }
   if (S.tab === "poi") S.tab = "overview";
@@ -603,7 +669,7 @@ function applyShared(params) {
     if (list.length) { S.settings.cmp = list; saveStore(); }
   }
   if (tab && SHARE_TABS.includes(tab)) S.tab = tab;
-  if (d && D.dmap && D.dmap[d] && !params.get("q")) selectDistrict(d);
+  if (d && D.dmap && D.dmap[d] && !params.get("q")) { refreshBars(); selectDistrict(d); }     // 房型、單價／總價變了：柱子也要重畫
   else refreshAll();
 }
 function trendSVG(series, every = 3) {
@@ -645,6 +711,31 @@ function distSVG(name) {
   const note = `近一年 ${hg.n} 筆：一半的成交在 ${fmt(hg.p25)}～${fmt(hg.p75)} ${unit} 之間` +
     (budget ? `；總價在預算 ${L.fmtNum(budget)} 萬以內的約佔 <b>${Math.round(hg.below(budget) * 100)}%</b>` : "") + "。";
   return `<h3>${isU ? "單價" : "總價"}分佈</h3><svg class="dist" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(name)}近一年成交${isU ? "單價" : "總價"}分佈">${g}</svg><p class="muted">${note}</p>`;
+}
+// 人口成長與年齡結構（戶政司開放資料）：人口增減、淨遷入、年齡分布
+const AGE_COLORS = ["#7fb9b3", "#a8d5ba", "#2a78d6", "#f6b98a", "#d2601f"];
+function popSection(name) {
+  const p = L.popInfo(D.pop, name);
+  if (!p) return "";
+  const sgn = v => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(1)}%`;
+  const bits = [`人口 <b>${L.fmtNum(p.now)}</b> 人` + (p.chgAll != null ? `，近 ${p.span} 年 <b class="${p.chgAll >= 0 ? "up" : "down"}">${sgn(p.chgAll)}</b>` : "") +
+    (p.chg1 != null ? `（最近一年 ${sgn(p.chg1)}）` : "")];
+  if (p.net != null) bits.push(`近 12 個月遷入比遷出${p.net >= 0 ? "多" : "少"} <b>${L.fmtNum(Math.abs(p.net))}</b> 人` +
+    (p.netRate != null ? `（每千人 ${p.netRate >= 0 ? "+" : "−"}${Math.abs(p.netRate).toFixed(1)}）` : ""));
+  if (p.old != null) bits.push(`65 歲以上 ${p.old.toFixed(1)}%（扶老比 ${p.depOld.toFixed(0)}）、25～44 歲 ${p.young.toFixed(1)}%、14 歲以下 ${p.kids.toFixed(1)}%` +
+    (p.perHH ? `；平均每戶 ${p.perHH.toFixed(2)} 人` : ""));
+  let bar = "";
+  if (p.share) {
+    let x = 0;
+    bar = `<svg class="agebar" viewBox="0 0 360 30" role="img" aria-label="年齡結構">` + p.share.map((v, i) => {
+      const w = v / 100 * 360, r = `<rect x="${x.toFixed(1)}" y="0" width="${w.toFixed(1)}" height="16" fill="${AGE_COLORS[i]}"><title>${esc(D.pop.bands[i])} 歲 ${v.toFixed(1)}%</title></rect>` +
+        (w > 34 ? `<text x="${(x + w / 2).toFixed(1)}" y="28" font-size="10" text-anchor="middle" fill="#5b6168">${esc(D.pop.bands[i])}</text>` : "");
+      x += w; return r;
+    }).join("") + `</svg>`;
+  }
+  return `<h3>人口與年齡結構</h3><div class="summary">${bits.join("<br>")}</div>${bar}` +
+    `<p class="muted">內政部戶政司開放資料：人口為每年底與 ${esc(String(D.pop.month || "").replace(/^(\d{3})(\d{2})$/, "$1 年 $2 月"))}的戶籍人口，遷入遷出為最近 12 個月合計。` +
+    `人口持續移入、年輕人口比例高的區，買房需求通常比較撐得住；戶籍人口不等於實際居住人口（學生、外地工作者常沒遷戶籍）。</p>`;
 }
 // 學區：各縣市教育局的學區查詢系統不一樣，用 Google 搜尋帶到官方頁面（學區以教育局公告為準）
 function schoolLink(dist, road = "") {
@@ -727,7 +818,7 @@ function tabOverview() {
     if (w) { const road = routeTimes(w)?.mins[L.ptKey(d.lat, d.lng)] != null;
       bits.push(`到${esc(w.name)}：${modeName()}約 ${minsTo(d.lat, d.lng, w)} 分鐘（${road ? ((L.ROUTE_ADJ[S.settings.mode] || L.ROUTE_ADJ.car)[0] > 1 ? "依道路路線、含尖峰" : "依道路路線") : `直線 ${L.distKm(d.lat, d.lng, w.lat, w.lng).toFixed(1)} 公里，估計`}）`); }
     if (bits.length) h += `<div class="summary">${bits.join("<br>")}</div>`;
-    h += distSVG(name) + marketSection(name);
+    h += popSection(name) + distSVG(name) + marketSection(name);
     h += `<div class="row">${reportButton()}<button class="btn small" data-act="cmp-add">加入比較</button><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a><a class="btn" target="_blank" rel="noopener" href="${FLOOD_URL}">淹水潛勢</a>${schoolLink(name)}` +
       (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
     h += loanSection(bt.value) + costSection(bt.value) + sellSection(bt.value) + rentSection(name) + rvbSection(name, bt.value);
@@ -742,7 +833,7 @@ function tabOverview() {
       card("youth", "💰", "新青安首購試算", "40 年期與 5 年寬限期斷崖體檢") +
       card("duel", "⚔️", "雙區買房 PK 擂台", pair ? `${esc(pair[0].name)} vs ${esc(pair[1].name)}，或自選任兩區` : "全台任選兩區（可跨縣市）指標對決") +
       `</div></div>`;
-    h += loanSection(bt.value) + costSection(bt.value) + sellSection(bt.value) + rentSection(name);
+    h += tmSection() + popSection(name) + loanSection(bt.value) + costSection(bt.value) + sellSection(bt.value) + rentSection(name);
     h += isNation() ? `<p class="muted">點地圖上的柱子（或「排行」）進入一個縣市，才會下載那個縣市的逐筆成交與路段；也可以直接搜尋「台北市大安區…」這樣的地址。透天厝的單價含土地，看透天請以總價為主。</p>`
       : `<p class="muted">點地圖上的柱子看各區，或在上方搜尋地址。透天厝的單價含土地，看透天請以總價為主。</p>`;
   }
@@ -801,7 +892,7 @@ function tabRank() {
       `<td class="r">${r.b.value == null ? "—" : S.metric === "u" ? r.b.value.toFixed(1) : L.fmtNum(r.b.value)}</td><td class="r">${L.fmtNum(r.t.value)}</td>` +
       (inc ? `<td class="r">${(v => v ? v.toFixed(1) : "—")(L.priceIncomeRatio(r.t.value, inc))}</td>` : "") +
       (w ? `<td class="r">${r.km}分</td>` : "") + `<td class="r">${L.trendText(r.tr).replace("樣本不足", "—")}</td>` +
-      (has5 ? (c => `<td class="r">${c ? `${c.pct >= 0 ? "+" : ""}${c.pct.toFixed(0)}%${c.from.slice(0, 4) > String(new Date().getFullYear() - 4) ? "*" : ""}` : "—"}</td>`)(ch5.get(r.d.name)) : "") + `</tr>`;
+      (has5 ? (c => `<td class="r">${c ? `${c.pct >= 0 ? "+" : ""}${c.pct.toFixed(0)}%${c.years < 5 ? "*" : ""}` : "—"}</td>`)(ch5.get(r.d.name)) : "") + `</tr>`;
   }
   return h + `</tbody></table><p class="muted">灰字是樣本少（近半年不到 5 件）。${filtersOn() ? "淡色是不符合預算／通勤條件。" : ""}` +
     (inc ? `「年」是中位總價 ÷ 你的家庭年收入（${L.fmtNum(inc * 12 / 10000)} 萬），也就是不吃不喝幾年買得起。` : `在「☰ → 篩選 → 用收入算」填家庭月收入，這裡會多一欄「不吃不喝幾年」。`) +
@@ -1037,7 +1128,7 @@ function renderMenu() {
     <h3>地圖圖層</h3>${chk("town", "行政區界")}${chk("liq", "土壤液化潛勢")}${D.tw ? chk("slide", "山崩與地滑（地質敏感區）") : ""}${chk("fault", "活動斷層")}
     <p class="muted">淹水潛勢：官方圖資沒有開放疊圖，請到 <a target="_blank" rel="noopener" href="${FLOOD_URL}">國家災害防救科技中心 3D 災害潛勢地圖</a> 查詢（各區「概況」也有「淹水潛勢」按鈕）。</p>${chk("hires", "放大時載入高解析衛星影像（較耗流量）")}
     ${chk("lines", "捷運、輕軌、高鐵（營運中與規劃）")}${chk("markers", "開發案與情資（菱形）")}${chk("landmarks", "知名地標 3D")}${chk("projects", "重大建設 3D")}${chk("schools", "🎓 明星學區與額滿學校")}${chk("roads", "路段房價（選了行政區才畫）")}${chk("labels", "名稱標籤")}
-    <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option><option value="yield"${s.color === "yield" ? " selected" : ""}>毛租金投報率</option><option value="heat"${s.color === "heat" ? " selected" : ""}>市場冷熱（量＋價）</option></select></div>
+    <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option><option value="yield"${s.color === "yield" ? " selected" : ""}>毛租金投報率</option><option value="heat"${s.color === "heat" ? " selected" : ""}>市場冷熱（量＋價）</option><option value="pop"${s.color === "pop" ? " selected" : ""}>近 5 年人口增減</option></select></div>
     <h3>外觀</h3><div class="row"><select data-set="theme" aria-label="外觀">${[["", "跟著系統"], ["light", "淺色"], ["dark", "深色"]].map(([v, t]) => `<option value="${v}"${(s.theme || "") === v ? " selected" : ""}>${t}</option>`).join("")}</select></div>
     <h3>篩選</h3>
     <div class="row"><span>總價預算</span><input type="text" inputmode="decimal" data-set="budget" value="${esc(s.budget)}" placeholder="萬，例 1500"></div>
@@ -1381,6 +1472,8 @@ function bindUI() {
     if (act === "clear-road") { S.roadFilter = null; S.addr = null; S.pin = null; refreshPins(); view.select(S.current === L.CITY ? null : "district", S.current); renderPanel(); }
     if (act === "watch-add") watchDialog(null);
     if (act === "cmp-add") { cmpAdd(); return; }
+    if (act === "tm-play") { tmPlay(); return; }
+    if (act === "tm-stop") { tmStop(); tmUi(); return; }
     if (act === "span") { S.settings.span = +t.closest("[data-span]").dataset.span; saveStore(); const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; return; }
     if (act === "txf") { const el = t.closest("[data-k]"); S.txf = { ...(S.txf || {}), [el.dataset.k]: el.dataset.v }; renderPanel(); return; }
     if (act === "loan-preset") {
@@ -1456,6 +1549,12 @@ function bindUI() {
     }
     if (e.target.id === "bldg-kw") { S.bldgKw = e.target.value; clearTimeout(S._bkT); S._bkT = setTimeout(() => { const pos = e.target.selectionStart; renderPanel(); const i = $("#bldg-kw"); i.focus(); i.setSelectionRange(pos, pos); }, 350); }
     if (e.target.id === "road-kw") { S.roadKw = e.target.value; clearTimeout(S._kwT); S._kwT = setTimeout(() => { const pos = e.target.selectionStart; renderPanel(); const i = $("#road-kw"); i.focus(); i.setSelectionRange(pos, pos); }, 350); }
+    if (e.target.id === "tm-range") {
+      const t = tmTable(); if (!t) return;
+      if (!S.tm) S.tm = { i: 0 };
+      if (S.tm.timer) { clearInterval(S.tm.timer); S.tm.timer = null; }
+      S.tm.i = +e.target.value; tmBars(t); tmUi(); return;
+    }
     if (e.target.id === "year") { S.year = +e.target.value; $("#year-v").textContent = S.year + " 年"; clearTimeout(S._yT); S._yT = setTimeout(() => { refreshModels(); const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; }, 120); refreshModels(); }
   });
   body.addEventListener("toggle", e => { const d = e.target; if (d.dataset && d.dataset.det) { S.settings[d.dataset.det] = d.open; saveStore(); } }, true);
@@ -1481,6 +1580,7 @@ function coreExtent(districts, book) {
   return extentOf(core, 5);
 }
 function resetSelection() {
+  if (S.tm) { if (S.tm.timer) clearInterval(S.tm.timer); S.tm = null; }      // 換縣市：時光機回到現在
   S.roadFilter = null; S.addr = null; S.pin = null; S.bldg = null; S.picked = null; S.pendingAddr = null; S.roadKw = ""; S.bldgKw = "";
   if (S.poi) { S.poi = null; refreshPois(); }
   if (["roads", "bldg", "tx", "detail", "poi"].includes(S.tab)) S.tab = "overview";
@@ -1489,7 +1589,7 @@ function enterNation(fly = true) {
   D.county = null;
   L.setCity(D.tw.nation || "全台", "全台");
   enterSeq++;
-  D.book = D.twBook; D.rent = D.twRent; D.txs = null; D.txPromise = Promise.resolve(); loadLong("");
+  D.book = D.twBook; D.rent = D.twRent; D.pop = D.twPop; D.txs = null; D.txPromise = Promise.resolve(); loadLong("");
   D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   D.districts = D.tw.counties.map(c => ({ name: c.short, lat: c.lat, lng: c.lng, zone: c.region, code: c.code }));
   D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
@@ -1508,8 +1608,9 @@ const COUNTY_CACHE = new Map();
 export function countyData(code) {
   if (!COUNTY_CACHE.has(code)) {
     const base = `data/tw/${code}/`;
-    COUNTY_CACHE.set(code, Promise.all([getJSON(base + "book.json"), getJSON(base + "districts.json"), getJSON(base + "rent.json").catch(() => null)])
-      .then(([raw, dd, rent]) => ({ raw, dd, rent, book: new L.Book(raw), dmap: Object.fromEntries(dd.districts.map(d => [d.name, d])) }))
+    COUNTY_CACHE.set(code, Promise.all([getJSON(base + "book.json"), getJSON(base + "districts.json"), getJSON(base + "rent.json").catch(() => null),
+      getJSON(base + "pop.json").catch(() => null)])
+      .then(([raw, dd, rent, pop]) => ({ raw, dd, rent, pop, book: new L.Book(raw), dmap: Object.fromEntries(dd.districts.map(d => [d.name, d])) }))
       .catch(e => { COUNTY_CACHE.delete(code); throw e; }));
   }
   return COUNTY_CACHE.get(code);
@@ -1530,11 +1631,11 @@ export async function enterCounty(code, fly = true) {
   if (!c) return false;
   if (!c.has_data) { toast(`${c.short}的資料還在準備中（每次自動更新會補上）。`); return false; }
   const base = `data/tw/${code}/`, seq = ++enterSeq;
-  let book, dd, rent;
-  try { ({ raw: book, dd, rent } = await countyData(code)); }
+  let book, dd, rent, pop;
+  try { ({ raw: book, dd, rent, pop } = await countyData(code)); }
   catch (e) { logError(`載入${c.short}資料`, e); toast(`${c.short}的資料載入失敗，請檢查網路後再試。`); return false; }
   if (seq !== enterSeq) return false;           // 等資料時使用者又換到別的縣市了
-  D.county = c; D.rent = rent; loadLong(code);
+  D.county = c; D.rent = rent; D.pop = pop; loadLong(code);
   D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   L.setCity(c.short, c.short);
   D.book = new L.Book(book);
@@ -1566,8 +1667,9 @@ export async function main() {
   if (tw) {
     L.setOrigin(...TW_ORIGIN);
     D.tw = tw;
-    const [twBook, twRent] = await Promise.all([getJSON("data/tw/book.json"), getJSON("data/tw/rent.json").catch(() => null)]);
-    D.twBook = new L.Book(twBook); D.twRent = twRent;
+    const [twBook, twRent, twPop] = await Promise.all([getJSON("data/tw/book.json"), getJSON("data/tw/rent.json").catch(() => null),
+      getJSON("data/tw/pop.json").catch(() => null)]);
+    D.twBook = new L.Book(twBook); D.twRent = twRent; D.twPop = twPop;
   } else {
     const [meta, book, districts] = await Promise.all(["meta", "book", "districts"].map(n => getJSON(`data/${n}.json`)));
     Object.assign(D, { meta, book: new L.Book(book), districts });

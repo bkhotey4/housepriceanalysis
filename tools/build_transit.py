@@ -326,7 +326,7 @@ def main():
             age = (datetime.date.today() - datetime.date.fromisoformat(old["as_of"])).days   # 不看檔案時間：git checkout 會改掉
         except (OSError, ValueError, KeyError):
             old, age = None, None
-        if old and old.get("lines") and old.get("v") == VERSION and age is not None and age < MAX_AGE_DAYS:
+        if old and old.get("lines") and old.get("v") == VERSION and age is not None and age < MAX_AGE_DAYS and not old.get("partial"):
             os.makedirs(os.path.dirname(WEB_OUT), exist_ok=True)
             shutil.copyfile(OUT, WEB_OUT)
             print("路線資料 %d 天前更新過，這次不重抓" % age)
@@ -376,6 +376,8 @@ def main():
     os.makedirs(os.path.dirname(REPORT), exist_ok=True)
     with open(REPORT, "w", encoding="utf-8") as f:
         json.dump({"as_of": datetime.date.today().isoformat(), "relations": report}, f, ensure_ascii=False, indent=0)
+    hsr_failed = "高鐵" in failed
+    failed = [x for x in failed if x != "高鐵"]           # 高鐵查不到時沿用上一次的高鐵，捷運照常更新
     if failed:
         # 有一區沒抓到：這次不覆蓋，網站繼續用上一次的路線（避免路線突然少一大半），結束代碼 1 讓紀錄看得到
         if os.path.exists(OUT):
@@ -385,6 +387,14 @@ def main():
     lines = build({"elements": elements})
     if not lines:
         raise SystemExit("沒有抓到任何路線")
+    if hsr_failed:
+        try:
+            with open(OUT, encoding="utf-8") as f:
+                old_hsr = [ln for ln in json.load(f).get("lines") or [] if ln.get("kind") == "高鐵"]
+        except (OSError, ValueError):
+            old_hsr = []
+        lines = [ln for ln in lines if ln.get("kind") != "高鐵"] + old_hsr
+        print("高鐵：查詢失敗，沿用上一次的資料（%d 條）" % len(old_hsr), flush=True)
     tra = None if tra_failed else build_tra(tra_elements)
     if tra is None:
         # 台鐵這次沒抓齊：沿用上一次的（如果有）
@@ -399,6 +409,8 @@ def main():
         lines.append(tra)
     out = {"as_of": datetime.date.today().isoformat(), "v": VERSION, "source": "© OpenStreetMap 貢獻者（Overpass API）",
            "lines": lines}
+    if hsr_failed or tra_failed:
+        out["partial"] = True             # 有一部分沿用舊資料：下次更新會再抓，不等 30 天
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
@@ -406,7 +418,7 @@ def main():
     shutil.copyfile(OUT, WEB_OUT)
     # 明細檔加上最後合成的路線清單（網站上 data/tw/transit_report.json 看得到，方便確認）
     with open(REPORT, "w", encoding="utf-8") as f:
-        json.dump({"as_of": out["as_of"], "v": VERSION, "tra_failed": tra_failed, "tra_elements": len(tra_elements),
+        json.dump({"as_of": out["as_of"], "v": VERSION, "tra_failed": tra_failed, "hsr_failed": hsr_failed, "tra_elements": len(tra_elements),
                    "lines": [{"name": ln["name"], "kind": ln.get("kind"), "stations": len(ln["stations"]),
                               "segments": len(ln["segments"]), "counties": ln["counties"]} for ln in lines],
                    "relations": report}, f, ensure_ascii=False, indent=0)

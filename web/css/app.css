@@ -480,3 +480,7 @@ table.list.checks td { padding: 4px; }
 table.list.checks select { padding: 3px 4px; border: 1px solid #cfd5db; border-radius: 6px; font-size: 13px; background: var(--surface, #fff); color: inherit; }
 #tab-body a.btn.primary, #tab-body a.btn.primary:visited { color: #fff; text-decoration: none; }
 table.list th[title="排入看屋行程"] { white-space: nowrap; }
+svg.agebar { width: 100%; height: auto; margin: 2px 0 4px; }
+/* 房價時光機 */
+.tm-badge { font-weight: 700; color: var(--accent); margin: 2px 0 3px; }
+#tm-q { min-width: 7.5em; }

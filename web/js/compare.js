@@ -54,7 +54,7 @@ function cmpEnsure() {
   Promise.allSettled(need.map(async x => {
     if (!D.tw) { CMP_DATA.set(x.code + "|" + x.name, { book: D.book, d: D.dmap[x.name] }); return; }
     const cd = await countyData(x.code);
-    CMP_DATA.set(x.code + "|" + x.name, { book: cd.book, d: cd.dmap[x.name], rent: cd.rent });
+    CMP_DATA.set(x.code + "|" + x.name, { book: cd.book, d: cd.dmap[x.name], rent: cd.rent, pop: cd.pop });
   })).then(rs => {
     const bad = need.filter((x, i) => rs[i].status === "rejected");
     if (bad.length) {
@@ -140,6 +140,8 @@ export function tabCmp() {
     ["預售比中古大樓", c => { const g = c.book.presaleGap(c.name); return g == null ? "—" : `${g >= 0 ? "高" : "低"} ${Math.abs(g).toFixed(0)}%`; }],
     [w ? `到${w.name}（${modeName()}）` : "通勤（先設定上班地點）", c => w ? `約 ${minsTo(c.d.lat, c.d.lng, w)} 分` : "—"],
     ["月租中位（整層住家）", c => { const r = L.rentCell(c.rent, c.name, "apt"); return r ? `${L.fmtNum(r.rent)}${r.n < L.RENT_MIN_N ? "*" : ""}` : "—"; }],
+    ["人口（近 5 年增減）", c => { const p = L.popInfo(c.pop, c.name); return p ? `${L.fmtNum(p.now)}${p.chgAll != null ? `<div class="muted">${p.chgAll >= 0 ? "+" : "−"}${Math.abs(p.chgAll).toFixed(1)}%</div>` : ""}` : "—"; }],
+    ["65 歲以上／25～44 歲", c => { const p = L.popInfo(c.pop, c.name); return p && p.old != null ? `${p.old.toFixed(0)}%／${p.young.toFixed(0)}%` : "—"; }],
     ["毛租金報酬率", c => { const r = L.rentCell(c.rent, c.name, "apt"), su = c.book.best(c.name, "apt", "u").value, y = r && r.n >= L.RENT_MIN_N ? L.grossYield(r.unit, su) : null; return y == null ? "—" : y.toFixed(1) + "%"; }],
     ["最近的車站", c => {
       let best = null; for (const { ln, st } of stations) { const k = L.distKm(c.d.lat, c.d.lng, st[1], st[2]); if (!best || k < best.k) best = { k, n: st[0], ln }; }

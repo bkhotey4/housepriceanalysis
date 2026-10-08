@@ -91,6 +91,21 @@ def merge(season_files, code):
     return out
 
 
+def combine(cells_list):
+    """好幾個 {房型: {ym: [n, u, t]}} 合成一個（件數加權），例如各縣市合計 → 全台。"""
+    acc = {}
+    for cells in cells_list:
+        for cat, ms in (cells or {}).items():
+            for ym, (n, u, t) in ms.items():
+                if not n:
+                    continue
+                a = acc.setdefault(cat, {}).setdefault(ym, [0, 0.0, 0.0])
+                a[0] += n
+                a[1] += n * (u or 0)
+                a[2] += n * (t or 0)
+    return {cat: {ym: [n, round(su / n, 1), round(st / n)] for ym, (n, su, st) in ms.items()} for cat, ms in acc.items()}
+
+
 def long_book(merged, months, recent_raw=None, recent_from=None):
     """合併後的摘要 → 網頁用的格式。recent_raw（近期 PriceBook 的 dict）在 recent_from 之後的月份以近期統計為準
     （近期資料含本期與前期檔，比季檔完整）。"""
@@ -127,6 +142,9 @@ def load_season_files(folder):
         return out
     for name in sorted(os.listdir(folder)):
         if name.endswith(".json"):
-            with open(os.path.join(folder, name), encoding="utf-8") as f:
-                out.append(json.load(f))
+            try:
+                with open(os.path.join(folder, name), encoding="utf-8") as f:
+                    out.append(json.load(f))
+            except ValueError:                # 壞掉的檔案略過（下次會重抓）
+                print("略過壞掉的摘要 %s" % name)
     return out

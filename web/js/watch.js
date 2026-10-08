@@ -156,7 +156,7 @@ function tripSection() {
   const t = L.planTrip(pts, start), mode = S.settings.mode || "car";
   h += (w ? `<label class="row" style="gap:6px;font-size:14px"><input type="checkbox" data-trip-start${S.tripFromWork ? " checked" : ""}> 從上班地點（${esc(w.name)}）出發</label>` : "") +
     `<ol class="trip">${t.order.map((p, i) => `<li>${esc(p.name)}<span class="muted">｜${esc(p.district || "")}${t.legs[i] ? `｜${t.legs[i].toFixed(1)} 公里、${(L.MODES[mode] || L.MODES.car)[0]}約 ${L.commuteMin(t.legs[i], mode)} 分` : ""}</span></li>`).join("")}</ol>` +
-    `<div class="summary">直線距離合計約 ${t.km.toFixed(1)} 公里${pts.length > 10 ? "；Google 地圖一次最多 10 個點，只導航前 10 間" : ""}</div>` +
+    `<div class="summary">直線距離合計約 ${t.km.toFixed(1)} 公里${pts.length > (start ? 10 : 11) ? `；Google 地圖一次最多 ${start ? 10 : 11} 間，只導航前 ${start ? 10 : 11} 間` : ""}</div>` +
     `<div class="row"><a class="btn primary" target="_blank" rel="noopener" href="${esc(L.tripUrl(t.order, start, mode))}">用 Google 地圖導航</a><button class="btn small" data-act="trip-clear">清空行程</button></div>`;
   return h;
 }
@@ -182,6 +182,8 @@ export function watchChange(el) {
     it[k] = k === "rating" ? (+el.value || null) : el.value.trim();
   } else return false;
   saveStore();
+  // 文字欄位（優點、缺點、日期）存好就好，不重畫：重畫會吃掉使用者接著按的按鈕
+  if (el.dataset.wnote && el.dataset.wnote !== "rating") return true;
   const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc;
   return true;
 }
