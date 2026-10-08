@@ -142,3 +142,41 @@ export function rvbSection(name, median) {
     `<p class="muted">月租空白時用這一區的毛租金報酬率推算同總價房子的租金。房貸條件沿用上面的試算；持有成本（房屋稅、地價稅、管理費、修繕）以每年房價 ${L.RVB_DEFAULT.hold}% 估，賣屋時扣 ${L.RVB_DEFAULT.sell}% 仲介與稅費，未計房地合一稅。結果對「房價年漲」與「投資報酬」很敏感，請多試幾組；這不是投資建議。</p></details>`;
 }
 // 上班地點選單：依縣市分組，目前看的縣市排最前面
+
+// ---- 賣屋／換屋試算：賣掉現在的房子能拿回多少，接到「交屋前要準備多少現金」，算出換屋要補多少
+export function sellState() { return Object.assign({}, L.SELL_DEFAULT, S.settings.sell || {}); }
+export function sellResult(median) {
+  const st = sellState(), r = L.sellHouse(st);
+  if (!r) return `<p class="muted">填入舊房子預計賣多少，就能試算。</p>`;
+  const row = (label, v, note, cls) => `<tr${cls ? ` class="${cls}"` : ""}><td>${esc(label)}${note ? `<div class="muted">${esc(note)}</div>` : ""}</td><td class="r">${v}</td></tr>`;
+  const w = v => `${v < 0 ? "−" : ""}${wan(Math.abs(v))} 萬`;
+  let h = `<table class="list cost"><tbody>` + row("賣價", w(r.sell), "", "strong") +
+    row("還清剩餘房貸", "−" + w(r.loan), "", "") +
+    row("仲介服務費（賣方）", "−" + w(r.agent), `賣價 ${+st.agent || 0}%（行情約 2～4%，可議價）`) +
+    row("代書、塗銷抵押、雜費", "−" + w(r.fees), "") +
+    row("房地合一稅（或舊制所得稅）", "−" + w(r.tax), r.rule + (r.taxable != null ? `；課稅所得約 ${wan(r.taxable)} 萬` : "")) +
+    row("土地增值稅", r.missingLandTax ? "未填" : "−" + w(r.landTax), "依公告土地現值的漲幅計算；自用住宅（一生一次）稅率 10%，請代書或地方稅務局試算") +
+    `<tr class="total"><td>賣掉後實際拿回</td><td class="r">${w(r.net)}</td></tr></tbody></table>`;
+  // 換屋：接到交屋前現金
+  const lst = loanState(), price = loanPrice(median), c = price ? L.purchaseCosts(price, +lst.down, costState()) : null;
+  if (c) {
+    const gap = r.net - c.total, refund = st.self ? L.rebuyRefund(r.tax, r.sell, price) : 0;
+    h += `<div class="summary">換到總價 ${L.fmtNum(price)} 萬的房子（自備 ${+lst.down}%），交屋前要準備 ${L.fmtNum(c.total)} 萬：<br>` +
+      (gap >= 0 ? `賣舊屋拿回的錢付完還<b>多出約 ${wan(gap)} 萬</b>` : `賣舊屋拿回的錢還<b>不夠約 ${wan(-gap)} 萬</b>，要另外準備`) +
+      (refund > 0 ? `<br>如果 2 年內重購並自住，房地合一稅可申請「重購退稅」約 ${wan(refund)} 萬（新屋價格低於舊屋時按比例退）` : "") + `</div>`;
+  }
+  if (r.missingLandTax) h += `<p class="muted">土地增值稅沒填，上面「拿回」的金額會偏高。老房子、土地持分大的透天，土增稅可能是幾十萬以上。</p>`;
+  return h;
+}
+export function sellSection(median) {
+  const st = sellState(), num = (k, label, step, unit, ph) =>
+    `<label class="loan-f"><span>${label}</span><input type="number" inputmode="decimal" step="${step}" data-sell="${k}" value="${esc(String(st[k]))}"${ph ? ` placeholder="${esc(ph)}"` : ""}><small>${unit}</small></label>`;
+  return `<details class="more" data-det="sellOpen"${S.settings.sellOpen ? " open" : ""}><summary>賣屋／換屋試算</summary>` +
+    `<p class="muted">要賣掉現在的房子再買這一區的房子嗎？填入舊房子的資料，算出賣掉能拿回多少、換屋要補多少。新房子的總價與自備款沿用上面的房貸試算。</p>` +
+    `<div class="loan">${num("sell", "預計賣價", 10, "萬")}${num("buy", "當初買價", 10, "萬")}${num("bought", "買進年份", 1, "西元", "例 2018")}${num("years", "持有", 1, "年")}` +
+    `${num("loan", "剩餘房貸", 10, "萬", "0")}${num("agent", "仲介費", 0.5, "%")}${num("landTax", "土增稅", 1, "萬", "請代書試算")}${num("landInc", "土地漲價", 10, "萬", "可空白")}</div>` +
+    `<label class="row" style="gap:6px;font-size:14px"><input type="checkbox" data-sell="self"${st.self ? " checked" : ""}> 自住：本人、配偶或未成年子女設籍並住滿 6 年，期間沒有出租或營業</label>` +
+    `<div class="loan" id="sell-old"${+st.bought && +st.bought < 2016 ? "" : " hidden"}>${num("oldHouseVal", "房屋現值", 1, "萬", "看房屋稅單")}${num("oldStd", "所得標準", 1, "%")}${num("oldRate", "綜所稅率", 1, "%")}</div>` +
+    `<div id="sell-out">${sellResult(median)}</div>` +
+    `<p class="muted">房地合一稅 2.0（2021 年 7 月起）：持有 2 年內 45%、2～5 年 35%、5～10 年 20%、超過 10 年 15%；自住滿 6 年 400 萬以下免稅、超過 10%。費用沒有單據時按賣價 3%（最多 30 萬）計。2015 年底前買的適用舊制。這是粗估，實際以國稅局核定為準，不是稅務建議。</p></details>`;
+}

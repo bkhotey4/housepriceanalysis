@@ -301,6 +301,52 @@ class WebAppTest(unittest.TestCase):
         self.assertEqual(pg.evaluate("__app.S.current"), "中西區")
 
 
+    def test_sell_trip_notes(self):
+        """賣屋／換屋試算、看屋行程（排順序＋Google 導航）、看屋筆記與並排比較。"""
+        pg = self.open(phone=False)
+        r = pg.evaluate("__app.L.sellHouse({sell: 1800, buy: 1200, years: 8, self: true, loan: 500, agent: 4, landTax: 20})")
+        self.assertAlmostEqual(r["tax"], 17)                       # (600 - 30) - 400 = 170 萬 × 10%
+        self.assertAlmostEqual(r["net"], 1800 - 500 - 72 - 1.5 - 17 - 20)
+        r = pg.evaluate("__app.L.sellHouse({sell: 1800, buy: 1200, years: 1.5, self: true})")
+        self.assertEqual(r["rate"], 45)
+        self.assertAlmostEqual(pg.evaluate("__app.L.rebuyRefund(100, 1800, 900)"), 50)
+        pg.evaluate("__app.S.tab = 'overview'; __app.selectDistrict('善化區')")
+        pg.evaluate("document.querySelector(`details[data-det='sellOpen'] > summary`).click()")
+        pg.fill("input[data-sell='sell']", "1800"); pg.fill("input[data-sell='buy']", "1200"); pg.fill("input[data-sell='years']", "8")
+        out = pg.inner_text("#sell-out")
+        self.assertIn("賣掉後實際拿回", out); self.assertIn("自住優惠", out); self.assertIn("換到總價", out)
+        self.assertTrue(pg.evaluate("document.querySelector('#sell-old').hidden"))
+        pg.fill("input[data-sell='bought']", "2012")
+        self.assertFalse(pg.evaluate("document.querySelector('#sell-old').hidden"))
+        self.assertIn("舊制", pg.inner_text("#sell-out"))
+        # 看屋行程：三間有位置、一間沒有
+        pg.evaluate("""() => { const S = __app.S;
+            S.watch = [{id: 'a', name: '甲', district: '善化區', type: '透天厝', lat: 23.13, lng: 120.30, trip: true},
+                       {id: 'b', name: '乙', district: '新市區', type: '透天厝', lat: 23.07, lng: 120.29, trip: true},
+                       {id: 'c', name: '丙', district: '善化區', type: '透天厝', lat: 23.125, lng: 120.305, trip: true},
+                       {id: 'd', name: '丁', district: '善化區', type: '透天厝', lat: null, lng: null, trip: true}];
+            S.tab = 'watch'; __app.selectDistrict('善化區'); }""")
+        body = pg.inner_text("#tab-body")
+        self.assertIn("看屋行程（4 間）", body); self.assertIn("丁 還沒標位置", body)
+        order = pg.evaluate("[...document.querySelectorAll('#tab-body ol.trip li')].map(li => li.textContent.slice(0, 1))")
+        self.assertEqual(order, ["甲", "丙", "乙"])                 # 甲、丙相鄰，乙在南邊最後
+        href = pg.get_attribute("#tab-body a.btn.primary[href*='google.com/maps/dir']", "href")
+        self.assertIn("waypoints=", href)
+        pg.evaluate("document.querySelector(`#tab-body [data-trip='b']`).click()")
+        self.assertFalse(pg.evaluate("__app.S.watch.find(w => w.id === 'b').trip"))
+        self.assertIsNone(pg.evaluate("__app.S.watchSel || null"))      # 勾選框不會選到那一列
+        # 看屋筆記：選一間、填檢查表與評分 → 分數與要注意的項目
+        pg.evaluate("document.querySelector(`#tab-body tr[data-watch='a'] td:nth-child(2)`).click()")
+        pg.select_option("select[data-wcheck='light']", "2"); pg.select_option("select[data-wcheck='noise']", "0")
+        pg.select_option("select[data-wnote='rating']", "4")
+        body = pg.inner_text("#tab-body")
+        self.assertIn("得分 50%", body); self.assertIn("要注意：噪音", body)
+        self.assertEqual(pg.evaluate("__app.S.watch.find(w => w.id === 'a').rating"), 4)
+        pg.evaluate("__app.S.watch.find(w => w.id === 'c').rating = 3; __app.S.watchSel = null; __app.selectDistrict('善化區')")
+        pg.evaluate("document.querySelector(`#tab-body [data-act='wnote-cmp']`).click()")
+        self.assertIn("並排比較", pg.inner_text("#tab-body"))
+        self.assertIn("✗ 差", pg.inner_text("#tab-body table.cmp"))
+
     def test_poi_nearby(self):
         import json as _json, re as _re
         from urllib.parse import unquote as _uq
@@ -381,6 +427,15 @@ def _make_tw_fixture(root):
                       "rent": ping * (1100 + rnd.random() * 300), "ping": ping, "unit": 0, "rooms": 1 + i % 4, "built": 2005})
         rents[-1]["unit"] = rents[-1]["rent"] / ping
     export_tw._dump("A/rent.json", rentmod.build_rent_book(rents, [t["name"] for t in towns], raw["complete_through"], "台北市"))
+    from core import longterm                       # 長期走勢：大安區近 5 年每月 20 筆，單價每月 +0.3
+    old = []
+    for k in range(66):
+        y, m = 2021 + (3 + k) // 12, (3 + k) % 12 + 1
+        for j in range(20):
+            old.append({"id": "L%d_%d" % (k, j), "dist": "大安區", "ym": "%04d-%02d" % (y, m), "cat": "apt", "kind": "sale",
+                        "u": 80 + k * 0.3 + j * 0.05, "tw": 2500 + k * 10})
+    months = prices.ym_range("2021-04", raw["complete_through"])
+    export_tw._dump("A/long.json", longterm.long_book(longterm.summarize(old, "台北市"), months, raw, raw["months"][0]))
     line = [25.0335, 121.5300, 25.0337, 121.5400, 25.0339, 121.5500]
     export_tw._dump("A/roads/大安區.json", {"roads": {"信義路三段": [line]}, "places": {}, "fetched": "2026-10-02"})
     # 全台首頁的統計：原本的臺南市＋假的臺北市
@@ -532,6 +587,29 @@ class TaiwanWebTest(unittest.TestCase):
         url = unquote(pop.value.url)
         self.assertIn("github.com/bkhotey4/housepriceanalysis/issues/new", url)
         self.assertIn("假的錯誤", url)
+        self.assertEqual(errors, [])
+
+    def test_long_trend(self):
+        """近 5 年走勢：概況可切換近 1 年／近 5 年，顯示 5 年、3 年漲跌；排行多一欄 5 年。"""
+        ctx = self.browser.new_context(viewport={"width": 1200, "height": 800})
+        ctx.route("https://wmts.nlsc.gov.tw/**", lambda r: r.abort())
+        ctx.route("https://geomap.gsmma.gov.tw/**", lambda r: r.abort())
+        self.addCleanup(ctx.close)
+        pg = ctx.new_page()
+        errors = []
+        pg.on("pageerror", lambda e: errors.append(str(e)))
+        pg.goto(self.url + "?c=A&d=" + quote("大安區"))
+        pg.wait_for_function("window.__app && __app.D.county && __app.D.long && __app.S.current === '大安區'")
+        pg.evaluate("__app.S.cat = 'apt'; __app.S.tab = 'overview'; __app.selectDistrict('大安區')")
+        body = pg.inner_text("#tab-body")
+        self.assertIn("近 5 年", body)
+        self.assertRegex(body, r"近 5 年單價漲 \d+\.\d%")
+        pg.evaluate("document.querySelector(`#tab-body [data-act='span'][data-span='5']`).click()")
+        self.assertIn("每季中位單價", pg.inner_text("#tab-body h2"))
+        self.assertEqual(pg.evaluate("__app.S.settings.span"), 5)
+        pg.evaluate("document.querySelector(`#tabs [data-tab='rank']`).click()")
+        self.assertIn("5 年", pg.inner_text("#tab-body thead"))
+        self.assertRegex(pg.inner_text("#tab-body"), r"\+\d+%")
         self.assertEqual(errors, [])
 
     def test_share_link(self):

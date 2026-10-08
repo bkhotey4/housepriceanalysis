@@ -4,11 +4,11 @@ import * as L from "./logic.js";
 import { View3D, mix } from "./view3d.js";
 import { buildReport } from "./report.js";
 import { CMP_MAX, cmpAdd, cmpCode, cmpDefaultPair, cmpList, cmpPickAdd, tabCmp } from "./compare.js";
-import { LOAN_DEFAULT, costResult, costSection, costState, loanPrice, loanResult, loanSection, loanState, rentSection, rentYield, rvbDefaultRent, rvbResult, rvbSection, rvbState } from "./finance.js";
+import { LOAN_DEFAULT, costResult, costSection, costState, loanPrice, loanResult, loanSection, loanState, rentSection, rentYield, rvbDefaultRent, rvbResult, rvbSection, rvbState, sellResult, sellSection, sellState } from "./finance.js";
 import { OVERPASS, refreshPois, showPoi } from "./poi.js";
 import { hideSuggestions, pinAt, renderSuggestions, search, selectSuggestion, showAddress, sugState, updateActiveSug } from "./search.js";
 import { tabValue, valState } from "./value.js";
-import { TYPE_CAT, checkWatchNews, tabWatch, watchBadge, watchDialog } from "./watch.js";
+import { TYPE_CAT, checkWatchNews, tabWatch, watchBadge, watchChange, watchClick, watchDialog } from "./watch.js";
 
 export const $ = (s, el = document) => el.querySelector(s);
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -606,7 +606,7 @@ function applyShared(params) {
   if (d && D.dmap && D.dmap[d] && !params.get("q")) selectDistrict(d);
   else refreshAll();
 }
-function trendSVG(series) {
+function trendSVG(series, every = 3) {
   const pts = series.map((p, i) => ({ ...p, i })), vals = pts.filter(p => p.v != null).map(p => p.v);
   if (vals.length < 2) return `<p class="empty">成交太少，畫不出走勢。</p>`;
   let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * 0.15 || 1; lo -= pad; hi += pad;
@@ -618,7 +618,7 @@ function trendSVG(series) {
   const line = pts.filter(p => p.v != null && !p.partial).map(p => `${x(p.i)},${y(p.v)}`).join(" ");
   s += `<polyline fill="none" stroke="#2a78d6" stroke-width="2.2" points="${line}"/>`;
   for (const p of pts) if (p.v != null) s += `<circle cx="${x(p.i)}" cy="${y(p.v)}" r="3" fill="${p.partial ? "#fff" : "#2a78d6"}" stroke="#2a78d6"/>`;
-  pts.forEach(p => { if (p.i % 3 === 0 || p.i === pts.length - 1) s += `<text x="${x(p.i)}" y="${H - 8}" font-size="10" text-anchor="middle" fill="#5b6168">${p.m.slice(2).replace("-", "/")}</text>`; });
+  pts.forEach(p => { if (p.i % every === 0 || p.i === pts.length - 1) s += `<text x="${x(p.i)}" y="${H - 8}" font-size="10" text-anchor="middle" fill="#5b6168">${p.m.slice(2).replace("-", "/")}</text>`; });
   return s + "</svg>";
 }
 // 近一年成交的價格分佈：中位數之外，看得出價格集中在哪、預算落在第幾個百分位
@@ -707,8 +707,15 @@ function marketSection(name) {
 }
 function tabOverview() {
   const name = S.current, b = D.book, bt = b.best(name, S.cat, "t");
-  let h = `<h2 style="margin-top:2px">${esc(name)}每月中位${S.metric === "u" ? "單價（萬/坪）" : "總價（萬）"}</h2>${trendSVG(b.series(name, S.cat, S.metric))}`;
-  h += `<p class="muted">空心點是資料還沒到齊的月份；灰色長條是每月件數。${esc(D.meta.describe)}</p>`;
+  const ls = D.long ? L.longSeries(D.long, name, S.cat, S.metric) : [], long5 = S.settings.span === 5 && ls.length >= 4;
+  const spanSeg = ls.length >= 4 ? `<div class="seg span-seg" role="radiogroup" aria-label="走勢期間">${[[1, "近 1 年"], [5, "近 5 年"]].map(([k, t]) =>
+    `<button role="radio" data-act="span" data-span="${k}" aria-checked="${(S.settings.span === 5) === (k === 5)}">${t}</button>`).join("")}</div>` : "";
+  let h = `<h2 style="margin-top:2px">${esc(name)}${long5 ? "每季" : "每月"}中位${S.metric === "u" ? "單價（萬/坪）" : "總價（萬）"}</h2>${spanSeg}` +
+    (long5 ? trendSVG(ls, 4) : trendSVG(b.series(name, S.cat, S.metric)));
+  const c5 = L.longChange(ls, 5), c3 = L.longChange(ls, 3);
+  if (c5 || c3) h += `<div class="summary">${[[c5, 5], [c3, 3]].filter(([c]) => c).map(([c, y]) =>
+    `近 ${y} 年${S.metric === "u" ? "單價" : "總價"}<b class="${c.pct >= 0 ? "up" : "down"}">${c.pct >= 0 ? "漲" : "跌"} ${Math.abs(c.pct).toFixed(1)}%</b>（${c.from}→${c.to}）`).join("　")}</div>`;
+  h += `<p class="muted">${long5 ? "近 5 年由每一季的實價登錄季檔整理，每季件數加權平均，是近似值；灰色長條是每季件數。" : "空心點是資料還沒到齊的月份；灰色長條是每月件數。"}${esc(D.meta.describe)}</p>`;
   if (name !== L.CITY) {
     const gap = b.presaleGap(name), w = workPlace(), d = D.dmap[name];
     const bits = [];
@@ -723,7 +730,7 @@ function tabOverview() {
     h += distSVG(name) + marketSection(name);
     h += `<div class="row">${reportButton()}<button class="btn small" data-act="cmp-add">加入比較</button><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a><a class="btn" target="_blank" rel="noopener" href="${FLOOD_URL}">淹水潛勢</a>${schoolLink(name)}` +
       (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
-    h += loanSection(bt.value) + costSection(bt.value) + rentSection(name) + rvbSection(name, bt.value);
+    h += loanSection(bt.value) + costSection(bt.value) + sellSection(bt.value) + rentSection(name) + rvbSection(name, bt.value);
   } else {
     // 情境捷徑：南科、明星學區是台南限定，只在台南顯示；新青安與雙區 PK 全台都能用
     const tainan = !D.tw || (D.county && D.county.code === "D");
@@ -735,7 +742,7 @@ function tabOverview() {
       card("youth", "💰", "新青安首購試算", "40 年期與 5 年寬限期斷崖體檢") +
       card("duel", "⚔️", "雙區買房 PK 擂台", pair ? `${esc(pair[0].name)} vs ${esc(pair[1].name)}，或自選任兩區` : "全台任選兩區（可跨縣市）指標對決") +
       `</div></div>`;
-    h += loanSection(bt.value) + costSection(bt.value) + rentSection(name);
+    h += loanSection(bt.value) + costSection(bt.value) + sellSection(bt.value) + rentSection(name);
     h += isNation() ? `<p class="muted">點地圖上的柱子（或「排行」）進入一個縣市，才會下載那個縣市的逐筆成交與路段；也可以直接搜尋「台北市大安區…」這樣的地址。透天厝的單價含土地，看透天請以總價為主。</p>`
       : `<p class="muted">點地圖上的柱子看各區，或在上方搜尋地址。透天厝的單價含土地，看透天請以總價為主。</p>`;
   }
@@ -786,12 +793,15 @@ function tabRank() {
     km: w ? minsTo(d.lat, d.lng, w) : null, ok: !filtersOn() || (budgetOK(d.name) && workOK(d.name)) }));
   rows.sort((a, b) => (b.b.value ?? -1) - (a.b.value ?? -1));
   const inc = parseFloat(S.settings.incomeMonthly) || 0;
-  let h = `<table class="list"><thead><tr><th>行政區</th><th class="r">${S.metric === "u" ? "萬/坪" : "總價"}</th><th class="r">總價</th>${inc ? '<th class="r" title="中位總價 ÷ 家庭年收入">年</th>' : ""}${w ? '<th class="r">通勤</th>' : ""}<th class="r">半年</th></tr></thead><tbody>`;
+  const ch5 = D.long ? new Map(rows.map(r => [r.d.name, L.longChange(L.longSeries(D.long, r.d.name, S.cat, S.metric), 5) || L.longChange(L.longSeries(D.long, r.d.name, S.cat, S.metric), 3)])) : null;
+  const has5 = ch5 && [...ch5.values()].some(Boolean);
+  let h = `<table class="list"><thead><tr><th>行政區</th><th class="r">${S.metric === "u" ? "萬/坪" : "總價"}</th><th class="r">總價</th>${inc ? '<th class="r" title="中位總價 ÷ 家庭年收入">年</th>' : ""}${w ? '<th class="r">通勤</th>' : ""}<th class="r">半年</th>${has5 ? '<th class="r" title="近 5 年漲跌（件數不夠時改看近 3 年，標 *）">5 年</th>' : ""}</tr></thead><tbody>`;
   for (const r of rows) {
     h += `<tr class="click${r.b.low ? " low" : ""}${r.d.name === S.current ? " sel" : ""}" data-dist="${esc(r.d.name)}" style="${r.ok ? "" : "opacity:.45"}"><td>${esc(r.d.name)}</td>` +
       `<td class="r">${r.b.value == null ? "—" : S.metric === "u" ? r.b.value.toFixed(1) : L.fmtNum(r.b.value)}</td><td class="r">${L.fmtNum(r.t.value)}</td>` +
       (inc ? `<td class="r">${(v => v ? v.toFixed(1) : "—")(L.priceIncomeRatio(r.t.value, inc))}</td>` : "") +
-      (w ? `<td class="r">${r.km}分</td>` : "") + `<td class="r">${L.trendText(r.tr).replace("樣本不足", "—")}</td></tr>`;
+      (w ? `<td class="r">${r.km}分</td>` : "") + `<td class="r">${L.trendText(r.tr).replace("樣本不足", "—")}</td>` +
+      (has5 ? (c => `<td class="r">${c ? `${c.pct >= 0 ? "+" : ""}${c.pct.toFixed(0)}%${c.from.slice(0, 4) > String(new Date().getFullYear() - 4) ? "*" : ""}` : "—"}</td>`)(ch5.get(r.d.name)) : "") + `</tr>`;
   }
   return h + `</tbody></table><p class="muted">灰字是樣本少（近半年不到 5 件）。${filtersOn() ? "淡色是不符合預算／通勤條件。" : ""}` +
     (inc ? `「年」是中位總價 ÷ 你的家庭年收入（${L.fmtNum(inc * 12 / 10000)} 萬），也就是不吃不喝幾年買得起。` : `在「☰ → 篩選 → 用收入算」填家庭月收入，這裡會多一欄「不吃不喝幾年」。`) +
@@ -1290,6 +1300,7 @@ function bindUI() {
   const body = $("#tab-body");
   body.addEventListener("click", async e => {
     const t = e.target;
+    if (S.tab === "watch" && watchClick(t)) return;
     const scCard = t.closest(".scenario-card");
     if (scCard) {
       const mode = scCard.dataset.scenario;
@@ -1370,6 +1381,7 @@ function bindUI() {
     if (act === "clear-road") { S.roadFilter = null; S.addr = null; S.pin = null; refreshPins(); view.select(S.current === L.CITY ? null : "district", S.current); renderPanel(); }
     if (act === "watch-add") watchDialog(null);
     if (act === "cmp-add") { cmpAdd(); return; }
+    if (act === "span") { S.settings.span = +t.closest("[data-span]").dataset.span; saveStore(); const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; return; }
     if (act === "txf") { const el = t.closest("[data-k]"); S.txf = { ...(S.txf || {}), [el.dataset.k]: el.dataset.v }; renderPanel(); return; }
     if (act === "loan-preset") {
       const youth = t.closest("[data-preset]").dataset.preset === "youth", y = L.YOUTH_LOAN, st = loanState();
@@ -1405,6 +1417,7 @@ function bindUI() {
   });
   body.addEventListener("change", e => {
     if (e.target.dataset && e.target.dataset.set) { onSetting(e.target); renderPanel(); return; }
+    if (S.tab === "watch" && watchChange(e.target)) return;
     if (e.target.hasAttribute && e.target.hasAttribute("data-txf-ev")) { S.txf = { ...(S.txf || {}), ev: e.target.checked }; renderPanel(); return; }
     if (e.target.id === "cmp-county") { S.cmpPick = e.target.value; const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; return; }
     if (e.target.dataset && e.target.dataset.val) {
@@ -1424,13 +1437,15 @@ function bindUI() {
   });
   body.addEventListener("input", e => {
     const ds = e.target.dataset;
-    if (ds.loan || ds.cost || ds.rvb) {
+    if (ds.loan || ds.cost || ds.rvb || ds.sell) {
+      if (ds.sell) S.settings.sell = Object.assign(sellState(), { [ds.sell]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
       if (ds.loan) S.settings.loan = Object.assign(loanState(), { [ds.loan]: e.target.value });
       if (ds.cost) S.settings.cost = Object.assign(costState(), { [ds.cost]: e.target.value });
       if (ds.rvb) S.settings.rvb = Object.assign(rvbState(), { [ds.rvb]: e.target.value });
       saveStore();
       const med = D.book.best(S.current, S.cat, "t").value, set = (id, f) => { const el = $(id); if (el) el.innerHTML = f(); };
-      set("#loan-out", () => loanResult(med)); set("#cost-out", () => costResult(med)); set("#rvb-out", () => rvbResult(S.current, med));
+      set("#loan-out", () => loanResult(med)); set("#cost-out", () => costResult(med)); set("#rvb-out", () => rvbResult(S.current, med)); set("#sell-out", () => sellResult(med));
+      if (ds.sell === "bought") { const o = $("#sell-old"); if (o) o.hidden = !(+e.target.value && +e.target.value < 2016); }
       const pr = loanPrice(med), dr = rvbDefaultRent(S.current, med), ph = (sel, v) => { const el = $(sel); if (el) el.placeholder = v; };
       ph("[data-cost='hv']", pr ? "約 " + Math.round(pr * L.COST_RATIO.house) : ""); ph("[data-cost='lv']", pr ? "約 " + Math.round(pr * L.COST_RATIO.land) : "");
       ph("[data-rvb='rent']", dr ? String(dr) : "");
@@ -1474,7 +1489,7 @@ function enterNation(fly = true) {
   D.county = null;
   L.setCity(D.tw.nation || "全台", "全台");
   enterSeq++;
-  D.book = D.twBook; D.rent = D.twRent; D.txs = null; D.txPromise = Promise.resolve();
+  D.book = D.twBook; D.rent = D.twRent; D.txs = null; D.txPromise = Promise.resolve(); loadLong("");
   D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   D.districts = D.tw.counties.map(c => ({ name: c.short, lat: c.lat, lng: c.lng, zone: c.region, code: c.code }));
   D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
@@ -1499,6 +1514,16 @@ export function countyData(code) {
   }
   return COUNTY_CACHE.get(code);
 }
+// 長期走勢（近 5 年）：另外載入，沒有這個檔（還沒補齊）就只顯示近一年
+const LONG_CACHE = new Map();
+function loadLong(code) {
+  D.long = LONG_CACHE.get(code) || null;
+  if (LONG_CACHE.has(code)) return;
+  getJSON(code ? `data/tw/${code}/long.json` : "data/tw/long.json").then(lb => {
+    LONG_CACHE.set(code, lb);
+    if ((D.county ? D.county.code : "") === code) { D.long = lb; if (["overview", "rank"].includes(S.tab)) renderPanel(); }
+  }).catch(() => LONG_CACHE.set(code, null));
+}
 export async function enterCounty(code, fly = true) {
   const c = D.tw.counties.find(x => x.code === code);
   S.cmpPick = null;                       // 比較分頁的縣市選單跟著換到這個縣市
@@ -1509,7 +1534,7 @@ export async function enterCounty(code, fly = true) {
   try { ({ raw: book, dd, rent } = await countyData(code)); }
   catch (e) { logError(`載入${c.short}資料`, e); toast(`${c.short}的資料載入失敗，請檢查網路後再試。`); return false; }
   if (seq !== enterSeq) return false;           // 等資料時使用者又換到別的縣市了
-  D.county = c; D.rent = rent;
+  D.county = c; D.rent = rent; loadLong(code);
   D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   L.setCity(c.short, c.short);
   D.book = new L.Book(book);

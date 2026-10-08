@@ -42,6 +42,9 @@ web/data/tw/*/districts.json
 web/data/tw/rent.json
 web/data/tw/*/rent.json
 web/data/tw/rent_report.json
+web/data/tw/long.json
+web/data/tw/*/long.json
+web/data/tw/pop_probe.json
 
 # 錯誤紀錄：桌面版的留在本機；GitHub Actions 的執行紀錄只存 logs/ci/latest.md 與 history
 logs/app_errors.log*

@@ -1620,3 +1620,135 @@ export function quickSuggest(rawText, data, options = {}) {
 }
 
 
+
+// ------------------------------------------------------------------ 看屋筆記：檢查表與分數
+// 每一項記「好／普通／差」（2／1／0 分），沒填的不算；分數＝得分 ÷ 已填項目滿分
+export const VISIT_CHECKS = [
+  ["light", "採光、通風"], ["noise", "噪音（車流、鄰居、夜間）"], ["leak", "漏水、壁癌、天花板水漬"], ["crack", "牆面、樑柱裂縫"],
+  ["water", "水壓、排水、熱水"], ["power", "電線、插座、電箱"], ["layout", "格局、坪數實用"], ["view", "座向、景觀、西曬"],
+  ["mgmt", "管委會、公設維護、管理費"], ["parking", "停車（車位、機車）"], ["neighbor", "鄰居、社區氛圍"], ["street", "巷道寬度、出入、夜間照明"],
+  ["smell", "氣味（垃圾、排水、工廠）"], ["school", "學區、生活機能"],
+];
+export const VISIT_MARKS = [["", "—"], ["2", "好"], ["1", "普通"], ["0", "差"]];
+export function visitScore(check) {
+  const vals = Object.values(check || {}).filter(v => v === "0" || v === "1" || v === "2").map(Number);
+  if (!vals.length) return null;
+  return { pct: Math.round(vals.reduce((a, b) => a + b, 0) / (vals.length * 2) * 100), n: vals.length,
+           bad: Object.entries(check).filter(([, v]) => v === "0").map(([k]) => k) };
+}
+
+// ------------------------------------------------------------------ 看屋行程：排出最順的順序（最近鄰＋2-opt），開 Google 地圖多點導航
+// pts: [{id, lat, lng}]；start：出發點 {lat, lng}（沒有就從第一間開始）。回傳 {order: [pts…], legs: [km…], km}
+export function planTrip(pts, start = null) {
+  pts = (pts || []).filter(p => p && p.lat != null && p.lng != null);
+  if (!pts.length) return { order: [], legs: [], km: 0 };
+  const d = (a, b) => distKm(a.lat, a.lng, b.lat, b.lng);
+  const rest = pts.slice(), order = [];
+  let cur = start || rest.shift();
+  if (!start) order.push(cur);
+  while (rest.length) {
+    let bi = 0;
+    for (let i = 1; i < rest.length; i++) if (d(cur, rest[i]) < d(cur, rest[bi])) bi = i;
+    cur = rest.splice(bi, 1)[0]; order.push(cur);
+  }
+  // 2-opt：把交叉的兩段反過來，直到不再變短（路線不回到起點）
+  const path = start ? [start, ...order] : order.slice();
+  const len = p => p.slice(1).reduce((s, q, i) => s + d(p[i], q), 0);
+  let improved = true;
+  while (improved) {
+    improved = false;
+    for (let i = 1; i < path.length - 1; i++) for (let k = i + 1; k < path.length; k++) {
+      const cand = path.slice(0, i).concat(path.slice(i, k + 1).reverse(), path.slice(k + 1));
+      if (len(cand) < len(path) - 1e-9) { path.splice(0, path.length, ...cand); improved = true; }
+    }
+  }
+  const out = start ? path.slice(1) : path;
+  const legs = out.map((p, i) => i === 0 ? (start ? d(start, p) : 0) : d(out[i - 1], p));
+  return { order: out, legs, km: legs.reduce((a, b) => a + b, 0) };
+}
+// Google 地圖多點導航（最多 9 個中途點）
+export function tripUrl(order, start = null, mode = "car") {
+  if (!order.length) return null;
+  const ll = p => `${(+p.lat).toFixed(6)},${(+p.lng).toFixed(6)}`;
+  const origin = start || order[0], stops = start ? order : order.slice(1);
+  if (!stops.length) return `https://www.google.com/maps/search/?api=1&query=${ll(origin)}`;
+  const dest = stops[stops.length - 1], way = stops.slice(0, -1).slice(0, 9);
+  return `https://www.google.com/maps/dir/?api=1&origin=${ll(origin)}&destination=${ll(dest)}` +
+    (way.length ? `&waypoints=${encodeURIComponent(way.map(ll).join("|"))}` : "") + `&travelmode=${(MODES[mode] || MODES.car)[2]}`;
+}
+
+// ------------------------------------------------------------------ 賣屋／換屋試算（個人、房地合一稅 2.0；金額單位：萬）
+// 房地合一：2016/1/1 以後取得的房地。課稅所得＝成交價－取得成本－費用（沒有單據按成交價 3%，最多 30 萬）－土地漲價總數額。
+// 稅率依持有期間：2 年內 45%、2～5 年 35%、5～10 年 20%、超過 10 年 15%；自住（本人、配偶或未成年子女設籍且居住滿 6 年、
+// 這 6 年沒有出租或營業）：課稅所得 400 萬以下免稅，超過的部分 10%。
+// 2015 年底以前取得的適用舊制：只有房屋部分的財產交易所得併入綜合所得稅，這裡用「房屋評定現值 × 所得標準 × 邊際稅率」粗估。
+export const SELL_DEFAULT = { sell: "", buy: "", bought: "", years: "", self: true, loan: "", agent: 4, landInc: "", landTax: "",
+  oldHouseVal: "", oldStd: 40, oldRate: 12, fees: 1.5 };
+export function hrTaxRate(years, self) {
+  if (self && years >= 6) return null;                      // 自住優惠另算
+  return years <= 2 ? 45 : years <= 5 ? 35 : years <= 10 ? 20 : 15;
+}
+export function sellHouse(o) {
+  const n = v => (v === "" || v == null || isNaN(+v)) ? null : +v;
+  const sell = n(o.sell), buy = n(o.buy), years = n(o.years);
+  if (!(sell > 0)) return null;
+  const agent = sell * (n(o.agent) ?? 4) / 100, fees = n(o.fees) ?? 1.5, loan = n(o.loan) ?? 0, landTax = n(o.landTax) ?? 0;
+  const old = n(o.bought) != null && n(o.bought) < 2016;
+  let tax = 0, gain = null, taxable = null, rate = null, rule;
+  if (old) {
+    const hv = n(o.oldHouseVal) ?? sell * 0.1;
+    taxable = hv * (n(o.oldStd) ?? 40) / 100;
+    rate = n(o.oldRate) ?? 12;
+    tax = taxable * rate / 100;
+    rule = "舊制（2015 年底前取得）：房屋評定現值 × 所得標準，併入綜合所得稅";
+  } else if (buy > 0 && years != null) {
+    const expense = Math.min(30, sell * 0.03);
+    gain = sell - buy;
+    taxable = Math.max(0, gain - expense - (n(o.landInc) ?? 0));
+    if (o.self && years >= 6) {
+      rate = 10; tax = Math.max(0, taxable - 400) * 0.10;
+      rule = "房地合一 2.0 自住優惠：設籍滿 6 年，400 萬以下免稅，超過部分 10%";
+    } else {
+      rate = hrTaxRate(years, false); tax = taxable * rate / 100;
+      rule = `房地合一 2.0：持有 ${years} 年，稅率 ${rate}%`;
+    }
+  } else {
+    rule = "要填買進價格與持有年數才能算房地合一稅";
+  }
+  const net = sell - loan - agent - fees - tax - landTax;
+  return { sell, agent, fees, loan, tax, landTax, gain, taxable, rate, rule, old, net,
+           missingLandTax: n(o.landTax) == null };
+}
+// 重購退稅：出售後 2 年內（或先買後賣）重購自住房屋，新屋價 ≥ 舊屋售價全額退，較低按比例退（房地合一稅、舊制皆有類似規定）
+export function rebuyRefund(taxPaid, sellPrice, newPrice) {
+  if (!(taxPaid > 0) || !(sellPrice > 0) || !(newPrice > 0)) return 0;
+  return newPrice >= sellPrice ? taxPaid : taxPaid * newPrice / sellPrice;
+}
+
+// ------------------------------------------------------------------ 長期走勢（近 5 年，tools/build_long.py 產生的 long.json）
+// 每月的中位數合成「每季」：件數加權平均（季檔摘要本身就是近似值，畫長期走勢足夠）
+export function longSeries(lb, name, cat, metric = "u") {
+  const c = lb && lb.data && lb.data[name] && lb.data[name][cat];
+  if (!c) return [];
+  const q = new Map();
+  lb.months.forEach((m, i) => {
+    const n = c.n[i], v = c[metric][i];
+    if (!n || v == null) return;
+    const k = `${m.slice(0, 4)}Q${Math.floor((+m.slice(5, 7) - 1) / 3) + 1}`;
+    const a = q.get(k) || [0, 0];
+    a[0] += n; a[1] += n * v; q.set(k, a);
+  });
+  return [...q.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([m, [n, s]]) => ({ m, v: s / n, n }));
+}
+// 近 N 年漲跌（%）：最近兩季的平均 vs N 年前同樣兩季的平均；兩邊件數都要夠
+export function longChange(series, years, minN = 10) {
+  if (!series || series.length < 6) return null;
+  const idx = new Map(series.map((p, i) => [p.m, i]));
+  const last = series.length - 1, end = series[last].m;
+  const back = m => `${+m.slice(0, 4) - years}${m.slice(4)}`;
+  const pick = i => series[i];
+  const a = [pick(last), pick(last - 1)], b = [back(a[0].m), back(a[1].m)].map(m => idx.has(m) ? series[idx.get(m)] : null);
+  if (b.some(x => !x) || [...a, ...b].some(x => x.n < minN / 2) || a[0].n + a[1].n < minN || b[0].n + b[1].n < minN) return null;
+  const avg = xs => xs.reduce((s, x) => s + x.v * x.n, 0) / xs.reduce((s, x) => s + x.n, 0);
+  return { pct: (avg(a) / avg(b) - 1) * 100, from: b[1].m, to: end };
+}

@@ -1,6 +1,7 @@
 """全台版的資料管線：縣市名稱判斷、全國實價登錄下載（用假的伺服器回應）、鄉鎮清單整理。"""
 import datetime
 import io
+import json
 import os
 import shutil
 import sys
@@ -163,6 +164,72 @@ class NationalDownloadTest(unittest.TestCase):
         before = len(self.calls)
         plvr_tw.update(seasons_wanted=2, today=datetime.date(2026, 10, 2), progress=lambda m: None)
         self.assertTrue(any("DownloadSeason" in u and "115S2" in u for u in self.calls[before:]))
+
+
+class LongTermTest(unittest.TestCase):
+    """長期走勢：舊季檔濃縮成每月統計，同一個月分散在兩個季檔時用件數加權合併。"""
+
+    def test_merge_weighted(self):
+        from core import longterm
+        f1 = {"counties": {"D": {"東區": {"all": {"2022-03": [10, 20.0, 1000], "2022-04": [4, 22.0, 1100]}}}}}
+        f2 = {"counties": {"D": {"東區": {"all": {"2022-03": [30, 24.0, 1200]}}}}}
+        m = longterm.merge([f1, f2], "D")
+        self.assertEqual(m["東區"]["all"]["2022-03"], [40, 23.0, 1150])
+        self.assertEqual(m["東區"]["all"]["2022-04"], [4, 22.0, 1100])
+        self.assertEqual(longterm.merge([f1], "A"), {})
+        book = longterm.long_book(m, ["2022-03", "2022-04", "2022-05"])
+        self.assertEqual(book["data"]["東區"]["all"]["n"], [40, 4, 0])
+        self.assertEqual(book["data"]["東區"]["all"]["u"], [23.0, 22.0, None])
+        # 近期統計（PriceBook）有的月份以近期為準
+        recent = {"months": ["2022-04", "2022-05"], "data": {"東區": {"all": {"n": [9, 5], "u": [25.0, 26.0], "t": [1300, 1350]}}}}
+        book = longterm.long_book(m, ["2022-03", "2022-04", "2022-05"], recent, "2022-04")
+        self.assertEqual(book["data"]["東區"]["all"]["u"], [23.0, 25.0, 26.0])
+
+    def test_zip_summary_and_build(self):
+        from core import longterm
+        from tools import build_long
+        a, b = _read("fixture_d_lvr_land_a.csv"), _read("fixture_d_lvr_land_b.csv")
+        z = _zip({"d_lvr_land_a.csv": a, "d_lvr_land_b.csv": b})
+        summ, counts = longterm.season_summary_from_zip(z)
+        self.assertGreater(counts["D"], 10)
+        self.assertIn("台南市", summ["D"])
+        self.assertIn("presale", summ["D"]["台南市"])
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        old = (build_long.LONG_DIR, build_long.WEB_TW, plvr.fetch, plvr_tw.CACHE)
+        build_long.LONG_DIR, build_long.WEB_TW = os.path.join(tmp, "long"), os.path.join(tmp, "web")
+        plvr_tw.CACHE = os.path.join(tmp, "cache")
+        calls = []
+
+        def fake(url, **kw):
+            calls.append(url)
+            return z if "DownloadSeason" in url and "115S3" not in url else b"<html></html>"
+        plvr.fetch = fake
+        try:
+            import sys as _sys
+            argv = _sys.argv
+            _sys.argv = ["build_long.py", "--max", "2"]
+            try:
+                build_long.main()
+            finally:
+                _sys.argv = argv
+            files = sorted(os.listdir(build_long.LONG_DIR))
+            self.assertEqual(len(files), 2)                         # 一次最多補 2 季
+            with open(os.path.join(build_long.WEB_TW, "D", "long.json"), encoding="utf-8") as f:
+                lb = json.load(f)
+            self.assertIn("台南市", lb["data"])
+            self.assertEqual(len(lb["months"]), len(set(lb["months"])))
+            # 再跑一次：已經有的不重抓，再補 2 季
+            n0 = sum("DownloadSeason" in u for u in calls)
+            _sys.argv = ["build_long.py", "--max", "2"]
+            try:
+                build_long.main()
+            finally:
+                _sys.argv = argv
+            self.assertEqual(len(os.listdir(build_long.LONG_DIR)), 4)
+            self.assertLessEqual(sum("DownloadSeason" in u for u in calls) - n0, 3)
+        finally:
+            build_long.LONG_DIR, build_long.WEB_TW, plvr.fetch, plvr_tw.CACHE = old
 
 
 class RentTest(unittest.TestCase):

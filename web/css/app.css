@@ -472,3 +472,11 @@ table.list tr.cheaper td:nth-child(4) { color: #1e8a4c; font-weight: 700; }
 .pbar { height: 8px; border-radius: 4px; background: #c0302f; opacity: .6; }
 .pbar.neg { background: #1c5cab; }
 .tx-filter .seg button { padding: 4px 9px; }
+/* 走勢期間切換（近 1 年／近 5 年） */
+.span-seg { margin: 2px 0 6px; }
+/* 看屋行程與筆記 */
+ol.trip { margin: 6px 0 8px; padding-left: 22px; font-size: 0.9rem; line-height: 1.7; }
+table.list.checks td { padding: 4px; }
+table.list.checks select { padding: 3px 4px; border: 1px solid #cfd5db; border-radius: 6px; font-size: 13px; background: var(--surface, #fff); color: inherit; }
+#tab-body a.btn.primary, #tab-body a.btn.primary:visited { color: #fff; text-decoration: none; }
+table.list th[title="排入看屋行程"] { white-space: nowrap; }
