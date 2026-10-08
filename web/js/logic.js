@@ -127,7 +127,9 @@ export function decodeTx(raw) {
                tw: r[5], u: r[6], ping: r[7], built: r[8] || null, presale: r[9] === 1, proj: r[10],
                road: r[11], lane: r[12] < 0 ? null : r[12], alley: r[13] < 0 ? null : r[13], num: r[14] < 0 ? null : r[14],
                // 舊資料沒有下面四欄：樓層（null 不明）、車位數、車位坪數、車位價（萬）
-               fl: r[15] == null || r[15] < 0 ? null : r[15], pk: r[16] || 0, pka: r[17] || 0, pkp: r[18] || 0, pkt: r[19] || 0 });
+               fl: r[15] == null || r[15] < 0 ? null : r[15], pk: r[16] || 0, pka: r[17] || 0, pkp: r[18] || 0, pkt: r[19] || 0,
+               // 公設比（%，null 不明）、實坪（坪）、房數（0 不明）、電梯與管理組織（0 不明、1 有、2 無）
+               ps: r[20] == null || r[20] < 0 ? null : r[20], rp: r[21] || 0, rm: r[22] || 0, ev: r[23] || 0, mg: r[24] || 0 });
   }
   return out;
 }
@@ -553,6 +555,51 @@ export function marketHeat(book, name, cat = "all") {
   const score = (price != null ? clamp(price / 6) : 0) * 0.55 + (vol != null ? clamp(vol / 30) : 0) * 0.45;
   const label = score >= 0.35 ? "升溫" : score <= -0.35 ? "降溫" : "持平";
   return { score, label, price, vol, recent, prev };
+}
+
+// ---- 公設比與實坪單價：實坪＝主建物＋附屬建物＋陽台；實坪單價＝（總價 − 分開登錄的車位價）÷ 實坪
+// 有車位但車位價沒有分開登錄時，算不出房子本身的價格，回傳 null
+export function realUnit(x) {
+  if (!(x.rp > 0)) return null;
+  if (x.pk > 0 && !(x.pkp > 0)) return null;
+  return (x.tw - (x.pk > 0 ? x.pkp : 0)) / x.rp;
+}
+export const SHARE_AGE = [[0, 5, "5 年內"], [6, 15, "6～15 年"], [16, 30, "16～30 年"], [31, 200, "30 年以上"]];
+// 大樓、華廈（不含預售：預售屋檔沒有面積明細）近兩年的公設比與實坪單價，整體和依屋齡分組
+export function commonAreaStats(txs, district, endYm, minN = 5) {
+  const since = monthsBack(endYm, 23), all = [];
+  for (const x of txs) if (x.dist === district && x.cat === "apt" && !x.presale && x.ym >= since && x.ps != null) all.push(x);
+  if (all.length < minN) return null;
+  const sum = rows => {
+    const reals = rows.map(realUnit).filter(v => v != null);
+    return rows.length >= minN ? { n: rows.length, ps: pyRound(median(rows.map(x => x.ps)), 1), u: pyRound(median(rows.map(x => x.u)), 1),
+      real: reals.length >= minN ? pyRound(median(reals), 1) : null } : { n: rows.length, ps: null, u: null, real: null };
+  };
+  const age = x => x.built ? +x.date.slice(0, 4) - x.built : null;
+  return { all: sum(all), since,
+    bands: SHARE_AGE.map(([a, b, label]) => ({ label, ...sum(all.filter(x => { const g = age(x); return g != null && g >= a && g <= b; })) })) };
+}
+// ---- 依房數看行情：1 房、2 房、3 房、4 房以上（房數 0＝開放格局或沒填，不算）
+export const ROOM_BANDS = [[1, 1, "1 房"], [2, 2, "2 房"], [3, 3, "3 房"], [4, 99, "4 房以上"]];
+export function roomStats(txs, district, cat, endYm, minN = 3) {
+  const since = monthsBack(endYm, 11), g = ROOM_BANDS.map(() => []);
+  for (const x of txs) {
+    if (x.dist !== district || x.ym < since || !inCat(x, cat) || !x.rm) continue;
+    const i = ROOM_BANDS.findIndex(([a, b]) => x.rm >= a && x.rm <= b);
+    if (i >= 0) g[i].push(x);
+  }
+  const bands = ROOM_BANDS.map(([, , label], i) => {
+    const rows = g[i];
+    return rows.length >= minN ? { label, n: rows.length, t: pyRound(median(rows.map(x => x.tw))), ping: pyRound(median(rows.map(x => x.ping)), 1), u: pyRound(median(rows.map(x => x.u)), 1) }
+      : { label, n: rows.length, t: null, ping: null, u: null };
+  });
+  return bands.some(b => b.t != null) ? { bands, since } : null;
+}
+// 成交清單的篩選：房數（"1"～"3"、"4"＝4 房以上）、只看有電梯
+export function txFilter(x, f) {
+  if (f.rm && !(f.rm === "4" ? x.rm >= 4 : x.rm === +f.rm)) return false;
+  if (f.ev && x.ev !== 1) return false;
+  return true;
 }
 
 // ------------------------------------------------------------------ 到其他平台找物件（用 Google 站內搜尋，不爬取對方網站）

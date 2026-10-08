@@ -678,6 +678,23 @@ function marketSection(name) {
         `<td class="r">${b.pct == null || b.label === ac.base ? "—" : `${b.pct >= 0 ? "+" : ""}${b.pct}%`}</td></tr>`).join("") +
       `</tbody></table><p class="muted">近兩年的中古屋成交（不含預售），依成交當時的屋齡分組。同一區的新舊屋常在不同地段，差距不全是「折舊」，但看得出買新一點的房子大約要多付多少。</p>`;
   }
+  const ca = L.commonAreaStats(D.txs, name, end);
+  if (ca) {
+    h += `<h3>公設比與實坪單價（大樓／華廈）</h3><div class="summary">公設比中位數 <b>${ca.all.ps}%</b>：權狀單價 ${ca.all.u} 萬/坪` +
+      (ca.all.real != null ? ` → 扣掉公設後的實坪單價 <b>${ca.all.real}</b> 萬/坪` : "") + `</div>` +
+      `<table class="list"><thead><tr><th>屋齡</th><th class="r">件</th><th class="r">公設比</th><th class="r">權狀萬/坪</th><th class="r">實坪萬/坪</th></tr></thead><tbody>` +
+      ca.bands.map(b => `<tr${b.ps == null ? ' class="low"' : ""}><td>${b.label}</td><td class="r">${b.n}</td><td class="r">${b.ps == null ? "—" : b.ps + "%"}</td>` +
+        `<td class="r">${b.u == null ? "—" : b.u.toFixed(1)}</td><td class="r">${b.real == null ? "—" : b.real.toFixed(1)}</td></tr>`).join("") +
+      `</tbody></table><p class="muted">近兩年中古大樓、華廈的成交（預售屋的實價登錄沒有面積明細）。實坪＝主建物＋附屬建物＋陽台；公設比＝權狀扣掉車位後，公共設施佔的比例。` +
+      `新大樓公設比通常比較高，比單價時用實坪單價比較公平；車位價沒有分開登錄的成交不算實坪單價。</p>`;
+  }
+  const rs = L.roomStats(D.txs, name, S.cat, end);
+  if (rs) {
+    h += `<h3>依房數看行情</h3><table class="list"><thead><tr><th>格局</th><th class="r">件</th><th class="r">中位總價</th><th class="r">坪數</th><th class="r">萬/坪</th></tr></thead><tbody>` +
+      rs.bands.map(b => `<tr${b.t == null ? ' class="low"' : ""}><td>${b.label}</td><td class="r">${b.n}</td><td class="r">${b.t == null ? "—" : `<b>${L.fmtNum(b.t)}</b> 萬`}</td>` +
+        `<td class="r">${b.ping == null ? "—" : b.ping.toFixed(1)}</td><td class="r">${b.u == null ? "—" : b.u.toFixed(1)}</td></tr>`).join("") +
+      `</tbody></table><p class="muted">近一年${L.CAT_LABEL[S.cat]}的成交，依實價登錄的「建物現況格局－房」分組（開放格局、沒填的不算）。坪數是權狀坪數，含公設與車位。</p>`;
+  }
   const pk = L.parkingStats(D.txs, name, end);
   if (pk) {
     const row = (label, x) => x ? `<tr><td>${label}</td><td class="r">${x.n}</td><td class="r"><b>${L.fmtNum(x.price)}</b></td><td class="r">${L.fmtNum(x.lo)}～${L.fmtNum(x.hi)}</td><td class="r">${x.area ? x.area.toFixed(1) : "—"}</td></tr>` : "";
@@ -686,7 +703,7 @@ function marketSection(name) {
       `</tbody></table><p class="muted">近兩年「含一個車位、而且車位價格分開登錄」的成交；車位價併在房價裡的不算。</p>`;
   }
   if (!h) return "";
-  return `<details class="more" data-det="mktOpen"${S.settings.mktOpen !== false ? " open" : ""}><summary>樓層、屋齡、車位行情</summary>${h}</details>`;
+  return `<details class="more" data-det="mktOpen"${S.settings.mktOpen !== false ? " open" : ""}><summary>樓層、屋齡、公設、房數、車位行情</summary>${h}</details>`;
 }
 function tabOverview() {
   const name = S.current, b = D.book, bt = b.best(name, S.cat, "t");
@@ -834,6 +851,12 @@ function tabBldg() {
     h += `<div class="row"><button class="btn small" data-act="bldg-back">← 回社區列表</button></div>`;
     if (S.pin) h += poiButton(S.pin.lat, S.pin.lng, b.name);
     const rows = D.txs.filter(x => x.dist === S.current && L.inCat(x, S.cat) && L.bldgKey(x) === b.key);
+    // 這一棟的公設比、實坪單價、電梯、管理組織（看最近的登錄）
+    const shares = rows.filter(x => x.ps != null).map(x => x.ps), reals = rows.map(L.realUnit).filter(v => v != null);
+    const flag = k => { const v = rows.map(x => x[k]).find(v => v); return v === 1 ? "有" : v === 2 ? "無" : null; };
+    const feats = [shares.length ? `公設比約 ${L.median(shares).toFixed(1)}%` : "", reals.length ? `實坪單價 ${L.median(reals).toFixed(1)} 萬/坪` : "",
+      flag("ev") ? `電梯：${flag("ev")}` : "", flag("mg") ? `管理組織：${flag("mg")}` : ""].filter(Boolean);
+    if (feats.length) h += `<p class="muted">${feats.join("｜")}</p>`;
     const fpro = L.floorProfile(rows);
     if (fpro) {
       const mid = L.median(fpro.flatMap(r => Array(r.n).fill(r.u)));
@@ -876,7 +899,8 @@ function tabBldg() {
 }
 function txRows() {
   const name = S.current;
-  let rows = D.txs.filter(x => (name === L.CITY || x.dist === name) && L.inCat(x, S.cat));
+  const f = S.txf || {};
+  let rows = D.txs.filter(x => (name === L.CITY || x.dist === name) && L.inCat(x, S.cat) && L.txFilter(x, f));
   if (S.roadFilter && name !== L.CITY) rows = rows.filter(x => (S.cat === "presale" ? (x.proj || "未命名建案") : x.road) === S.roadFilter);
   const q = S.addr && S.addr.district === name && S.roadFilter === S.addr.road && S.cat !== "presale" ? S.addr : null;
   return { q, ranked: q ? L.rankByAddress(rows, q) : rows.map(x => ({ level: 1, x })) };
@@ -905,13 +929,18 @@ function tabTx() {
     h += `<p class="muted">${esc(scope)}｜${L.CAT_LABEL[S.cat]}｜共 ${ranked.length} 筆，列出最近 ${Math.min(300, ranked.length)} 筆（已排除親友等特殊交易）。點一列在地圖上標出大概位置。</p>`;
   }
   if (S.roadFilter) h += `<div class="row"><button class="btn small" data-act="clear-road">顯示全區</button></div>`;
+  const f = S.txf || {};
+  h += `<div class="row tx-filter"><span class="muted">格局</span><div class="seg">` +
+    [["", "不限"], ["1", "1房"], ["2", "2房"], ["3", "3房"], ["4", "4房+"]].map(([v, t]) => `<button data-act="txf" data-k="rm" data-v="${v}" aria-checked="${(f.rm || "") === v}">${t}</button>`).join("") +
+    `</div><label class="chk"><input type="checkbox" data-txf-ev${f.ev ? " checked" : ""}> 只看有電梯</label></div>`;
   if (S.roadFilter && S.cat !== "presale") h += linksRow(S.current, q && q.district === S.current ? L.describe(q).replace(/ /g, "") : S.roadFilter, "找這條路正在賣的房子");
   h += `<table class="list"><thead><tr><th>日期</th><th>地址／建案</th><th class="r">總價</th><th class="r">萬/坪</th><th class="r">坪</th></tr></thead><tbody>`;
   ranked.slice(0, 300).forEach((r, i) => {
     const x = r.x, where = x.proj ? `${x.proj}（${x.addr.slice(0, 12)}）` : x.addr;
     const age = x.built ? ` ${Math.max(0, +x.date.slice(0, 4) - x.built)}年` : "";
+    const extra = [x.rm ? `${x.rm}房` : "", x.ps != null && x.cat === "apt" ? `公設${Math.round(x.ps)}%` : "", x.fl != null ? `${x.fl}樓` : "", x.ev === 1 && x.cat !== "house" ? "電梯" : ""].filter(Boolean).join(" ");
     h += `<tr class="click ${r.level === 3 ? "exact" : r.level === 2 ? "lane" : ""}" data-tx="${i}"><td>${x.date.slice(2).replace(/-/g, "/")}</td>` +
-      `<td>${esc(where)}<div class="muted">${esc(x.btype)}${age}${S.current === L.CITY ? "｜" + esc(x.dist) : ""}</div></td>` +
+      `<td>${esc(where)}<div class="muted">${esc(x.btype)}${age}${extra ? "｜" + extra : ""}${S.current === L.CITY ? "｜" + esc(x.dist) : ""}</div></td>` +
       `<td class="r">${L.fmtNum(x.tw)}</td><td class="r">${x.u.toFixed(1)}</td><td class="r">${x.ping.toFixed(1)}</td></tr>`;
   });
   return h + `</tbody></table>${ranked.length ? "" : '<p class="empty">沒有符合的成交。</p>'}`;
@@ -1341,6 +1370,7 @@ function bindUI() {
     if (act === "clear-road") { S.roadFilter = null; S.addr = null; S.pin = null; refreshPins(); view.select(S.current === L.CITY ? null : "district", S.current); renderPanel(); }
     if (act === "watch-add") watchDialog(null);
     if (act === "cmp-add") { cmpAdd(); return; }
+    if (act === "txf") { const el = t.closest("[data-k]"); S.txf = { ...(S.txf || {}), [el.dataset.k]: el.dataset.v }; renderPanel(); return; }
     if (act === "loan-preset") {
       const youth = t.closest("[data-preset]").dataset.preset === "youth", y = L.YOUTH_LOAN, st = loanState();
       S.settings.loan = youth ? { ...st, rate: y.rate, years: y.years, grace: y.grace, youth: true }
@@ -1375,6 +1405,7 @@ function bindUI() {
   });
   body.addEventListener("change", e => {
     if (e.target.dataset && e.target.dataset.set) { onSetting(e.target); renderPanel(); return; }
+    if (e.target.hasAttribute && e.target.hasAttribute("data-txf-ev")) { S.txf = { ...(S.txf || {}), ev: e.target.checked }; renderPanel(); return; }
     if (e.target.id === "cmp-county") { S.cmpPick = e.target.value; const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; return; }
     if (e.target.dataset && e.target.dataset.val) {
       S.settings.val = Object.assign(valState(), { [e.target.dataset.val]: e.target.value.trim() }); saveStore();

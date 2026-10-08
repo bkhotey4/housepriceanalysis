@@ -40,6 +40,9 @@ C_DIST, C_TARGET, C_ADDR, C_DATE = 0, 1, 2, 7
 C_FLOORS, C_BTYPE, C_BUILT, C_AREA = 10, 11, 14, 15
 C_TOTAL, C_UNIT, C_NOTE, C_ID = 21, 22, 26, 27
 C_PIECES, C_LEVEL, C_PARK_TYPE, C_PARK_AREA, C_PARK_PRICE = 8, 9, 23, 24, 25
+# 格局、管理組織；一般買賣檔另有主建物／附屬建物／陽台面積與電梯（預售屋檔沒有這幾欄）
+C_ROOMS, C_HALLS, C_BATHS, C_MANAGED = 16, 17, 18, 20
+C_MAIN_AREA, C_ANNEX_AREA, C_BALCONY_AREA, C_ELEVATOR = 28, 29, 30, 31
 # 車位類別：平面（坡道平面、升降平面、一樓平面）＝1、機械（坡道機械、升降機械、塔式）＝2、其他＝0
 PARK_FLAT, PARK_MECH = 1, 2
 # 預售屋檔（31 欄）前 28 欄相同，後面是 建案名稱、棟及號、解約情形
@@ -112,12 +115,36 @@ def park_type_of(text):
     return 0
 
 
+def common_area(r, presale=False):
+    """(公設比（%）, 實坪（坪）)：實坪＝主建物＋附屬建物＋陽台；公設比＝（權狀面積扣掉車位與實坪）÷ 權狀面積扣掉車位。
+    預售屋檔沒有這幾欄、或數字不合理（公設比 < 0 或 > 60%）時回傳 (None, None)。"""
+    if presale or len(r) <= C_BALCONY_AREA:
+        return None, None
+    own = _num(r[C_MAIN_AREA]) + _num(r[C_ANNEX_AREA]) + _num(r[C_BALCONY_AREA])
+    _pk, pka, _pkp = parking_of(r)
+    area = _num(r[C_AREA]) - pka * PING_M2
+    if own <= 0 or area <= 0:
+        return None, None
+    share = (area - own) / area * 100
+    if share < 0 or share > 60:
+        return None, None
+    return round(share, 1), own / PING_M2
+
+
+def flag_of(text):
+    """「有」→1、「無」→2、其他（空白、不明）→0。"""
+    text = (text or "").strip()
+    return 1 if text == "有" else 2 if text == "無" else 0
+
+
 def tx_extra(x):
-    """網頁版 tx.json 每列最後的五欄：樓層（-1 不明）、車位數、車位坪數、車位價（萬）、車位類別（0 不明、1 平面、2 機械）。
+    """網頁版 tx.json 每列最後的十欄：樓層（-1 不明）、車位數、車位坪數、車位價（萬）、車位類別（0 不明、1 平面、2 機械）、
+    公設比（%，-1 不明）、實坪（坪，0 不明）、房數（0 不明或開放格局）、電梯（0 不明、1 有、2 無）、管理組織（同電梯）。
     結尾是預設值的欄位省略（網頁讀不到就當預設值），全台資料三十萬筆，能省不少流量。"""
     lvl = x.get("fl")
     out = [lvl if lvl is not None else -1, x.get("pk") or 0, round(x.get("pka") or 0, 2), round(x.get("pkp") or 0, 1),
-           x.get("pkt") or 0]
+           x.get("pkt") or 0, x["ps"] if x.get("ps") is not None else -1, round(x.get("rp") or 0, 1),
+           x.get("rm") or 0, x.get("ev") or 0, x.get("mg") or 0]
     while out and out[-1] in (0, -1):
         out.pop()
     return out
@@ -165,6 +192,12 @@ def reduce_row(r, presale=False, keep_cancelled=False):
     built = r[C_BUILT].strip()
     built_year = int(built[:3]) + 1911 if len(built) == 7 and built.isdigit() else None
     pk, pka, pkp = parking_of(r)
+    ps, rp = common_area(r, presale)
+    rooms = _num(r[C_ROOMS]) if len(r) > C_ROOMS else 0
+    if len(r) > C_ELEVATOR and not presale:
+        ev = flag_of(r[C_ELEVATOR])
+    else:                                   # 預售屋檔沒有電梯欄：看建物型態（「華廈(10層含以下有電梯)」）
+        ev = 1 if "有電梯" in r[C_BTYPE] else 2 if "無電梯" in r[C_BTYPE] else 0
     return {
         "id": r[C_ID], "dist": r[C_DIST], "ym": "%04d-%02d" % (year, month),
         "date": "%04d-%02d-%02d" % (year, month, max(1, min(day, calendar.monthrange(year, month)[1]))),
@@ -174,6 +207,8 @@ def reduce_row(r, presale=False, keep_cancelled=False):
         "kind": "presale" if presale else "sale", "proj": r[C_PROJ].strip() if presale else "",
         "fl": floor_of(r[C_LEVEL]), "pk": pk, "pka": pka, "pkp": pkp,
         "pkt": park_type_of(r[C_PARK_TYPE]) if pk else 0, "cancel": cancelled,
+        "ps": ps, "rp": rp, "rm": int(rooms) if 0 < rooms < 20 else 0, "ev": ev,
+        "mg": flag_of(r[C_MANAGED]) if len(r) > C_MANAGED else 0,
     }
 
 

@@ -100,7 +100,8 @@ def export_tx(code, txs, dists, cancels=()):
                      num if num is not None else -1] + prices.tx_extra(x))
     rows.sort(key=lambda r: r[1], reverse=True)
     fields = ["d", "date", "cat", "btype", "addr", "tw", "u", "ping", "built", "presale", "proj",
-              "road", "lane", "alley", "num", "fl", "pk", "pka", "pkp", "pkt"]
+              "road", "lane", "alley", "num", "fl", "pk", "pka", "pkp", "pkt",
+              "ps", "rp", "rm", "ev", "mg"]
     return _dump("%s/tx.json" % code, {"fields": fields, "cats": ["house", "apt", "other"], "dists": dists, "rows": rows,
                                        "cancel": prices.cancel_counts(cancels, dists)}), len(rows)
 

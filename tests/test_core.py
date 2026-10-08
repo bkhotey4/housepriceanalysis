@@ -60,7 +60,7 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(x["pkp"], 400)
         self.assertEqual(sum(t["pk"] for t in self.txs), 2)
         # 網頁版 tx.json 的最後五欄；舊快取沒有這些欄位時給預設值
-        self.assertEqual(prices.tx_extra(x), [6, 2, round(50.88 / prices.PING_M2, 2), 400.0, prices.PARK_FLAT])
+        self.assertEqual(prices.tx_extra(x)[:5], [6, 2, round(50.88 / prices.PING_M2, 2), 400.0, prices.PARK_FLAT])
         self.assertEqual(prices.tx_extra({}), [])                               # 全是預設值：整段省略
         self.assertEqual(prices.tx_extra({"fl": 7}), [7])
 
@@ -93,6 +93,21 @@ class ParseTest(unittest.TestCase):
     def test_floor_with_notes(self):
         for text, want in (("四層，走廊", 4), ("五層，見其他登記事項", 5), ("四層，五層", None), ("地下一層，一層", None)):
             self.assertEqual(prices.floor_of(text), want, text)
+
+    def test_common_area_rooms_elevator(self):
+        # 歸仁高鐵大道：權狀 197.8 m²，車位 50.88 m²，主建物 87.84＋陽台 7.8 → 公設比 (146.92 − 95.64) ÷ 146.92 ≈ 34.9%
+        x = next(t for t in self.txs if t["dist"] == "歸仁區")
+        self.assertAlmostEqual(x["ps"], round((197.8 - 50.88 - 95.64) / (197.8 - 50.88) * 100, 1))
+        self.assertAlmostEqual(x["rp"], 95.64 / prices.PING_M2, places=3)
+        self.assertEqual((x["rm"], x["ev"], x["mg"]), (4, 1, 1))
+        self.assertEqual(prices.tx_extra(x)[5:], [x["ps"], round(x["rp"], 1), 4, 1, 1])
+        walkup = [t for t in self.txs if t["cat"] == "walkup"]
+        self.assertTrue(walkup and all(t["ev"] == 2 for t in walkup))          # 公寓：無電梯
+        # 預售屋檔沒有面積明細：公設比不明；電梯看建物型態
+        pre = prices.parse_csv_text(open(os.path.join(ROOT, "tests", "fixture_d_lvr_land_b.csv"), encoding="utf-8-sig").read())
+        self.assertTrue(all(t["ps"] is None and t["rp"] is None for t in pre))
+        self.assertTrue(any(t["ev"] == 1 for t in pre))
+        self.assertEqual(prices.flag_of("有"), 1); self.assertEqual(prices.flag_of("無"), 2); self.assertEqual(prices.flag_of(""), 0)
 
     def test_dedupe(self):
         self.assertEqual(len(prices.dedupe(self.txs + self.txs)), 8)
