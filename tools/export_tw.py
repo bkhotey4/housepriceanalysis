@@ -77,14 +77,17 @@ def town_list(county, towns_osm, txs):
 
 def rent_diag(code, parsed):
     files = plvr_tw.rent_files(code)
-    rows, header = 0, []
+    rows, header, stats = 0, [], {}
     for path in files:
         with open(path, "rb") as f:
             text = f.read().decode("utf-8-sig", "replace")
         rows += max(0, text.count("\n") - 2)
         if not header and text.strip():
             header = rent.header_of(text)
-    return {"files": len(files), "rows": rows, "parsed": parsed, "header": header}
+        rent.parse_rent_csv(text, stats)            # 統計每一列被排除的原因
+    samples = stats.pop("samples", [])[:2]
+    why = dict(sorted(stats.items(), key=lambda kv: -kv[1])[:15])
+    return {"files": len(files), "rows": rows, "parsed": parsed, "header": header, "skipped": why, "samples": samples}
 
 
 def road_list(code):

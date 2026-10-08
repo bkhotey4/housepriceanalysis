@@ -62,8 +62,13 @@ def rent_cat(btype, mode, use):
     return None
 
 
-def parse_rent_csv(text):
-    """一份租賃 CSV 文字 → 精簡租賃 list：{id, dist, ym, cat, rent(元/月), ping, unit(元/坪/月), rooms, built}。"""
+def parse_rent_csv(text, stats=None):
+    """一份租賃 CSV 文字 → 精簡租賃 list：{id, dist, ym, cat, rent(元/月), ping, unit(元/坪/月), rooms, built}。
+
+    傳入 stats（dict）時記錄每一列被排除的原因與前幾列原始資料（診斷用）。"""
+    st = stats if stats is not None else {}
+    def skip(why):
+        st[why] = st.get(why, 0) + 1
     if text.startswith("﻿"):
         text = text[1:]
     rows = csv.reader(io.StringIO(text))
@@ -85,32 +90,37 @@ def parse_rent_csv(text):
                     "id": _col(header, "編號"), "mode": _col(header, "出租型態"),
                 })
             continue
-        if r[0].startswith("The villages") or len(r) < len(header) - 3:
+        if r[0].startswith("The villages"):
             continue
+        if len(r) < len(header) - 3:
+            skip("欄位數不足"); continue
+        if len(st.setdefault("samples", [])) < 3:
+            st["samples"].append(r)
         g = lambda k: (r[idx[k]].strip() if idx.get(k) is not None and idx[k] < len(r) else "")
-        if g("target") and "建物" not in g("target") and "房地" not in g("target"):
-            continue
+        tg = g("target")
+        if tg and not re.search("建物|房", tg):          # 只有土地或車位的租賃不算
+            skip("交易標的:" + tg[:12]); continue
         if _EXCL.search(g("note")):
-            continue
+            skip("特殊關係"); continue
         cat = rent_cat(g("btype"), g("mode"), g("use"))
         if not cat:
-            continue
+            skip("非住宅:" + (g("btype")[:8] or "空") + "/" + (g("use")[:6] or "空")); continue
         d = g("date")
         if not (len(d) == 7 and d.isdigit()):
-            continue
+            skip("日期:" + d[:10]); continue
         year, month = int(d[:3]) + 1911, int(d[3:5])
         if not 1 <= month <= 12:
-            continue
+            skip("月份"); continue
         rent = _num(g("total")) - _num(g("park"))
         area = _num(g("area"))
         if area <= 0:
-            continue
+            skip("沒有面積"); continue
         ping = area / PING_M2
         if not (1000 <= rent <= 400000) or not (1 <= ping <= 300):
-            continue
+            skip("月租或坪數超出範圍"); continue
         unit = rent / ping
         if not (50 <= unit <= 5000):
-            continue
+            skip("每坪月租超出範圍"); continue
         built = g("built")
         rooms = int(_num(g("rooms")))
         out.append({"id": g("id"), "dist": g("dist"), "ym": "%04d-%02d" % (year, month), "cat": cat,

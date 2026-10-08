@@ -32,7 +32,7 @@ from core.taiwan import COUNTIES, load_towns  # noqa: E402
 OUT = os.path.join(ROOT, "data", "tw", "transit.json")
 WEB_OUT = os.path.join(ROOT, "web", "data", "tw", "transit.json")
 MAX_AGE_DAYS = 30
-VERSION = 4          # 格式或抓法改了就加 1：舊檔案即使還沒滿 30 天也會重抓（4：加台鐵）
+VERSION = 5          # 格式或抓法改了就加 1：舊檔案即使還沒滿 30 天也會重抓（4：加台鐵；5：台鐵車站要座標）
 REPORT = os.path.join(ROOT, "web", "data", "tw", "transit_report.json")   # 每條 relation 的明細（網站上看得到，方便查漏抓）
 # 一次查全台太大，Overpass 會中途停掉（回傳一部分＋remark 錯誤訊息）：分區、分類各查一次再合併
 AREAS = [("北部", "24.55,120.9,25.35,122.1"), ("中部", "23.75,120.2,24.55,121.4"), ("南部", "21.8,120.0,23.75,121.0"),
@@ -44,7 +44,7 @@ QUERIES = [("%s捷運輕軌" % n, _Q % (b, 'rel["route"~"^(subway|light_rail|mon
 TRA_AREAS = [("台鐵北部", "24.4,120.6,25.35,122.1"), ("台鐵中部", "23.4,120.1,24.45,121.2"),
              ("台鐵南部", "21.8,120.0,23.45,121.0"), ("台鐵東部", "21.8,120.8,24.95,122.0")]
 _QT = ('[out:json][timeout:180][bbox:%s];way["railway"="rail"]["service"!~"."];out geom tags;'
-       'node["railway"~"^(station|halt)$"];out tags;')
+       'node["railway"~"^(station|halt)$"];out;')          # 車站要 out（含座標），不能 out tags
 TRA_QUERIES = [(n, _QT % b) for n, b in TRA_AREAS]
 TRA_COLOR = "#5b6b7c"
 _TRA_OP = re.compile("臺鐵|台鐵|臺灣鐵路|台灣鐵路|Taiwan Railway")
@@ -187,8 +187,8 @@ def build(raw, towns=None):
                     g["stops"].setdefault(name, (round(m["lat"], 5), round(m["lon"], 5)))
     lines = []
     for key, g in groups.items():
-        if not g["ways"]:
-            continue
+        if not g["ways"] or (key not in CANONICAL and not g["stops"]):
+            continue                                   # 沒有軌道，或不認得又湊不出任何車站（例如港區貨運線）
         t = g["tags"]
         chains = roads.merge_chains(list(g["ways"].values()))
         segs = [[c for p in _thin(ch) for c in p] for ch in chains]

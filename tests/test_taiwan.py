@@ -299,6 +299,8 @@ class TransitTest(unittest.TestCase):
         self.assertIsNone(build_transit.build_tra([els[2], els[3]], towns))
         self.assertFalse(build_transit.is_tra_way({"railway": "rail", "operator": "台灣高鐵"}))
         self.assertTrue(build_transit.is_tra_way({"railway": "rail", "operator": "國營臺灣鐵路股份有限公司"}))
+        for _n, ql in build_transit.TRA_QUERIES:                 # 車站要帶座標：不能用 out tags
+            self.assertNotIn("out tags", ql.split("node[")[1])
 
     def test_build_merges_directions(self):
         from tools import build_transit
