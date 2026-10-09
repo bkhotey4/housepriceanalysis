@@ -367,6 +367,7 @@ class WebAppTest(unittest.TestCase):
             lat, lng = float(m.group(1)), float(m.group(2))
             els = [{"type": "node", "id": 1, "lat": lat + 0.001, "lon": lng, "tags": {"shop": "convenience", "name": "超商A"}},
                    {"type": "node", "id": 2, "lat": lat + 0.0015, "lon": lng, "tags": {"amenity": "fuel", "name": "加油站B"}},
+                   {"type": "node", "id": 8, "lat": lat - 0.002, "lon": lng, "tags": {"shop": "pastry", "name": "甜點店D"}},
                    {"type": "node", "id": 3, "lat": lat + 0.03, "lon": lng, "tags": {"amenity": "hospital", "name": "太遠的醫院"}},
                    {"type": "way", "id": 4, "center": {"lat": lat - 0.004, "lon": lng}, "tags": {"landuse": "cemetery"}},
                    # 高壓電線：兩段同名，只算一條；距離量到線上最近一點（約 110 公尺），不是線的中心
@@ -384,7 +385,10 @@ class WebAppTest(unittest.TestCase):
         text = pg.inner_text("#tab-body")
         self.assertIn("超商A", text); self.assertIn("加油站B", text); self.assertNotIn("太遠的醫院", text)
         self.assertEqual(pg.evaluate("__app.S.tab"), "poi")
-        self.assertEqual(pg.evaluate("__app.view.pois.length"), 4)
+        self.assertEqual(pg.evaluate("__app.view.pois.length"), 5)
+        self.assertIn("甜點店D", text); self.assertEqual(pg.evaluate("__app.S.poi.res.byCat.dessert.n"), 1)
+        href = pg.get_attribute("#tab-body a[data-sweet='下午茶']", "href")
+        self.assertIn("google.com/maps/search/", href); self.assertIn(",16z", href)
         self.assertIn("高壓線C", text); self.assertNotIn("鐵路、高架捷運（噪音、震動）\t1", text)      # 地下捷運不算
         self.assertEqual(pg.evaluate("__app.S.poi.res.byCat.hvline.n"), 1)
         self.assertLess(abs(pg.evaluate("__app.S.poi.res.byCat.hvline.nearest.d") - 111), 5)

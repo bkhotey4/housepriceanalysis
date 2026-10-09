@@ -421,6 +421,27 @@ class TransitTest(unittest.TestCase):
         self.assertEqual(kinds.get("台鐵"), "台鐵")
         self.assertTrue(os.path.exists(web))
 
+    def test_merge_old_tra_only_failed_areas(self):
+        """台鐵只有一區失敗：其他區用新抓的，失敗那區補上一次的車站與軌道。"""
+        import json as _json
+        from unittest import mock
+        from tools import build_transit as bt
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        out = os.path.join(tmp, "transit.json")
+        old_tra = {"name": "台鐵", "kind": "台鐵", "segments": [[23.1, 120.3, 23.2, 120.3], [25.0, 121.5, 25.1, 121.5]],
+                   "stations": [["善化站", 23.13, 120.30], ["舊台北站", 25.05, 121.52]], "counties": []}
+        with open(out, "w", encoding="utf-8") as f:
+            _json.dump({"lines": [old_tra]}, f)
+        new = {"name": "台鐵", "kind": "台鐵", "segments": [[25.0, 121.5, 25.2, 121.6]], "stations": [["臺北站", 25.05, 121.52]],
+               "counties": ["A"]}
+        towns = {"A": [{"name": "中正區", "lat": 25.03, "lng": 121.52}], "D": [{"name": "善化區", "lat": 23.13, "lng": 120.3}]}
+        with mock.patch.object(bt, "load_towns", lambda: towns):
+            m = bt.merge_old_tra(new, ["台鐵嘉南"], out)
+        self.assertEqual(sorted(s[0] for s in m["stations"]), ["善化站", "臺北站"])     # 北部的舊站不會混進來
+        self.assertEqual(len(m["segments"]), 2)
+        self.assertEqual(m["counties"], ["A", "D"])
+
     def test_main_keeps_old_hsr_when_hsr_fails(self):
         """高鐵查詢失敗：捷運照常更新，高鐵沿用上一次的資料（不會整份路線都不更新）。"""
         import json as _json

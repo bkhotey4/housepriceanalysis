@@ -662,6 +662,12 @@ export const POI_CATS = [
   { key: "park", label: "公園", ch: "園", color: "#008300", group: "good", r: 500, q: ['nwr["leisure"="park"]'], t: t => t.leisure === "park" },
   { key: "station", label: "火車／捷運站", ch: "站", color: "#4a3aa7", group: "good", r: 2000, q: ['nwr["railway"="station"]'], t: t => t.railway === "station" },
   { key: "bus", label: "公車站", ch: "公", color: "#4a3aa7", group: "good", r: 500, q: ['node["highway"="bus_stop"]'], t: t => t.highway === "bus_stop" },
+  // 甜點與下午茶（不算生活機能分數，只是方便找）
+  { key: "dessert", label: "甜點／麵包／冰品", ch: "甜", color: "#d6457a", group: "fun", r: 800,
+    q: ['nwr["shop"~"^(bakery|pastry|confectionery|chocolate)$"]', 'nwr["amenity"="ice_cream"]'],
+    t: t => /^(bakery|pastry|confectionery|chocolate)$/.test(t.shop || "") || t.amenity === "ice_cream" },
+  { key: "cafe", label: "咖啡廳／下午茶", ch: "咖", color: "#8b5a3c", group: "fun", r: 800,
+    q: ['nwr["amenity"="cafe"]', 'nwr["shop"="tea"]'], t: t => t.amenity === "cafe" || t.shop === "tea" },
   { key: "grave", label: "墓地／納骨塔", ch: "墓", color: "#5b6168", group: "bad", r: 1000, q: ['nwr["landuse"="cemetery"]', 'nwr["amenity"~"^(grave_yard|crematorium)$"]'], t: t => t.landuse === "cemetery" || /^(grave_yard|crematorium)$/.test(t.amenity || "") },
   { key: "funeral", label: "殯儀館／禮儀社", ch: "殯", color: "#5b6168", group: "bad", r: 500, q: ['nwr["amenity"="funeral_hall"]', 'nwr["shop"="funeral_directors"]'], t: t => t.amenity === "funeral_hall" || t.shop === "funeral_directors" },
   { key: "fuel", label: "加油站", ch: "油", color: "#eb6834", group: "bad", r: 300, q: ['nwr["amenity"="fuel"]'], t: t => t.amenity === "fuel" },
@@ -683,7 +689,7 @@ export function poiQuery(lat, lng) {
   const at = c => `(around:${c.r},${lat.toFixed(5)},${lng.toFixed(5)});`;
   const pt = [], ln = [];
   for (const c of POI_CATS) for (const q of c.q) (c.geom ? ln : pt).push(q + at(c));
-  return `[out:json][timeout:25];(${pt.join("")});out center tags 2000;(${ln.join("")});out geom tags 300;`;
+  return `[out:json][timeout:25];(${pt.join("")});out center tags 3000;(${ln.join("")});out geom tags 300;`;
 }
 // 點到折線最近的位置（平面近似，幾公里內誤差可忽略）：回傳 [距離公尺, lat, lng]
 export function nearestOnLine(lat, lng, geom) {
@@ -699,6 +705,10 @@ export function nearestOnLine(lat, lng, geom) {
     if (d < best[0]) best = [d, lat + py / ky, lng + px / kx];
   }
   return best;
+}
+// 在 Google 地圖搜尋某個點附近的店（例如「甜點」「下午茶」）：有評分、照片、營業時間
+export function nearbySearchUrl(lat, lng, keyword) {
+  return `https://www.google.com/maps/search/${encodeURIComponent(keyword)}/@${(+lat).toFixed(5)},${(+lng).toFixed(5)},16z`;
 }
 export function classifyPois(elements, lat, lng) {
   const items = [], seen = new Set();

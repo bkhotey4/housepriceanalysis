@@ -42,7 +42,8 @@ QUERIES = [("%s捷運輕軌" % n, _Q % (b, 'rel["route"~"^(subway|light_rail|mon
     ("高鐵", _Q % ("21.8,118.0,26.5,122.2", 'rel["route"="train"]["name"~"高鐵|高速鐵路|High Speed"]'))]
 # 台鐵：軌道＋車站，分四區（區域可以重疊，依 id 去重）
 TRA_AREAS = [("台鐵北部", "24.4,120.6,25.35,122.1"), ("台鐵中部", "23.4,120.1,24.45,121.2"),
-             ("台鐵南部", "21.8,120.0,23.45,121.0"), ("台鐵東部", "21.8,120.8,24.95,122.0")]
+             ("台鐵嘉南", "22.9,120.0,23.45,120.75"), ("台鐵高屏", "21.8,120.1,22.95,121.0"),
+             ("台鐵東部", "21.8,120.8,24.95,122.0")]          # 南部拆兩塊：整塊查詢常逾時（504）
 _QT = ('[out:json][timeout:180][bbox:%s];way["railway"="rail"]["service"!~"."];out geom tags;'
        'node["railway"~"^(station|halt)$"];out;')          # 車站要 out（含座標），不能 out tags
 TRA_QUERIES = [(n, _QT % b) for n, b in TRA_AREAS]
@@ -315,6 +316,35 @@ def build_tra(elements, towns=None):
             "segments": segs, "stations": stations}
 
 
+def _in_box(la, lo, box):
+    s, w, n, e = (float(x) for x in box.split(","))
+    return s <= la <= n and w <= lo <= e
+
+
+def merge_old_tra(tra, failed_labels, old_path=None):
+    """新抓的台鐵（缺幾區）＋上一次台鐵在那幾區的車站與軌道。"""
+    boxes = [b for n, b in TRA_AREAS if n in failed_labels]
+    try:
+        with open(old_path or OUT, encoding="utf-8") as f:
+            old = next((ln for ln in json.load(f).get("lines") or [] if ln.get("kind") == "台鐵"), None)
+    except (OSError, ValueError):
+        old = None
+    if not old or not boxes:
+        return tra
+    names = {s[0] for s in tra["stations"]}
+    for st in old.get("stations") or []:
+        if st[0] not in names and any(_in_box(st[1], st[2], b) for b in boxes):
+            tra["stations"].append(st)
+            names.add(st[0])
+    for seg in old.get("segments") or []:
+        if len(seg) >= 2 and any(_in_box(seg[0], seg[1], b) for b in boxes):
+            tra["segments"].append(seg)
+    tra["stations"].sort(key=lambda s: (-s[1], s[2]))
+    towns = load_towns()
+    tra["counties"] = sorted({_nearest_county(la, lo, towns) for _n, la, lo in tra["stations"]}) if tra["stations"] else []
+    return tra
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true")
@@ -395,7 +425,10 @@ def main():
             old_hsr = []
         lines = [ln for ln in lines if ln.get("kind") != "高鐵"] + old_hsr
         print("高鐵：查詢失敗，沿用上一次的資料（%d 條）" % len(old_hsr), flush=True)
-    tra = None if tra_failed else build_tra(tra_elements)
+    tra = build_tra(tra_elements) if len(tra_failed) < len(TRA_QUERIES) else None
+    if tra is not None and tra_failed:
+        tra = merge_old_tra(tra, tra_failed)        # 有幾區沒抓到：那幾區沿用上一次的車站與軌道，其他區用新的
+        print("台鐵：%s 查詢失敗，這幾區沿用上一次的資料" % "、".join(tra_failed), flush=True)
     if tra is None:
         # 台鐵這次沒抓齊：沿用上一次的（如果有）
         try:

@@ -528,17 +528,21 @@ function reportDialog() {
   dlg.showModal();
 }
 function poiButton(lat, lng, label) {
-  return `<div class="row"><button class="btn small primary" data-act="poi" data-lat="${lat}" data-lng="${lng}" data-label="${esc(label)}">看周邊生活機能與嫌惡設施</button></div>`;
+  return `<div class="row"><button class="btn small primary" data-act="poi" data-lat="${lat}" data-lng="${lng}" data-label="${esc(label)}">看周邊生活機能、甜點與嫌惡設施</button></div>`;
 }
 function tabPoi() {
   const p = S.poi;
-  if (!p) return `<p class="muted">先搜尋地址或點一筆成交，再按「看周邊生活機能與嫌惡設施」。</p>`;
+  if (!p) return `<p class="muted">先搜尋地址或點一筆成交，再按「看周邊生活機能、甜點與嫌惡設施」。</p>`;
   let h = `<div class="summary"><b>${esc(p.label)}</b> 周邊</div>`;
-  if (p.status === "loading") return h + `<p class="empty">向 OpenStreetMap 查詢中…（約 5～20 秒）</p>`;
-  if (p.status === "error") return h + `<p class="note">查詢失敗：${esc(p.err || "")}。OpenStreetMap 的查詢伺服器可能正忙，請稍後再按一次。</p>` + poiButton(p.lat, p.lng, p.label);
+  const sweets = `<h2>🍰 甜點與下午茶</h2><div class="row">` +
+    [["甜點", "甜點"], ["下午茶", "下午茶"], ["咖啡廳", "咖啡廳"], ["冰品", "冰店"]].map(([t, kw]) =>
+      `<a class="btn small" data-sweet="${esc(kw)}" target="_blank" rel="noopener" href="${L.nearbySearchUrl(p.lat, p.lng, kw)}">Google 地圖找附近${t}</a>`).join("") +
+    `</div><p class="muted">Google 地圖上有評分、照片和營業時間；下面的清單來自 OpenStreetMap，小店可能沒登錄。</p>`;
+  if (p.status === "loading") return h + `<p class="empty">向 OpenStreetMap 查詢中…（約 5～20 秒）</p>` + sweets;
+  if (p.status === "error") return h + `<p class="note">查詢失敗：${esc(p.err || "")}。OpenStreetMap 的查詢伺服器可能正忙，請稍後再按一次。</p>` + poiButton(p.lat, p.lng, p.label) + sweets;
   const fmtD = d => d >= 1000 ? (d / 1000).toFixed(1) + " 公里" : d + " 公尺";
   const block = (group, title) => {
-    let t = `<h2>${title}</h2><table class="list"><tbody>`;
+    let t = `${title ? `<h2>${title}</h2>` : ""}<table class="list"><tbody>`;
     for (const c of L.POI_CATS.filter(c => c.group === group)) {
       const b = p.res.byCat[c.key], rr = fmtD(c.r);
       t += `<tr${b.n ? ` class="click" data-poi="${esc(b.nearest.id + c.key)}"` : ""}><td><span class="pill" style="background:${c.color};color:#fff">${c.ch}</span>${esc(c.label)}` +
@@ -554,7 +558,7 @@ function tabPoi() {
     h += `<h2>學區參考</h2><div class="summary">${es.length ? `最近的國小：${es.map(li).join("、")}` : "1 公里內沒有國小"}<br>${js.length ? `最近的國中：${js.map(li).join("、")}` : "1 公里內沒有國中"}</div>` +
       `<p class="muted">學區是依門牌（里、鄰）劃分的，不一定是最近的那一所，熱門學校還有設籍年限的規定；請以縣市教育局的學區查詢為準。</p>`;
   }
-  h += block("good", "生活機能") + block("bad", "嫌惡設施");
+  h += block("good", "生活機能") + sweets + block("fun", "") + block("bad", "嫌惡設施");
   h += `<div class="row">${reportButton()}</div>`;
   h += `<p class="muted">資料來自 OpenStreetMap 志工繪製，可能有缺漏或過時（特別是禮儀社、宮廟、小型工廠），看屋前請實地走一圈。宮廟是否算嫌惡因人而異。高壓電線、鐵路、快速道路量的是到線上最近一點的距離；機場看 4 公里內，實際航道噪音請看各機場公告的噪音管制區。</p>`;
   return h;
