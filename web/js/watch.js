@@ -2,6 +2,7 @@
 import * as L from "./logic.js";
 import { $, D, S, esc, refreshPins, renderPanel, saveStore, toast, workPlace } from "./main.js";
 import { cmpCode } from "./compare.js";
+import { showPoi, sweetsFor } from "./poi.js";
 
 // ---- 看屋清單（只存在這台裝置）
 const WATCH_TYPES = ["透天厝", "大樓／華廈", "公寓", "預售屋", "店面／透店", "土地", "其他"];
@@ -48,16 +49,20 @@ export function tabWatch() {
   let h = `<div class="row"><button class="btn primary" data-act="watch-add">新增物件</button><button class="btn" data-act="watch-export">匯出備份</button><label class="btn">匯入<input type="file" id="watch-import" accept="application/json" hidden></label></div>`;
   h += `<p class="muted">看屋清單只存在這台裝置的瀏覽器裡，不會上傳。換手機時請用「匯出備份」再到新手機「匯入」。</p>`;
   if (!S.watch.length) return h + `<p class="empty">清單是空的。按「新增物件」把正在看的房子記下來，就能和那一區的行情比較。</p>`;
-  h += `<table class="list"><thead><tr><th title="排入看屋行程">行程</th><th>物件</th><th class="r">總價</th><th class="r">萬/坪</th><th class="r">對區中位</th><th class="r">評分</th></tr></thead><tbody>`;
+  h += `<table class="list"><thead><tr><th title="排入看屋行程">行程</th><th>物件</th><th class="r">總價</th><th class="r">萬/坪</th><th class="r">對區中位</th><th class="r" title="800 公尺內：飲料店／蛋糕麵包／甜點／咖啡">咖啡甜點</th><th class="r">評分</th></tr></thead><tbody>`;
   for (const it of S.watch) {
     const c = compareWatch(it);
     const nn = ((S.watchNews || {})[it.id] || []).length, sc = L.visitScore(it.check);
     h += `<tr class="click${S.watchSel === it.id ? " sel" : ""}" data-watch="${esc(it.id)}"><td><input type="checkbox" data-trip="${esc(it.id)}" aria-label="排入看屋行程"${it.trip ? " checked" : ""}></td>` +
       `<td>${esc(it.name)}${nn ? ` <span class="pill new">新成交 ${nn}</span>` : ""}<div class="muted">${esc(it.district || "")}｜${esc(it.type || "")}${it.visit ? "｜" + esc(it.visit.slice(5).replace("-", "/")) + " 看過" : ""}</div></td>` +
-      `<td class="r">${it.price ? L.fmtNum(it.price) : "—"}</td><td class="r">${c && c.unit ? c.unit.toFixed(1) : "—"}</td><td class="r">${c ? pct(c.vsT) : "—"}</td>` +
+      `<td class="r">${it.price ? L.fmtNum(it.price) : "—"}</td><td class="r">${c && c.unit ? c.unit.toFixed(1) : "—"}</td><td class="r">${c ? pct(c.vsT) : "—"}</td><td class="r">${sweetCell(it)}</td>` +
       `<td class="r">${it.rating ? "★".repeat(it.rating) : ""}${sc ? `<div class="muted">檢查 ${sc.pct}%</div>` : ""}</td></tr>`;
   }
   h += "</tbody></table>";
+  const pinned = S.watch.filter(w => w.lat != null);
+  h += pinned.length ? `<div class="row"><button class="btn small" data-act="watch-sweets"${S.sweetsBusy ? " disabled" : ""}>${S.sweetsBusy ? "查詢中…" : "更新各物件附近的咖啡、飲料、甜點、蛋糕店"}</button></div>` +
+    `<p class="muted">「咖啡甜點」欄：800 公尺內的 飲＝飲料店、糕＝蛋糕／麵包、甜＝甜點、咖＝咖啡店家數（OpenStreetMap，小店可能沒登錄）。要先「在地圖上標位置」的物件才查得到。</p>`
+    : `<p class="muted">物件「在地圖上標位置」後，就能看附近的咖啡、飲料、甜點、蛋糕店分布。</p>`;
   h += tripSection() + compareNotesSection();
   const it = S.watch.find(w => w.id === S.watchSel);
   if (it) {
@@ -76,6 +81,7 @@ export function tabWatch() {
           `<td class="r">${x.ping.toFixed(1)}</td><td class="r">${x.u.toFixed(1)}</td><td class="r">${L.fmtNum(x.tw)}</td></tr>`).join("") +
         `</tbody></table><div class="row"><button class="btn small" data-act="watch-seen">我看過了</button></div>`;
     }
+    h += sweetDetail(it);
     h += notesSection(it);
     h += `<div class="row"><button class="btn primary" data-act="watch-value">估合理價</button><button class="btn" data-act="watch-edit">編輯</button><button class="btn" data-act="watch-pin">在地圖上標位置</button>` +
       (it.lat != null ? `<button class="btn" data-act="watch-map">在地圖上看</button>` : "") +
@@ -83,6 +89,50 @@ export function tabWatch() {
       `<button class="btn" data-act="watch-del">刪除</button></div>`;
   }
   return h;
+}
+
+// ---- 咖啡、飲料、甜點、蛋糕店分布
+const SWEET_CH = { drink: "飲", cake: "糕", dessert: "甜", cafe: "咖" };
+const SWEET_NAME = { drink: "飲料店", cake: "蛋糕／麵包店", dessert: "甜點店", cafe: "咖啡店" };
+function sweetCell(it) {
+  if (it.lat == null) return `<span class="muted">—</span>`;
+  if (!it.sweets) return `<span class="muted">未查</span>`;
+  const n = it.sweets.n;
+  return L.SWEET_CATS.map(k => `${SWEET_CH[k]}${n[k] || 0}`).join(" ");
+}
+function sweetDetail(it) {
+  if (it.lat == null) return "";
+  let h = `<h3>☕ 附近的咖啡、飲料、甜點、蛋糕（800 公尺內）</h3>`;
+  if (it.sweets) {
+    h += `<table class="list"><tbody>` + L.SWEET_CATS.map(k => {
+      const nr = it.sweets.near[k];
+      return `<tr><td>${SWEET_NAME[k]}${nr ? `<div class="muted">最近：${esc(nr[0])} ${nr[1]} 公尺</div>` : ""}</td><td class="r"><b>${it.sweets.n[k] || 0}</b> 家</td></tr>`;
+    }).join("") + `</tbody></table>`;
+    for (const k of L.SWEET_CATS) {                       // 每類所有店名與距離
+      const ls = (it.sweets.list || {})[k] || [];
+      if (!ls.length) continue;
+      const [b3, b5, b8] = L.distBands(ls.map(x => x[1]));
+      h += `<details class="more"><summary>${SWEET_NAME[k]}全部 ${ls.length} 家<span class="muted">（300 公尺內 ${b3}・500 內 ${b5}・800 內 ${b8}）</span></summary>` +
+        `<table class="list"><tbody>${ls.map(([nm, d]) => `<tr><td>${esc(nm)}</td><td class="r">${d} 公尺</td></tr>`).join("")}</tbody></table></details>`;
+    }
+    if (!it.sweets.list) h += `<p class="muted">按「重新查詢」可以看到每一家的店名。</p>`;
+  } else h += `<p class="muted">還沒查詢。</p>`;
+  h += `<div class="row"><button class="btn small" data-act="watch-sweet-one">${it.sweets ? "重新查詢" : "查詢"}</button><button class="btn small" data-act="watch-sweet-map">在地圖上看店家</button>` +
+    [["咖啡店", "咖啡店"], ["飲料店", "飲料店"], ["甜點店", "甜點店"], ["蛋糕店", "蛋糕店"], ["下午茶", "下午茶"]].map(([t, kw]) =>
+      `<a class="btn small" target="_blank" rel="noopener" href="${L.nearbySearchUrl(it.lat, it.lng, kw)}">Google 找${t}</a>`).join("") + `</div>`;
+  return h;
+}
+async function updateSweets(items) {
+  if (S.sweetsBusy) return;
+  S.sweetsBusy = true; renderPanel();
+  let ok = 0, fail = 0;
+  for (const it of items) {
+    try { await sweetsFor(it); ok++; } catch { fail++; }
+    saveStore();
+    if (items.length > 1) await new Promise(r => setTimeout(r, 1500));      // 一間一間查，不要一次塞爆 OpenStreetMap 的伺服器
+  }
+  S.sweetsBusy = false; renderPanel();
+  toast(fail ? `查好 ${ok} 間，${fail} 間查詢失敗（OpenStreetMap 伺服器忙，稍後再按一次）` : `已更新 ${ok} 間物件附近的咖啡甜點`);
 }
 
 export function watchDialog(item) {
@@ -170,6 +220,10 @@ export function watchClick(t) {
   }
   if (t.matches("[data-trip-start]")) { S.tripFromWork = t.checked; renderPanel(); return true; }
   if (act === "trip-clear") { S.watch.forEach(w => { w.trip = false; }); saveStore(); renderPanel(); return true; }
+  if (act === "watch-sweets") { updateSweets(S.watch.filter(w => w.lat != null)); return true; }
+  const cur = S.watch.find(w => w.id === S.watchSel);
+  if (act === "watch-sweet-one" && cur) { updateSweets([cur]); return true; }
+  if (act === "watch-sweet-map" && cur) { showPoi(cur.lat, cur.lng, cur.name); return true; }
   if (act === "wnote-cmp") { S.watchCmpOpen = !S.watchCmpOpen; renderPanel(); return true; }
   return false;
 }

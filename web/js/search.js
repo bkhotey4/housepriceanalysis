@@ -1,5 +1,6 @@
 // 搜尋：即時自動補全、地址／地標／路名搜尋與標記（從 main.js 拆出來；共用的狀態與小工具從 main.js 匯入）
 import * as L from "./logic.js";
+import { showPoi } from "./poi.js";
 import { $, D, S, ZOOM, allLines, enterCounty, esc, isNation, loadRoads, main, pick, refreshPins, refreshRoads, renderPanel, roadsNow, selectDistrict, sheet, toast, view } from "./main.js";
 
 // 車站：全台版先切到車站所在的縣市（看路線標的縣市；跨縣市的線用最近的縣市中心），再移到最近的行政區
@@ -17,6 +18,19 @@ async function gotoStation(lineName, st) {
   pick(["station", [lineName, name]]);
   view.flyTo(lat, lng, Math.max(view.zoom, ZOOM.point));
   toast(`已定位車站：${name}（${lineName}）`);
+}
+
+// 找咖啡、飲料、甜點、蛋糕：在指定的區、剛搜尋的地址或目前這一區打開「周邊」，捲到咖啡甜點那一段
+export async function searchSweets(sw) {
+  let lat, lng, label;
+  if (sw.district && D.dmap && D.dmap[sw.district]) { const d = D.dmap[sw.district]; if (S.current !== sw.district) selectDistrict(sw.district, false); [lat, lng, label] = [d.lat, d.lng, sw.district]; }
+  else if (S.pin) [lat, lng, label] = [S.pin.lat, S.pin.lng, S.pin.label || "搜尋的地點"];
+  else if (D.dmap && D.dmap[S.current]) { const d = D.dmap[S.current]; [lat, lng, label] = [d.lat, d.lng, S.current]; }
+  if (lat == null) { toast(`先選一個行政區或搜尋地址，再找${sw.label}（例如「善化 ${sw.kw}」）`); return false; }
+  await showPoi(lat, lng, label + "（" + sw.label + "）");
+  const go = () => { const h = [...document.querySelectorAll("#tab-body h2")].find(x => /咖啡、飲料/.test(x.textContent)); if (h) h.scrollIntoView({ block: "start" }); };
+  go(); setTimeout(go, 300);
+  return true;
 }
 
 // ------------------------------------------------------------------ 即時自動補全與搜尋提示（Google Maps 風格）
@@ -179,6 +193,8 @@ export async function selectSuggestion(item) {
     await showAddress({ district: item.dist, road: item.road, text: item.road });
   } else if (item.type === "address") {
     await showAddress(item.addr);
+  } else if (item.type === "sweets") {
+    await searchSweets(item.sweet);
   }
 }
 
@@ -187,6 +203,8 @@ export async function search(text) {
   text = (text || "").trim();
   if (!text) return;
   hideSuggestions();
+  const sw = L.parseSweetQuery(text, (D.districts || []).map(d => d.name));
+  if (sw) { await searchSweets(sw); return "sweets"; }
   // 車站：有「站」字就先找站名（例如「善化車站」「善化火車站」「台南高鐵站」）；前面帶縣市的先拿掉
   if (/站/.test(text)) {
     const bare = L.splitCounty(text)[1] || text;

@@ -11,10 +11,10 @@ function poiCachePut(k, d) {
     const keys = Object.keys(c).sort((a, b) => c[b].t - c[a].t); for (const old of keys.slice(40)) delete c[old];
     localStorage.setItem(POI_CACHE, JSON.stringify(c)); } catch { /* 存不下就算了 */ }
 }
-async function fetchPoiElements(lat, lng) {
-  const k = `${lat.toFixed(4)},${lng.toFixed(4)}`, hit = poiCacheGet(k);
+async function fetchPoiElements(lat, lng, group = null) {
+  const k = `${lat.toFixed(4)},${lng.toFixed(4)}`, hit = poiCacheGet(k) || (group && poiCacheGet(k + "|" + group));
   if (hit) return hit;
-  const q = L.poiQuery(lat, lng);
+  const q = L.poiQuery(lat, lng, group);
   let last = null;
   for (const url of OVERPASS) {
     const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 30000);
@@ -28,7 +28,7 @@ async function fetchPoiElements(lat, lng) {
         if (Array.isArray(e.geometry) && e.geometry.length) { const [d, la, lo] = L.nearestOnLine(lat, lng, e.geometry); return { type: e.type, id: e.id, lat: la, lon: lo, dLine: d, tags: e.tags }; }
         return { type: e.type, id: e.id, lat: e.lat, lon: e.lon, center: e.center, tags: e.tags };
       });
-      poiCachePut(k, els);
+      poiCachePut(group ? k + "|" + group : k, els);
       return els;
     } catch (e) { last = e; } finally { clearTimeout(timer); }
   }
@@ -48,6 +48,12 @@ export async function showPoi(lat, lng, label) {
   refreshPois();
   if (S.tab === "poi") renderPanel();
   view.flyTo(lat, lng, Math.max(view.zoom, 110));
+}
+// 看屋清單：只查咖啡、飲料、甜點、蛋糕（查詢小、快），存回物件上
+export async function sweetsFor(it) {
+  const els = await fetchPoiElements(it.lat, it.lng, "fun");
+  it.sweets = L.sweetSummary(L.classifyPois(els, it.lat, it.lng));
+  return it.sweets;
 }
 export function refreshPois() {
   const cat = Object.fromEntries(L.POI_CATS.map(c => [c.key, c]));

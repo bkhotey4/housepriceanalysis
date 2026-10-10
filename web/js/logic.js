@@ -691,11 +691,24 @@ export const POI_CATS = [
   { key: "airport", label: "機場（航道噪音）", ch: "機", color: "#2a78d6", group: "bad", r: 4000, q: ['nwr["aeroway"="aerodrome"]["iata"]'], t: t => t.aeroway === "aerodrome" && !!t.iata },
 ];
 export const POI_RADIUS = 2000;      // 一般設施的查詢上限；機場另外看 4 公里
-export function poiQuery(lat, lng) {
+export function poiQuery(lat, lng, group = null) {
   const at = c => `(around:${c.r},${lat.toFixed(5)},${lng.toFixed(5)});`;
   const pt = [], ln = [];
-  for (const c of POI_CATS) for (const q of c.q) (c.geom ? ln : pt).push(q + at(c));
-  return `[out:json][timeout:25];(${pt.join("")});out center tags 3000;(${ln.join("")});out geom tags 300;`;
+  for (const c of POI_CATS) if (!group || c.group === group) for (const q of c.q) (c.geom ? ln : pt).push(q + at(c));
+  return `[out:json][timeout:25];(${pt.join("")});out center tags 3000;` + (ln.length ? `(${ln.join("")});out geom tags 300;` : "");
+}
+export const SWEET_CATS = ["drink", "cake", "dessert", "cafe"];
+// 周邊查詢結果 → 看屋清單用的咖啡甜點摘要 {t, n: {類別: 件數}, near: {類別: [店名, 公尺]}, list: {類別: [[店名, 公尺], …]}}
+// 距離分布：300／500／800 公尺內各幾家
+export function distBands(ds, bands = [300, 500, 800]) { return bands.map(b => ds.filter(d => d <= b).length); }
+export function sweetSummary(res, t = Date.now()) {
+  const n = {}, near = {};
+  const list = {};
+  for (const k of SWEET_CATS) {
+    const b = res.byCat[k] || { n: 0 }; n[k] = b.n; if (b.nearest) near[k] = [b.nearest.name, b.nearest.d];
+    list[k] = (b.all || b.list || []).slice(0, 80).map(x => [x.name, x.d]);        // 存在這台裝置：每類最多 80 家
+  }
+  return { t, n, near, list };
 }
 // 點到折線最近的位置（平面近似，幾公里內誤差可忽略）：回傳 [距離公尺, lat, lng]
 export function nearestOnLine(lat, lng, geom) {
@@ -744,7 +757,7 @@ export function classifyPois(elements, lat, lng) {
   const byCat = {};
   for (const c of POI_CATS) {
     const its = items.filter(x => x.cat === c.key);
-    byCat[c.key] = { n: its.length, nearest: its[0] || null, list: its.slice(0, 5) };
+    byCat[c.key] = { n: its.length, nearest: its[0] || null, list: its.slice(0, 5), ...(c.group === "fun" ? { all: its } : {}) };
   }
   return { items, byCat };
 }
@@ -1343,6 +1356,24 @@ export function findStations(text, lines, prefix = false) {
   return out.sort((a, b) => rank(a) - rank(b));
 }
 
+// 搜尋框輸入「甜點」「善化 咖啡」之類：回傳 {kw, label, cat, district}，不是就回傳 null
+export const SWEET_WORDS = [
+  [/蛋糕|麵包|烘焙/, "蛋糕店", "蛋糕／麵包店", "cake"], [/手搖|飲料|茶飲|珍奶|奶茶|果汁/, "飲料店", "飲料店", "drink"],
+  [/咖啡/, "咖啡店", "咖啡店", "cafe"], [/下午茶/, "下午茶", "下午茶", "dessert"], [/甜點|甜食|冰品|剉冰|冰店|甜品|點心/, "甜點店", "甜點店", "dessert"]];
+export function parseSweetQuery(text, distNames = []) {
+  const t = normTw(String(text || "")).replace(/\s+/g, "");
+  if (!t || /\d+號/.test(t)) return null;
+  const hit = SWEET_WORDS.find(([re]) => re.test(t));
+  if (!hit) return null;
+  const rest = t.replace(hit[0], "").replace(/附近|周邊|週邊|推薦|哪裡|有什麼|好吃|的|店|找/g, "");
+  let district = null;
+  for (const n of distNames) {
+    const stem = n.replace(/(區|鄉|鎮|市)$/, "");
+    if (rest && (rest.includes(n) || (stem.length >= 2 && rest.includes(stem)))) { district = n; break; }
+  }
+  return { kw: hit[1], label: hit[2], cat: hit[3], district };
+}
+
 export function quickSuggest(rawText, data, options = {}) {
   const query = normSearchQuery(rawText);
   if (!query) return [];
@@ -1620,6 +1651,10 @@ export function quickSuggest(rawText, data, options = {}) {
       });
     }
   }
+
+  const sw = parseSweetQuery(rawText, distNames);
+  if (sw) results.push({ type: "sweets", title: `${sw.district || "目前位置"}附近的${sw.label}`, sub: "周邊清單＋Google 地圖（有評分、營業時間）",
+    icon: "🍰", badge: "找店", score: 3000, sweet: sw });
 
   results.sort((a, b) => b.score - a.score);
   const seen = new Set();

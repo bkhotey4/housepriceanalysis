@@ -358,6 +358,50 @@ class WebAppTest(unittest.TestCase):
         self.assertIn("並排比較", pg.inner_text("#tab-body"))
         self.assertIn("✗ 差", pg.inner_text("#tab-body table.cmp"))
 
+    def test_watch_sweets(self):
+        """看屋清單：每間物件附近的咖啡、飲料、甜點、蛋糕店家數。"""
+        import json as _json, re as _re
+        from urllib.parse import unquote as _uq
+        pg = self.open(phone=True)
+        asked = []
+        def handle(route):
+            body = _uq(route.request.post_data or "")
+            asked.append(body)
+            m = _re.search(r"around:\d+,([\d.]+),([\d.]+)", body)
+            lat, lng = float(m.group(1)), float(m.group(2))
+            els = [{"type": "node", "id": 1, "lat": lat + 0.001, "lon": lng, "tags": {"amenity": "cafe", "name": "咖啡A"}},
+                   {"type": "node", "id": 2, "lat": lat + 0.002, "lon": lng, "tags": {"shop": "bakery", "name": "蛋糕B"}},
+                   {"type": "node", "id": 3, "lat": lat + 0.003, "lon": lng, "tags": {"shop": "beverages", "name": "手搖C"}}]
+            route.fulfill(status=200, content_type="application/json", body=_json.dumps({"elements": els}))
+        pg.route("**/api/interpreter", handle)
+        pg.wait_for_function("__app.D.txs")
+        pg.evaluate("""() => { const S = __app.S;
+            S.watch = [{id: 'a', name: '甲', district: '善化區', type: '透天厝', lat: 23.13, lng: 120.30},
+                       {id: 'd', name: '丁', district: '善化區', type: '透天厝', lat: null, lng: null}];
+            S.tab = 'watch'; __app.selectDistrict('善化區'); }""")
+        self.assertIn("未查", pg.inner_text("#tab-body"))
+        pg.evaluate("document.querySelector(`#tab-body [data-act='watch-sweets']`).click()")
+        pg.wait_for_function("__app.S.watch[0].sweets && !__app.S.sweetsBusy")
+        self.assertEqual(len(asked), 1)                              # 沒標位置的不查
+        self.assertNotIn("landuse", asked[0])                       # 只查咖啡甜點，不查整包周邊
+        self.assertIn("飲1 糕1 甜0 咖1", pg.inner_text("#tab-body"))
+        pg.evaluate("__app.S.watchSel = 'a'; document.querySelector(`#tab-body [data-watch='a'] td:nth-child(2)`).click()")
+        self.assertIn("最近：咖啡A", pg.inner_text("#tab-body"))
+        self.assertIn("咖啡店全部 1 家", pg.inner_text("#tab-body"))
+
+    def test_search_sweets(self):
+        """搜尋框打「善化 甜點」：直接打開善化區的周邊，有咖啡甜點那一段（不會變成找路名）。"""
+        import json as _json
+        pg = self.open(phone=True)
+        pg.route("**/api/interpreter", lambda r: r.fulfill(status=200, content_type="application/json", body=_json.dumps({"elements": []})))
+        pg.wait_for_function("__app.D.txs")
+        pg.fill("#q", "善化 甜點"); pg.wait_for_timeout(500)
+        self.assertIn("善化區附近的甜點店", pg.inner_text("body"))          # 提示清單第一個
+        pg.press("#q", "Enter"); pg.wait_for_timeout(1500)
+        self.assertEqual(pg.evaluate("__app.S.tab"), "poi")
+        self.assertIn("善化區", pg.evaluate("__app.S.poi.label"))
+        self.assertIn("咖啡、飲料、甜點、蛋糕", pg.inner_text("#tab-body"))
+
     def test_poi_nearby(self):
         import json as _json, re as _re
         from urllib.parse import unquote as _uq
@@ -390,6 +434,7 @@ class WebAppTest(unittest.TestCase):
         self.assertEqual(pg.evaluate("__app.S.tab"), "poi")
         self.assertEqual(pg.evaluate("__app.view.pois.length"), 8)
         self.assertIn("甜點店D", text); self.assertEqual(pg.evaluate("__app.S.poi.res.byCat.dessert.n"), 1)
+        self.assertIn("飲料店（手搖、茶飲）全部 1 家", text)
         self.assertEqual([pg.evaluate("__app.S.poi.res.byCat.%s.n" % k) for k in ("drink", "cafe", "cake")], [1, 1, 1])     # 手搖店不會算成咖啡店
         href = pg.get_attribute("#tab-body a[data-sweet='飲料店']", "href")
         self.assertIn("google.com/maps/search/", href); self.assertIn(",16z", href)

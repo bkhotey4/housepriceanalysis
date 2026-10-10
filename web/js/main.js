@@ -530,6 +530,20 @@ function reportDialog() {
 function poiButton(lat, lng, label) {
   return `<div class="row"><button class="btn small primary" data-act="poi" data-lat="${lat}" data-lng="${lng}" data-label="${esc(label)}">看周邊生活機能、咖啡甜點與嫌惡設施</button></div>`;
 }
+// 咖啡、飲料、甜點、蛋糕：每類列出所有店名與距離（點一列在地圖上找到那家）
+function sweetLists(res, fmtD) {
+  let h = "";
+  for (const c of L.POI_CATS.filter(c => c.group === "fun")) {
+    const all = (res.byCat[c.key] || {}).all || [];
+    if (!all.length) continue;
+    const [b3, b5, b8] = L.distBands(all.map(x => x.d));
+    h += `<details class="more"><summary><span class="pill" style="background:${c.color};color:#fff">${c.ch}</span>${esc(c.label)}全部 ${all.length} 家` +
+      `<span class="muted">（300 公尺內 ${b3}・500 內 ${b5}・800 內 ${b8}）</span></summary><table class="list"><tbody>` +
+      all.map(x => `<tr class="click" data-poi="${esc(x.id + c.key)}"><td>${esc(x.name)}</td><td class="r">${fmtD(x.d)}</td></tr>`).join("") +
+      `</tbody></table></details>`;
+  }
+  return h;
+}
 function tabPoi() {
   const p = S.poi;
   if (!p) return `<p class="muted">先搜尋地址或點一筆成交，再按「看周邊生活機能、咖啡甜點與嫌惡設施」。</p>`;
@@ -558,7 +572,7 @@ function tabPoi() {
     h += `<h2>學區參考</h2><div class="summary">${es.length ? `最近的國小：${es.map(li).join("、")}` : "1 公里內沒有國小"}<br>${js.length ? `最近的國中：${js.map(li).join("、")}` : "1 公里內沒有國中"}</div>` +
       `<p class="muted">學區是依門牌（里、鄰）劃分的，不一定是最近的那一所，熱門學校還有設籍年限的規定；請以縣市教育局的學區查詢為準。</p>`;
   }
-  h += block("good", "生活機能") + sweets + block("fun", "") + block("bad", "嫌惡設施");
+  h += block("good", "生活機能") + sweets + block("fun", "") + sweetLists(p.res, fmtD) + block("bad", "嫌惡設施");
   h += `<div class="row">${reportButton()}</div>`;
   h += `<p class="muted">資料來自 OpenStreetMap 志工繪製，可能有缺漏或過時（特別是禮儀社、宮廟、小型工廠），看屋前請實地走一圈。宮廟是否算嫌惡因人而異。高壓電線、鐵路、快速道路量的是到線上最近一點的距離；機場看 4 公里內，實際航道噪音請看各機場公告的噪音管制區。</p>`;
   return h;
