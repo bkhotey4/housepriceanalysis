@@ -528,14 +528,14 @@ function reportDialog() {
   dlg.showModal();
 }
 function poiButton(lat, lng, label) {
-  return `<div class="row"><button class="btn small primary" data-act="poi" data-lat="${lat}" data-lng="${lng}" data-label="${esc(label)}">看周邊生活機能、甜點與嫌惡設施</button></div>`;
+  return `<div class="row"><button class="btn small primary" data-act="poi" data-lat="${lat}" data-lng="${lng}" data-label="${esc(label)}">看周邊生活機能、咖啡甜點與嫌惡設施</button></div>`;
 }
 function tabPoi() {
   const p = S.poi;
-  if (!p) return `<p class="muted">先搜尋地址或點一筆成交，再按「看周邊生活機能、甜點與嫌惡設施」。</p>`;
+  if (!p) return `<p class="muted">先搜尋地址或點一筆成交，再按「看周邊生活機能、咖啡甜點與嫌惡設施」。</p>`;
   let h = `<div class="summary"><b>${esc(p.label)}</b> 周邊</div>`;
-  const sweets = `<h2>🍰 甜點與下午茶</h2><div class="row">` +
-    [["甜點", "甜點"], ["下午茶", "下午茶"], ["咖啡廳", "咖啡廳"], ["冰品", "冰店"]].map(([t, kw]) =>
+  const sweets = `<h2>☕ 咖啡、飲料、甜點、蛋糕</h2><div class="row">` +
+    [["咖啡店", "咖啡店"], ["飲料店", "飲料店"], ["甜點店", "甜點店"], ["蛋糕店", "蛋糕店"], ["下午茶", "下午茶"]].map(([t, kw]) =>
       `<a class="btn small" data-sweet="${esc(kw)}" target="_blank" rel="noopener" href="${L.nearbySearchUrl(p.lat, p.lng, kw)}">Google 地圖找附近${t}</a>`).join("") +
     `</div><p class="muted">Google 地圖上有評分、照片和營業時間；下面的清單來自 OpenStreetMap，小店可能沒登錄。</p>`;
   if (p.status === "loading") return h + `<p class="empty">向 OpenStreetMap 查詢中…（約 5～20 秒）</p>` + sweets;
