@@ -421,9 +421,12 @@ export function position(data, q) {
 }
 
 // ------------------------------------------------------------------ 重大建設的狀態
-export function buildState(b, year) {
-  if (b.done && b.done <= year) return "完工";
+// 重大建設在某一年的狀態。asOfYear＝情資查證日的年份：查證年（含）以前一律以查證到的現況（phase）為準，
+// 不然「預計 2026 完工」但實際還在施工的建設，今年就會被畫成完工；只有往後的年份才依預計動工、完工年推估。
+export function buildState(b, year, asOfYear = null) {
   if (b.phase === "完工") return "完工";
+  if (asOfYear && year <= asOfYear && (b.phase === "施工中" || b.phase === "規劃中")) return b.phase;
+  if (b.done && b.done <= year) return "完工";
   if (b.start && b.start <= year) return "施工中";
   if (b.phase === "施工中") return "施工中";
   return "規劃中";
@@ -651,6 +654,8 @@ export function routeUrl(from, to, mode = "car") {
 
 // ------------------------------------------------------------------ 周邊：生活機能與嫌惡設施（OpenStreetMap，經由 Overpass API 在使用者裝置上即時查詢）
 // good=生活機能、bad=一般認為的嫌惡設施；r 是統計半徑（公尺）
+// OSM 的 cuisine 是用分號分開的多個值（例如 "coffee_shop;cake"）：整個值相同才算
+const cuisineHas = (t, keys) => (t.cuisine || "").split(";").some(c => keys.includes(c.trim()));
 export const POI_CATS = [
   { key: "conv", label: "便利商店", ch: "便", color: "#1baf7a", group: "good", r: 500, q: ['nwr["shop"="convenience"]'], t: t => t.shop === "convenience" },
   { key: "mart", label: "超市／量販", ch: "超", color: "#1baf7a", group: "good", r: 1000, q: ['nwr["shop"~"^(supermarket|department_store|wholesale)$"]'], t: t => /^(supermarket|department_store|wholesale)$/.test(t.shop || "") },
@@ -664,11 +669,11 @@ export const POI_CATS = [
   { key: "bus", label: "公車站", ch: "公", color: "#4a3aa7", group: "good", r: 500, q: ['node["highway"="bus_stop"]'], t: t => t.highway === "bus_stop" },
   // 咖啡、飲料、甜點、蛋糕（不算生活機能分數，只是方便找）。順序有意義：同一家店只歸第一個符合的類別
   { key: "drink", label: "飲料店（手搖、茶飲）", ch: "飲", color: "#2ea36b", group: "fun", r: 800,
-    q: ['nwr["shop"~"^(beverages|tea)$"]', 'nwr["amenity"~"^(cafe|fast_food)$"]["cuisine"~"bubble_tea|tea|juice"]'],
-    t: t => /^(beverages|tea)$/.test(t.shop || "") || (/^(cafe|fast_food)$/.test(t.amenity || "") && /bubble_tea|tea|juice/.test(t.cuisine || "")) },
+    q: ['nwr["shop"~"^(beverages|tea)$"]', 'nwr["amenity"~"^(cafe|fast_food)$"]["cuisine"~"(^|;) *(bubble_tea|tea|juice) *(;|$)"]'],
+    t: t => /^(beverages|tea)$/.test(t.shop || "") || (/^(cafe|fast_food)$/.test(t.amenity || "") && cuisineHas(t, ["bubble_tea", "tea", "juice"])) },
   { key: "cake", label: "蛋糕／麵包店", ch: "糕", color: "#e08a2e", group: "fun", r: 800,
-    q: ['nwr["shop"="bakery"]', 'nwr["amenity"~"^(cafe|restaurant|fast_food)$"]["cuisine"~"cake"]'],
-    t: t => t.shop === "bakery" || /cake/.test(t.cuisine || "") },
+    q: ['nwr["shop"="bakery"]', 'nwr["amenity"~"^(cafe|restaurant|fast_food)$"]["cuisine"~"(^|;) *cake *(;|$)"]'],
+    t: t => t.shop === "bakery" || cuisineHas(t, ["cake"]) },
   { key: "dessert", label: "甜點店（冰品、巧克力）", ch: "甜", color: "#d6457a", group: "fun", r: 800,
     q: ['nwr["shop"~"^(pastry|confectionery|chocolate)$"]', 'nwr["amenity"="ice_cream"]', 'nwr["amenity"~"^(cafe|restaurant|fast_food)$"]["cuisine"~"dessert|ice_cream|shaved_ice"]'],
     t: t => /^(pastry|confectionery|chocolate)$/.test(t.shop || "") || t.amenity === "ice_cream" || /dessert|ice_cream|shaved_ice/.test(t.cuisine || "") },
@@ -832,6 +837,10 @@ export function mortgage(priceWan, downPct, ratePct, years, grace = 0) {
 // 青年安心成家購屋優惠貸款（新青安）：貸款上限 1,000 萬、最長 40 年、寬限期最長 5 年。
 // 利率是公股銀行一段式機動利率（政府補貼後）的參考值，會隨央行升降息調整，實際以承辦銀行公告為準。
 export const YOUTH_LOAN = { rate: 1.775, years: 40, grace: 5, cap: 1000 };
+// 政策期限：原方案 2023-08-01 ～ 2026-07-31（政府利息補貼也只到這天）。續辦方案的條件還沒寫進來，
+// 過了期限畫面會提醒「以原方案條件試算」。之後確認新方案條件時，改這兩組常數與 until 即可。
+export const YOUTH_POLICY = { name: "新青安", until: "2026-07-31", checked: "2026-10-14", source: "財政部、內政部國土管理署公告" };
+export const youthExpired = (today = new Date()) => today.toISOString().slice(0, 10) > YOUTH_POLICY.until;
 // 一般房貸的參考條件（房貸試算的預設、超過新青安上限的部分）：本息平均攤還、沒有寬限期
 export const NORMAL_LOAN = { rate: 2.2, years: 30 };
 // 有額度上限的優惠貸款：上限內用優惠條件，超過的部分當成另一筆一般房貸（restRate、restYears，不設寬限期）
@@ -1202,6 +1211,13 @@ export function buildRoadCatalog(txs) {
 }
 
 // 知名縮寫、大學、名校與地標別名對照表
+// 各縣市都有的通用名稱（好市多、新光三越、市立醫院、文化中心、復興國中…）：只有目標地點就在目前縣市時才套用，
+// 不然台中的人打「好市多」會被帶到台南店。ctx：目前縣市代碼；全台總覽是 "*"；沒給（舊呼叫）＝一律套用
+const GENERIC_ALIAS_KEYS = new Set(["好市多", "costco", "新光三越", "新光", "新天地", "西門新天地", "三井", "三井outlet", "outlet", "mitsui",
+  "市立醫院", "市醫", "文化中心", "台積電", "復興", "成功國中", "陽明國中", "光武", "東興國中", "建興", "崇明", "金華", "敦化", "培英", "居仁", "七賢"]);
+export function aliasMatch(al, query, itemCounty, ctx) {
+  return al.keys.some(k => (query.includes(k) || k.includes(query)) && (!GENERIC_ALIAS_KEYS.has(k) || !ctx || (itemCounty || "D") === ctx));
+}
 export const SEARCH_ALIASES = [
   { keys: ["成大", "成功大學"], target: "國立成功大學" },
   { keys: ["台大", "台灣大學"], target: "國立臺灣大學" },
@@ -1365,7 +1381,8 @@ export function parseSweetQuery(text, distNames = []) {
   if (!t || /\d+號/.test(t)) return null;
   const hit = SWEET_WORDS.find(([re]) => re.test(t));
   if (!hit) return null;
-  const rest = t.replace(hit[0], "").replace(/附近|周邊|週邊|推薦|哪裡|有什麼|好吃|的|店|找/g, "");
+  // 剩下的字只用來比對行政區，不去掉「店」（不然「新店咖啡」的新店區會被吃掉）
+  const rest = t.replace(hit[0], "").replace(/附近|周邊|週邊|推薦|哪裡|有什麼|好吃|的|找/g, "");
   let district = null;
   for (const n of distNames) {
     const stem = n.replace(/(區|鄉|鎮|市)$/, "");
@@ -1493,7 +1510,7 @@ export function quickSuggest(rawText, data, options = {}) {
       score = 420;
     } else {
       for (const al of SEARCH_ALIASES) {
-        if (al.keys.some(k => query.includes(k) || k.includes(query)) && sName.includes(al.target.toLowerCase())) {
+        if (sName.includes(al.target.toLowerCase()) && aliasMatch(al, query, sc.county, options.county)) {
           score = 620;
           break;
         }
@@ -1527,7 +1544,7 @@ export function quickSuggest(rawText, data, options = {}) {
     else if (lNote.includes(query)) score = 340;
     else {
       for (const al of SEARCH_ALIASES) {
-        if (al.keys.some(k => query.includes(k) || k.includes(query))) {
+        if (aliasMatch(al, query, lm.county, options.county)) {
           if (lName.includes(al.target.toLowerCase()) || lNote.includes(al.target.toLowerCase())) {
             score = 620;
             break;
@@ -1585,7 +1602,7 @@ export function quickSuggest(rawText, data, options = {}) {
     else if (pName.includes(query)) score = 380;
     else {
       for (const al of SEARCH_ALIASES) {
-        if (al.keys.some(k => query.includes(k) || k.includes(query)) && pName.includes(al.target.toLowerCase())) {
+        if (pName.includes(al.target.toLowerCase()) && aliasMatch(al, query, pr.county, options.county)) {
           score = 560;
           break;
         }
@@ -1693,6 +1710,17 @@ export function visitScore(check) {
 export function planTrip(pts, start = null) {
   pts = (pts || []).filter(p => p && p.lat != null && p.lng != null);
   if (!pts.length) return { order: [], legs: [], km: 0 };
+  if (!start && pts.length > 2 && pts.length <= 12) {          // 沒有指定起點：每一間都試著當第一站，取總距離最短的
+    let best = null;
+    for (let i = 0; i < pts.length; i++) {
+      const r = planTripFrom([pts[i], ...pts.filter((_, j) => j !== i)], null);
+      if (!best || r.km < best.km - 1e-9) best = r;
+    }
+    return best;
+  }
+  return planTripFrom(pts, start);
+}
+function planTripFrom(pts, start) {
   const d = (a, b) => distKm(a.lat, a.lng, b.lat, b.lng);
   const rest = pts.slice(), order = [];
   let cur = start || rest.shift();
@@ -1705,7 +1733,7 @@ export function planTrip(pts, start = null) {
   // 2-opt：把交叉的兩段反過來，直到不再變短（路線不回到起點）
   const path = start ? [start, ...order] : order.slice();
   const len = p => p.slice(1).reduce((s, q, i) => s + d(p[i], q), 0);
-  let improved = true;
+  let improved = path.length <= 25;          // 太多點時只用最近鄰居法，2-opt 會讓手機卡住
   while (improved) {
     improved = false;
     for (let i = 1; i < path.length - 1; i++) for (let k = i + 1; k < path.length; k++) {
@@ -1739,23 +1767,32 @@ export function hrTaxRate(years, self) {
   if (self && years >= 6) return null;                      // 自住優惠另算
   return years <= 2 ? 45 : years <= 5 ? 35 : years <= 10 ? 20 : 15;
 }
+// 買進年份（西元）：填民國年（例如 105）也認得；沒填時用持有年數推算
+export function boughtYear(o, today = new Date()) {
+  const n = v => (v === "" || v == null || isNaN(+v)) ? null : +v;
+  let y = n(o.bought);
+  if (y != null && y > 0 && y < 1000) y += 1911;
+  if ((y == null || !(y > 0)) && n(o.years) != null) y = today.getFullYear() - n(o.years);
+  return y > 0 ? y : null;
+}
+export const sellIsOld = o => { const y = boughtYear(o); return y != null && y < 2016; };
 export function sellHouse(o) {
   const n = v => (v === "" || v == null || isNaN(+v)) ? null : +v;
   const sell = n(o.sell), buy = n(o.buy), years = n(o.years);
   if (!(sell > 0)) return null;
   const agent = sell * (n(o.agent) ?? 4) / 100, fees = n(o.fees) ?? 1.5, loan = n(o.loan) ?? 0, landTax = n(o.landTax) ?? 0;
-  let bought = n(o.bought);
-  if (bought != null && bought > 0 && bought < 1000) bought += 1911;      // 填民國年（例如 105）也認得
-  const old = bought != null && bought < 2016;
+  const bought = boughtYear(o), old = bought != null && bought < 2016;
   let tax = 0, gain = null, taxable = null, rate = null, rule;
   if (old) {
-    const hv = n(o.oldHouseVal) ?? sell * 0.1;
+    const hv = n(o.oldHouseVal) ?? sell * 0.1, hvGuess = n(o.oldHouseVal) == null;
     taxable = hv * (n(o.oldStd) ?? 40) / 100;
     rate = n(o.oldRate) ?? 12;
     tax = taxable * rate / 100;
-    rule = "舊制（2015 年底前取得）：房屋評定現值 × 所得標準，併入綜合所得稅";
+    rule = "舊制（2015 年底前取得）：房屋評定現值 × 所得標準，併入綜合所得稅" + (hvGuess ? "（房屋評定現值沒填，暫用售價 10% 粗估，請看房屋稅單）" : "") +
+      "；所得標準依房屋所在縣市與年度由財政部公告，請依實際填寫";
   } else if (buy > 0 && years != null) {
-    const expense = Math.min(30, sell * 0.03);
+    // 費用：有收據的仲介費、代書等照實扣除；沒有收據時按售價 3%、最多 30 萬
+    const expense = Math.max(agent + fees, Math.min(30, sell * 0.03));
     gain = sell - buy;
     taxable = Math.max(0, gain - expense - (n(o.landInc) ?? 0));
     if (o.self && years >= 6) {

@@ -3,8 +3,24 @@ import * as L from "./logic.js";
 import { $, D, S, esc } from "./main.js";
 
 // ---- 房貸試算：總價預設帶入這一區的中位總價，其他條件記在這台裝置
-export const LOAN_DEFAULT = { price: "", down: 20, rate: L.NORMAL_LOAN.rate, years: L.NORMAL_LOAN.years, grace: 0, youth: false };
-export function loanState() { return Object.assign({}, LOAN_DEFAULT, S.settings.loan || {}); }
+export const LOAN_DEFAULT = { price: "", down: 20, rate: L.NORMAL_LOAN.rate, years: L.NORMAL_LOAN.years, grace: 0, youth: false, auto: true };
+// auto：利率、年限、寬限期跟著程式裡的參考條件（政策或利率調整時自動更新）；使用者自己改過這三欄就不再自動帶入
+export function loanState() {
+  const st = Object.assign({}, LOAN_DEFAULT, S.settings.loan || {});
+  if (st.auto) Object.assign(st, presetTerms(st.youth));
+  return st;
+}
+export function presetTerms(youth) {
+  const y = L.YOUTH_LOAN, n = L.NORMAL_LOAN;
+  return youth ? { rate: y.rate, years: y.years, grace: y.grace, youth: true } : { rate: n.rate, years: n.years, grace: 0, youth: false };
+}
+// 新青安原方案過了期限：按鈕與說明都標「原方案」，提醒續辦條件以官方公告為準
+export function youthNote() {
+  const p = L.YOUTH_POLICY;
+  return L.youthExpired() ? `<p class="note">${p.name}原方案的申請期限已在 ${p.until} 截止（政府的利息補貼也只到這天）。續辦方案的額度、利率與資格，請以財政部與承辦銀行的最新公告為準；` +
+    `這裡的「${p.name}」仍是用原方案的條件（利率 ${L.YOUTH_LOAN.rate}%、上限 ${L.fmtNum(L.YOUTH_LOAN.cap)} 萬、${L.YOUTH_LOAN.years} 年、寬限期 ${L.YOUTH_LOAN.grace} 年）試算，僅供比較。</p>` : "";
+}
+export const youthLabel = () => L.youthExpired() ? `${L.YOUTH_POLICY.name}（原方案）` : L.YOUTH_POLICY.name;
 // 依目前的條件試算；選了「新青安」時，超過 1,000 萬的部分用一般房貸的利率與年限另外算
 function loanCalc(st, price) {
   if (!price) return null;
@@ -28,7 +44,7 @@ export function loanResult(median) {
     const [a, b] = st.youth ? [o, m] : [m, o], col = (x, k) => x[k] ? yuan(x[k]) : "—";
     const diff = Math.round(b.totalInterest - a.totalInterest);
     h += `<table class="list loan-cmp"><thead><tr><th></th><th class="r">一般房貸<div class="muted">${st.youth ? `${LOAN_DEFAULT.rate}%・${LOAN_DEFAULT.years} 年` : `${+st.rate}%・${+st.years} 年`}</div></th>` +
-      `<th class="r">新青安<div class="muted">${st.youth ? `${+st.rate}%・${+st.years} 年` : `${y.rate}%・${y.years} 年`}</div></th></tr></thead><tbody>` +
+      `<th class="r">${youthLabel()}<div class="muted">${st.youth ? `${+st.rate}%・${+st.years} 年` : `${y.rate}%・${y.years} 年`}</div></th></tr></thead><tbody>` +
       `<tr><td>寬限期月付</td><td class="r">${col(a, "graceMonthly")}</td><td class="r">${col(b, "graceMonthly")}</td></tr>` +
       `<tr><td>攤還期月付</td><td class="r">${yuan(a.monthly)}</td><td class="r">${yuan(b.monthly)}</td></tr>` +
       `<tr><td>總利息（萬）</td><td class="r">${L.fmtNum(Math.round(a.totalInterest))}</td><td class="r">${L.fmtNum(Math.round(b.totalInterest))}</td></tr></tbody></table>` +
@@ -40,10 +56,11 @@ export function loanSection(median) {
   const st = loanState(), num = (k, label, step, unit, ph) =>
     `<label class="loan-f"><span>${label}</span><input type="number" inputmode="decimal" step="${step}" data-loan="${k}" value="${esc(String(st[k]))}"${ph ? ` placeholder="${esc(ph)}"` : ""}><small>${unit}</small></label>`;
   const preset = (k, label) => `<button type="button" class="btn small${(k === "youth") === !!st.youth ? " primary" : ""}" data-act="loan-preset" data-preset="${k}" aria-pressed="${(k === "youth") === !!st.youth}">${label}</button>`;
-  return `<h3>房貸試算</h3><div class="row loan-presets">${preset("normal", "一般房貸")}${preset("youth", "新青安")}</div>` +
+  return `<h3>房貸試算</h3><div class="row loan-presets">${preset("normal", "一般房貸")}${preset("youth", youthLabel())}</div>` + (st.youth ? youthNote() : "") +
     `<div class="loan">${num("price", "總價", 10, "萬", median ? String(Math.round(median)) : "")}${num("down", "自備款", 5, "%")}` +
     `${num("rate", "年利率", 0.05, "%")}${num("years", "年限", 5, "年")}${num("grace", "寬限期", 1, "年")}</div>` +
-    `<div id="loan-out">${loanResult(median)}</div><p class="muted">本息平均攤還的估算，總價空白就用這一區的中位總價。新青安：貸款上限 ${L.YOUTH_LOAN.cap} 萬、最長 ${L.YOUTH_LOAN.years} 年、寬限期最長 ${L.YOUTH_LOAN.grace} 年，限名下無自有住宅者，利率會隨央行調整；` +
+    `<div id="loan-out">${loanResult(median)}</div><p class="muted">本息平均攤還的估算，總價空白就用這一區的中位總價。${youthLabel()}：貸款上限 ${L.fmtNum(L.YOUTH_LOAN.cap)} 萬、最長 ${L.YOUTH_LOAN.years} 年、寬限期最長 ${L.YOUTH_LOAN.grace} 年，限名下無自有住宅者；` +
+    `利率是參考值（${L.YOUTH_POLICY.checked} 整理，一般房貸 ${L.NORMAL_LOAN.rate}%、${L.YOUTH_POLICY.name} ${L.YOUTH_LOAN.rate}%），會隨央行與銀行調整。` +
     `實際利率、成數、寬限期與申請資格以承辦銀行公告為準，這不是貸款建議。</p>`;
 }
 // ---- 交屋前要準備的現金：自備款＋買方稅費（契稅、印花稅、規費、代書、仲介…）
@@ -96,7 +113,7 @@ export function rentSection(name) {
   }
   if (cell.chg != null) bits.push(`每坪月租比前一年${cell.chg >= 0 ? "漲" : "跌"} ${Math.abs(cell.chg).toFixed(1)}%`);
   if (bits.length) h += `<div class="summary">${bits.join("<br>")}</div>`;
-  h += `<p class="muted">內政部實價登錄租賃資料，${esc(rb.window[0])}～${esc(rb.window[1])}，灰字不到 5 件。租賃登錄多來自代管、包租業者，房東自己出租的登錄較少，行情可能偏高。毛租金報酬率＝每坪月租 × 12 ÷ 每坪中位房價，未扣稅費、空租期與管理維修。</p>`;
+  h += `<p class="muted">內政部實價登錄租賃資料，${esc(rb.window[0])}～${esc(rb.window[1])}，灰字不到 ${L.RENT_MIN_N} 件。租賃登錄多來自代管、包租業者，房東自己出租的登錄較少，行情可能偏高。毛租金報酬率＝每坪月租 × 12 ÷ 每坪中位房價，未扣稅費、空租期與管理維修。</p>`;
   return h;
 }
 
@@ -176,7 +193,7 @@ export function sellSection(median) {
     `<div class="loan">${num("sell", "預計賣價", 10, "萬")}${num("buy", "當初買價", 10, "萬")}${num("bought", "買進年份", 1, "西元", "例 2018")}${num("years", "持有", 1, "年")}` +
     `${num("loan", "剩餘房貸", 10, "萬", "0")}${num("agent", "仲介費", 0.5, "%")}${num("landTax", "土增稅", 1, "萬", "請代書試算")}${num("landInc", "土地漲價", 10, "萬", "可空白")}</div>` +
     `<label class="row" style="gap:6px;font-size:14px"><input type="checkbox" data-sell="self"${st.self ? " checked" : ""}> 自住：本人、配偶或未成年子女設籍並住滿 6 年，期間沒有出租或營業</label>` +
-    `<div class="loan" id="sell-old"${+st.bought && +st.bought < 2016 ? "" : " hidden"}>${num("oldHouseVal", "房屋現值", 1, "萬", "看房屋稅單")}${num("oldStd", "所得標準", 1, "%")}${num("oldRate", "綜所稅率", 1, "%")}</div>` +
+    `<div class="loan" id="sell-old"${L.sellIsOld(st) ? "" : " hidden"}>${num("oldHouseVal", "房屋現值", 1, "萬", "看房屋稅單")}${num("oldStd", "所得標準", 1, "%")}${num("oldRate", "綜所稅率", 1, "%")}</div>` +
     `<div id="sell-out">${sellResult(median)}</div>` +
     `<p class="muted">房地合一稅 2.0（2021 年 7 月起）：持有 2 年內 45%、2～5 年 35%、5～10 年 20%、超過 10 年 15%；自住滿 6 年 400 萬以下免稅、超過 10%。費用沒有單據時按賣價 3%（最多 30 萬）計。2015 年底前買的適用舊制。這是粗估，實際以國稅局核定為準，不是稅務建議。</p></details>`;
 }

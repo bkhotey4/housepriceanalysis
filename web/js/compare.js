@@ -47,10 +47,13 @@ export function cmpDefaultPair() {
   return first && second ? [{ code, name: first, county }, { code, name: second, county }] : null;
 }
 const CMP_DATA = new Map();      // "代碼|區" → {book, d}
+const CMP_ERR = new Set();          // 載入失敗的比較項目（按「重試」才再抓）
+export function cmpRetry() { CMP_ERR.clear(); renderPanel(); }
 function cmpEnsure() {
   const need = cmpList().filter(x => !CMP_DATA.has(x.code + "|" + x.name));
   if (!need.length) return true;
-  // 一個一個載入：載不到的（縣市代碼錯、網路斷）從清單拿掉，其他照常顯示
+  if (need.every(x => CMP_ERR.has(x.code + "|" + x.name))) return "error";
+  // 一個一個載入：載不到的先記下來（清單保留），畫面顯示「重試」
   Promise.allSettled(need.map(async x => {
     if (!D.tw) { CMP_DATA.set(x.code + "|" + x.name, { book: D.book, d: D.dmap[x.name] }); return; }
     const cd = await countyData(x.code);
@@ -59,8 +62,7 @@ function cmpEnsure() {
     const bad = need.filter((x, i) => rs[i].status === "rejected");
     if (bad.length) {
       logError("載入比較資料", rs.find(r => r.status === "rejected").reason, true);
-      S.settings.cmp = cmpList().filter(x => !bad.includes(x)); saveStore();
-      toast(`${bad.map(x => x.name).join("、")}的資料載入失敗，已從比較拿掉。`);
+      for (const x of bad) CMP_ERR.add(x.code + "|" + x.name);
     }
     if (S.tab === "cmp") renderPanel();
   });
@@ -90,7 +92,10 @@ export function tabCmp() {
     (list.length ? `<button class="btn" data-act="cmp-clear">清空</button>` : "") + `</div>`;
   if (!list.length) return h + `<p class="empty">還沒有要比較的區。用上面的選單挑${D.tw ? "縣市和" : ""}行政區按「加入比較」，最多 ${CMP_MAX} 個${D.tw ? "，可以跨縣市（例如台北大安 vs 新北板橋）" : ""}。選兩個區會出現「雙區 PK」對決。</p>`;
   if (list.length === 1) h += `<p class="muted">再加一個區，就會出現「雙區 PK」逐項對決。</p>`;
-  if (!cmpEnsure()) return h + `<p class="empty">載入比較資料中…</p>`;
+  const ready = cmpEnsure();
+  if (ready === "error") return h + `<p class="note">${list.filter(x => CMP_ERR.has(x.code + "|" + x.name)).map(x => esc(x.name)).join("、")}的資料載入失敗（網路不穩？）。` +
+    `<button class="btn small" data-act="cmp-retry">重試</button></p>`;
+  if (!ready) return h + `<p class="empty">載入比較資料中…</p>`;
   const cols = list.map((x, idx) => ({ ...x, idx, ...CMP_DATA.get(x.code + "|" + x.name), label: (D.tw ? x.county.replace(/[市縣]$/, "") + " " : "") + x.name }))
     .filter(c => c.book && c.d);
   // 資料載入了、那個縣市卻沒有這一區（例如分享連結打錯字）：從清單拿掉，免得佔名額

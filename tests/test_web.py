@@ -305,8 +305,11 @@ class WebAppTest(unittest.TestCase):
         """賣屋／換屋試算、看屋行程（排順序＋Google 導航）、看屋筆記與並排比較。"""
         pg = self.open(phone=False)
         r = pg.evaluate("__app.L.sellHouse({sell: 1800, buy: 1200, years: 8, self: true, loan: 500, agent: 4, landTax: 20})")
-        self.assertAlmostEqual(r["tax"], 17)                       # (600 - 30) - 400 = 170 萬 × 10%
-        self.assertAlmostEqual(r["net"], 1800 - 500 - 72 - 1.5 - 17 - 20)
+        # 有收據的仲介費 72 萬＋規費雜支 1.5 萬照實扣除（比 3%／30 萬多）：(600 - 73.5) - 400 = 126.5 萬 × 10%
+        self.assertAlmostEqual(r["tax"], 12.65)
+        self.assertAlmostEqual(r["net"], 1800 - 500 - 72 - 1.5 - 12.65 - 20)
+        # 沒填買進年份：用持有年數推算（持有 15 年 → 2016 年以前取得 → 舊制）
+        self.assertTrue(pg.evaluate("__app.L.sellHouse({sell: 2000, buy: 1000, years: 15}).old"))
         r = pg.evaluate("__app.L.sellHouse({sell: 1800, buy: 1200, years: 1.5, self: true})")
         self.assertEqual(r["rate"], 45)
         self.assertFalse(pg.evaluate("__app.L.sellHouse({sell: 1800, buy: 1200, years: 9, bought: 106}).old"))   # 民國年 106＝2017

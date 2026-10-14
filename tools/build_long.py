@@ -52,7 +52,7 @@ def write_web(today):
     end = today.strftime("%Y-%m")
     start = prices.ym_add(end, -(YEARS * 12 + 2))
     n = 0
-    nation_merged = {}
+    nation_merged, county_final = {}, {}
     for c in COUNTIES:
         code = c["code"]
         merged = longterm.merge(files, code)
@@ -74,6 +74,9 @@ def write_web(today):
         n += 1
         if c["short"] in merged:
             nation_merged[c["short"]] = merged[c["short"]]
+        if c["short"] in book["data"]:              # 全縣市那一條（已接上近一年的統計），全台要用它來合計
+            county_final[c["short"]] = {cat: {m: [cell["n"][i], cell["u"][i], cell["t"][i]] for i, m in enumerate(book["months"]) if cell["n"][i]}
+                                        for cat, cell in book["data"][c["short"]].items()}
     if nation_merged:
         nat = None
         bp = os.path.join(WEB_TW, "book.json")
@@ -82,8 +85,14 @@ def write_web(today):
                 nat = json.load(f)
         months = prices.ym_range(start, (nat or {}).get("complete_through") or
                                  max(m for cats in nation_merged.values() for ms in cats.values() for m in ms))
-        nation_merged[NATION] = longterm.combine(list(nation_merged.values()))     # 全台合計（不然只有近一年的統計）
         book = longterm.long_book(nation_merged, months, nat, (nat or {}).get("months", [None])[0])
+        # 全台：整段都用「各縣市中位數依成交量加權」。不要在最近一年換成全台合併的中位數，
+        # 兩種算法差一成多（台北把平均拉高），線會在一年前跳一階、近 5 年漲幅也會失真
+        nat_cells = longterm.combine(list(county_final.values()))
+        nat_line = longterm.long_book({NATION: nat_cells}, months)["data"].get(NATION)
+        if nat_line:
+            book["data"][NATION] = nat_line
+        book["nation_method"] = "weighted_county_median"
         with open(os.path.join(WEB_TW, "long.json"), "w", encoding="utf-8") as f:
             json.dump(book, f, ensure_ascii=False, separators=(",", ":"))
     print("long.json：%d 縣市" % n)

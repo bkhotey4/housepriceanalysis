@@ -56,7 +56,7 @@ export function tabWatch() {
     h += `<tr class="click${S.watchSel === it.id ? " sel" : ""}" data-watch="${esc(it.id)}"><td><input type="checkbox" data-trip="${esc(it.id)}" aria-label="排入看屋行程"${it.trip ? " checked" : ""}></td>` +
       `<td>${esc(it.name)}${nn ? ` <span class="pill new">新成交 ${nn}</span>` : ""}<div class="muted">${esc(it.district || "")}｜${esc(it.type || "")}${it.visit ? "｜" + esc(it.visit.slice(5).replace("-", "/")) + " 看過" : ""}</div></td>` +
       `<td class="r">${it.price ? L.fmtNum(it.price) : "—"}</td><td class="r">${c && c.unit ? c.unit.toFixed(1) : "—"}</td><td class="r">${c ? pct(c.vsT) : "—"}</td><td class="r">${sweetCell(it)}</td>` +
-      `<td class="r">${it.rating ? "★".repeat(it.rating) : ""}${sc ? `<div class="muted">檢查 ${sc.pct}%</div>` : ""}</td></tr>`;
+      `<td class="r">${stars(it.rating)}${sc ? `<div class="muted">檢查 ${sc.pct}%</div>` : ""}</td></tr>`;
   }
   h += "</tbody></table>";
   const pinned = S.watch.filter(w => w.lat != null);
@@ -93,12 +93,29 @@ export function tabWatch() {
 
 // ---- 咖啡、飲料、甜點、蛋糕店分布
 const SWEET_CH = { drink: "飲", cake: "糕", dessert: "甜", cafe: "咖" };
+const stars = r => "★".repeat(Math.max(0, Math.min(5, Math.round(+r) || 0)));
+// 匯入的備份檔可能被改過：只收認得的欄位，數字一律轉成數字、評分限 0～5、甜點統計重新整理成數字
+export function cleanWatch(w) {
+  const num = v => (v === "" || v == null || isNaN(+v)) ? null : +v, str = v => v == null ? "" : String(v);
+  const out = { ...w, id: str(w.id), name: str(w.name), lat: num(w.lat), lng: num(w.lng), price: num(w.price), ping: num(w.ping),
+    rating: Math.max(0, Math.min(5, Math.round(num(w.rating) || 0))) };
+  if (w.sweets && typeof w.sweets === "object") {
+    const s = w.sweets, n = {}, near = {}, list = {};
+    for (const k of L.SWEET_CATS) {
+      n[k] = num(s.n && s.n[k]) || 0;
+      if (s.near && Array.isArray(s.near[k])) near[k] = [str(s.near[k][0]), num(s.near[k][1]) || 0];
+      if (s.list && Array.isArray(s.list[k])) list[k] = s.list[k].filter(Array.isArray).slice(0, 80).map(x => [str(x[0]), num(x[1]) || 0]);
+    }
+    out.sweets = { ...s, n, near, list, t: num(s.t) };
+  } else delete out.sweets;
+  return out;
+}
 const SWEET_NAME = { drink: "飲料店", cake: "蛋糕／麵包店", dessert: "甜點店", cafe: "咖啡店" };
 function sweetCell(it) {
   if (it.lat == null) return `<span class="muted">—</span>`;
   if (!it.sweets) return `<span class="muted">未查</span>`;
   const n = it.sweets.n;
-  return L.SWEET_CATS.map(k => `${SWEET_CH[k]}${n[k] || 0}`).join(" ");
+  return L.SWEET_CATS.map(k => `${SWEET_CH[k]}${+n[k] || 0}`).join(" ");
 }
 function sweetDetail(it) {
   if (it.lat == null) return "";
@@ -106,14 +123,15 @@ function sweetDetail(it) {
   if (it.sweets) {
     h += `<table class="list"><tbody>` + L.SWEET_CATS.map(k => {
       const nr = it.sweets.near[k];
-      return `<tr><td>${SWEET_NAME[k]}${nr ? `<div class="muted">最近：${esc(nr[0])} ${nr[1]} 公尺</div>` : ""}</td><td class="r"><b>${it.sweets.n[k] || 0}</b> 家</td></tr>`;
+      return `<tr><td>${SWEET_NAME[k]}${nr ? `<div class="muted">最近：${esc(nr[0])} ${+nr[1] || 0} 公尺</div>` : ""}</td><td class="r"><b>${+it.sweets.n[k] || 0}</b> 家</td></tr>`;
     }).join("") + `</tbody></table>`;
     for (const k of L.SWEET_CATS) {                       // 每類所有店名與距離
       const ls = (it.sweets.list || {})[k] || [];
       if (!ls.length) continue;
       const [b3, b5, b8] = L.distBands(ls.map(x => x[1]));
-      h += `<details class="more"><summary>${SWEET_NAME[k]}全部 ${ls.length} 家<span class="muted">（300 公尺內 ${b3}・500 內 ${b5}・800 內 ${b8}）</span></summary>` +
-        `<table class="list"><tbody>${ls.map(([nm, d]) => `<tr><td>${esc(nm)}</td><td class="r">${d} 公尺</td></tr>`).join("")}</tbody></table></details>`;
+      const total = +it.sweets.n[k] || ls.length;
+      h += `<details class="more"><summary>${SWEET_NAME[k]}${total > ls.length ? `最近 ${ls.length} 家（共 ${total} 家）` : `全部 ${ls.length} 家`}<span class="muted">（300 公尺內 ${b3}・500 內 ${b5}・800 內 ${b8}）</span></summary>` +
+        `<table class="list"><tbody>${ls.map(([nm, d]) => `<tr><td>${esc(nm)}</td><td class="r">${+d || 0} 公尺</td></tr>`).join("")}</tbody></table></details>`;
     }
     if (!it.sweets.list) h += `<p class="muted">按「重新查詢」可以看到每一家的店名。</p>`;
   } else h += `<p class="muted">還沒查詢。</p>`;
@@ -128,6 +146,7 @@ async function updateSweets(items) {
   let ok = 0, fail = 0;
   for (const it of items) {
     try { await sweetsFor(it); ok++; } catch { fail++; }
+    if (!ok && fail >= 2) { fail = items.length - ok; break; }        // 伺服器看起來掛了：剩下的先不查
     saveStore();
     if (items.length > 1) await new Promise(r => setTimeout(r, 1500));      // 一間一間查，不要一次塞爆 OpenStreetMap 的伺服器
   }

@@ -204,9 +204,10 @@ export class View3D {
     for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
       const key = `${id}/${z}/${ty}/${tx}`;
       let t = this.tiles.get(key);
+      if (t && t.failed && load && Date.now() - t.failed > 30000) { this.tiles.delete(key); t = null; }
       if (!t && load) {
         const w = tx / n * 360 - 180, e = (tx + 1) / n * 360 - 180, no = y2lat(ty, n), so = y2lat(ty + 1, n);
-        t = new Image(); t.decoding = "async"; t.onload = () => this.request(); t.onerror = () => { t.failed = true; };
+        t = new Image(); t.decoding = "async"; t.onload = () => this.request(); t.onerror = () => { t.failed = Date.now(); };
         t.src = cfg.wms ? cfg.wms.replace("{w}", w).replace("{e}", e).replace("{n}", no).replace("{s}", so)
           : (cfg.tiles || TILE_URL).replace("{z}", z).replace("{y}", ty).replace("{x}", tx);
         this.tiles.set(key, t);
@@ -666,6 +667,11 @@ export class View3D {
     };
     cv.addEventListener("pointerup", end);
     cv.addEventListener("pointercancel", end);
+    cv.addEventListener("lostpointercapture", e => {
+      if (!ptrs.has(e.pointerId)) return;            // 正常放開時 pointerup 已經處理過
+      ptrs.delete(e.pointerId);
+      if (!ptrs.size) { this.drag = false; gesture = null; this.request(true); }
+    });
     cv.addEventListener("pointerleave", () => {
       cv.style.cursor = "default";
       if (this.onHover) this.onHover(null);

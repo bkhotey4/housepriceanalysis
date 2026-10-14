@@ -22,17 +22,27 @@ step() {   # step <代號> <說明> <必要 1/0> <指令…>
 }
 
 if [ "$EVENT" = "push" ]; then ROAD_MIN=10; else ROAD_MIN=45; fi
+# 整個流程的時間預算：GitHub Actions 的工作 100 分鐘會被強制停止（之後的部署、快取都不會做）。
+# 這裡留 80 分鐘給 ci.sh，前面的步驟花得久，補抓道路的時間就縮短；網路類的步驟各自也有上限。
+T0=$(date +%s); BUDGET_MIN=80
+left_min() { echo $(( BUDGET_MIN - ($(date +%s) - T0) / 60 )); }
 
 step towns   "全台鄉鎮市區清單"           0 python tools/build_towns.py
 step static  "情資、捷運、地標"           1 python tools/export_web.py --no-images
-step plvr    "全台實價登錄"               0 python tools/export_tw.py --update
-step long    "長期房價走勢（近 5 年）"     0 python tools/build_long.py
+step plvr    "全台實價登錄"               0 timeout 35m python tools/export_tw.py --update
+step long    "長期房價走勢（近 5 年）"     0 timeout 20m python tools/build_long.py
 git add data/tw/long 2>/dev/null || true              # 舊季檔的摘要存回專案（原始檔不保留）
-step pop     "人口成長與年齡結構"          0 python tools/build_population.py
+step pop     "人口成長與年齡結構"          0 timeout 15m python tools/build_population.py
 git add data/tw/population.json 2>/dev/null || true   # 戶政司資料整理結果存回專案（超過 25 天才重抓）
-step transit "捷運與高鐵路線"             0 python tools/build_transit.py
+step transit "捷運與高鐵路線"             0 timeout 20m python tools/build_transit.py
 git add data/tw/transit.json 2>/dev/null || true     # 和鄉鎮清單一起存回專案（每 30 天重抓一次）
-step roads   "各區道路位置（逐步補抓）"    0 python tools/fetch_roads_tw.py --minutes "$ROAD_MIN"
+ROAD_LEFT=$(( $(left_min) - 8 ))                      # 留 8 分鐘給後面的步驟
+if [ "$ROAD_LEFT" -lt "$ROAD_MIN" ]; then ROAD_MIN=$ROAD_LEFT; fi
+if [ "$ROAD_MIN" -ge 2 ]; then
+  step roads   "各區道路位置（逐步補抓）"    0 timeout $(( ROAD_MIN + 8 ))m python tools/fetch_roads_tw.py --minutes "$ROAD_MIN"
+else
+  echo "時間不夠，這次不補抓道路位置"
+fi
 if [ -f web/data/tw/index.json ]; then
   step index "更新道路清單"               0 python tools/export_tw.py --refresh-roads
 fi
@@ -41,5 +51,6 @@ step check   "資料檢查"                   1 python tools/check_data.py --req
 # 離線快取的版本號帶上 commit 和時間：每次部署（程式或資料有變）使用者都會收到「有新版本」提示
 STAMP="$(git rev-parse --short HEAD 2>/dev/null || echo local)-$(date +%Y%m%d%H%M)"
 sed -i -E "s/^const VERSION = \"([^\"-]+)[^\"]*\";/const VERSION = \"\1-$STAMP\";/" web/sw.js
+sed -i -E "s/APP_VER = \"[^\"]*\"/APP_VER = \"$STAMP\"/" web/js/main.js        # 錯誤回報裡的版本號也跟著部署更新
 
 python tools/ci_report.py "$EVENT"

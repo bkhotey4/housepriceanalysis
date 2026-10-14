@@ -1,6 +1,6 @@
 // 合理價估算（估價分頁）（從 main.js 拆出來；共用的狀態與小工具從 main.js 匯入）
 import * as L from "./logic.js";
-import { $, D, S, esc, isNation, needCounty } from "./main.js";
+import { $, D, S, esc, isNation, needCounty, txLoading } from "./main.js";
 
 // ---- 合理價估算：找條件相近的實價登錄成交，算出合理價區間
 const VAL_TYPES = [["apt", "大樓／華廈／公寓"], ["house", "透天厝"], ["presale", "預售屋"]];
@@ -18,7 +18,7 @@ function valQuery() {
 }
 export function tabValue() {
   if (isNation()) return needCounty();
-  if (!D.txs) return `<p class="empty">成交資料載入中…</p>`;
+  if (!D.txs) return txLoading();
   const { v, q } = valQuery();
   const inp = (k, label, ph, mode = "decimal") => `<label>${label}</label><input data-val="${k}" inputmode="${mode}" value="${esc(String(v[k] ?? ""))}" placeholder="${esc(ph)}">`;
   let h = `<p class="muted">輸入一間房子的條件，從實價登錄找條件相近的成交（坪數、屋齡接近、越新的越重要；同一棟、同一條巷、同一條路優先），算出合理價區間。</p>` +
@@ -82,10 +82,10 @@ export function tabValue() {
   const cliff = L.youthLoanCliff(targetPrice, 20, incomeVal);
   const budget = L.affordableBudget(incomeVal, 20);
   if (cliff) {
-    h += `<details class="more" open><summary>新青安 40 年房貸與家庭所得體檢（以 ${L.fmtNum(targetPrice)} 萬試算）</summary>` +
+    h += `<details class="more" open><summary>${L.youthExpired() ? "新青安原方案" : "新青安"} ${L.YOUTH_LOAN.years} 年房貸與家庭所得體檢（以 ${L.fmtNum(targetPrice)} 萬試算）</summary>` +
       `<div class="cliff-box">` +
       `<div class="row" style="margin-bottom:6px"><span>家庭月收入（元）</span><input type="text" inputmode="numeric" data-set="incomeMonthly" value="${incomeVal}" placeholder="例 120000" style="max-width:140px"></div>` +
-      `<div class="cliff-row"><span>新青安額度（${L.YOUTH_LOAN.rate}%，上限 ${L.fmtNum(L.YOUTH_LOAN.cap)} 萬）</span><b>${L.fmtNum(cliff.youthWan)} 萬</b></div>` +
+      `<div class="cliff-row"><span>${L.youthExpired() ? "新青安原方案" : "新青安"}額度（${L.YOUTH_LOAN.rate}%，上限 ${L.fmtNum(L.YOUTH_LOAN.cap)} 萬）</span><b>${L.fmtNum(cliff.youthWan)} 萬</b></div>` +
       (cliff.normalWan > 0 ? `<div class="cliff-row"><span>超額一般房貸（${cliff.normalRate}%，${L.NORMAL_LOAN.years} 年、沒有寬限期）</span><b>${L.fmtNum(cliff.normalWan)} 萬</b></div>` : "") +
       `<div class="cliff-row"><span>前 5 年寬限期月繳（只繳利息）</span><b style="color:#2ea36b">${L.fmtNum(cliff.period1)} 元/月</b></div>` +
       `<div class="cliff-row"><span>第 6 年起本息攤還月繳（斷崖）</span><b class="up">${L.fmtNum(cliff.period2)} 元/月</b></div>` +

@@ -6,10 +6,21 @@ import { $, S, logError, renderPanel, sheet, view } from "./main.js";
 export const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter"];
 const POI_CACHE = "dth_poi_v4";      // v2：加了高壓電線、鐵路、快速道路、機場；v3：甜點、咖啡廳；v4：咖啡／飲料／甜點／蛋糕分開
 function poiCacheGet(k) { try { const c = JSON.parse(localStorage.getItem(POI_CACHE) || "{}"); const e = c[k]; return e && Date.now() - e.t < 30 * 864e5 ? e.d : null; } catch { return null; } }
+// 最多留 25 筆；瀏覽器空間不夠時先丟掉較舊的一半再存（不然塞滿之後，看屋清單、設定也存不進去）
 function poiCachePut(k, d) {
-  try { const c = JSON.parse(localStorage.getItem(POI_CACHE) || "{}"); c[k] = { t: Date.now(), d };
-    const keys = Object.keys(c).sort((a, b) => c[b].t - c[a].t); for (const old of keys.slice(40)) delete c[old];
-    localStorage.setItem(POI_CACHE, JSON.stringify(c)); } catch { /* 存不下就算了 */ }
+  let c;
+  try { c = JSON.parse(localStorage.getItem(POI_CACHE) || "{}"); } catch { c = {}; }
+  c[k] = { t: Date.now(), d };
+  let keys = Object.keys(c).sort((a, b) => c[b].t - c[a].t);
+  for (const old of keys.slice(25)) delete c[old];
+  for (let tries = 0; tries < 4; tries++) {
+    try { localStorage.setItem(POI_CACHE, JSON.stringify(c)); return; }
+    catch {
+      keys = Object.keys(c).sort((a, b) => c[b].t - c[a].t);
+      if (keys.length <= 1) { try { localStorage.removeItem(POI_CACHE); } catch { /* 無妨 */ } return; }
+      for (const old of keys.slice(Math.ceil(keys.length / 2))) delete c[old];
+    }
+  }
 }
 async function fetchPoiElements(lat, lng, group = null) {
   const k = `${lat.toFixed(4)},${lng.toFixed(4)}`, hit = poiCacheGet(k) || (group && poiCacheGet(k + "|" + group));

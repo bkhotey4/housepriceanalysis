@@ -35,8 +35,10 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install pillow numpy
-      - name: 全國實價登錄下載快取
-        uses: actions/cache@v4
+      # 下載快取：分成「還原」與「儲存」兩步，儲存放在最後而且一定執行，
+      # 這樣某一步失敗或逾時，這次已經下載的資料也會留給下一次用（不用整個重抓）
+      - name: 還原全國實價登錄下載快取
+        uses: actions/cache/restore@v4
         with:
           path: data/cache/plvr_tw
           key: plvr-tw-${{ github.run_id }}
@@ -45,6 +47,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: bash tools/ci.sh "${{ github.event_name }}"
+      # 先上傳這次產生的網站，再做下面的 git pull／push：pull 遇到衝突時，衝突標記不會跟著部署出去
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
       - name: 把鄉鎮清單、道路位置、執行紀錄存回專案
         if: always()
         run: |
@@ -52,14 +58,18 @@ jobs:
           git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
           git add data/tw/towns.json web/data/tw/*/roads logs/ci/latest.md logs/ci/history 2>/dev/null || true
           git diff --cached --quiet || git commit -m "資料更新紀錄與道路位置（$(date +%Y-%m-%d)）"
-          git pull --rebase --autostash || true
+          git pull --rebase --autostash || { git rebase --abort 2>/dev/null; true; }
           git push || echo "存回專案失敗（可能同時有人 push），下次再存"
-      - uses: actions/upload-pages-artifact@v3
+      - name: 儲存全國實價登錄下載快取
+        if: always()
+        uses: actions/cache/save@v4
         with:
-          path: web
+          path: data/cache/plvr_tw
+          key: plvr-tw-${{ github.run_id }}
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -71,6 +81,7 @@ jobs:
     needs: [build, deploy]
     if: failure()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}

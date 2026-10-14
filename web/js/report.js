@@ -25,7 +25,7 @@ function trendSvg(series, width = 640, height = 180) {
 
 // ctx: { book, txs, intel, district, cat, q, point:[lat,lng], agent:{name,phone,client,note}, work:{name,lat,lng}, mode, poi, meta }
 export function buildReport(ctx) {
-  const { book, txs, intel, district, cat, q, point, work, poi } = ctx, agent = ctx.agent || {};
+  const { book, txs, intel, district, cat, q, point, work, poi, intelYear } = ctx, agent = ctx.agent || {};
   const today = new Date(), ymd = today.toISOString().slice(0, 10), year = today.getFullYear();
   const bu = book.best(district, cat, "u"), bt = book.best(district, cat, "t"), tr = book.trend(district, cat, "u");
   const title = q && q.road ? `${district} ${L.describe(q)}` : district;
@@ -70,12 +70,12 @@ export function buildReport(ctx) {
   }
   const [lat, lng] = point || [null, null];
   const near = (intel || []).filter(it => it.build && it.lat != null).map(it => ({ it, d: lat != null ? L.distKm(lat, lng, it.lat, it.lng) : null }))
-    .filter(r => (r.d != null && r.d <= NEAR_KM) || ((r.it.county || "D") === (ctx.county || "D") && (r.it.district || "").includes(district)))
+    .filter(r => (r.d != null && r.d <= NEAR_KM) || (ctx.county !== "" && (r.it.county || "D") === (ctx.county || "D") && (r.it.district || "").includes(district)))
     .sort((a, b) => (a.d ?? 1e9) - (b.d ?? 1e9)).slice(0, 12);
   p.push("<h2>附近的重大建設</h2>");
   if (near.length) {
     p.push("<table><tr><th>建設</th><th class='r'>距離</th><th>現況</th><th>預計完工</th><th>時程依據</th></tr>");
-    for (const { it, d } of near) p.push(`<tr><td>${e(it.name)}</td><td class='r'>${d != null ? d.toFixed(1) + " 公里" : "同區"}</td><td>${e(L.buildState(it.build, year))}</td><td>${e(it.build.done || "未定")}</td><td class='muted'>${e(it.build.note)}</td></tr>`);
+    for (const { it, d } of near) p.push(`<tr><td>${e(it.name)}</td><td class='r'>${d != null ? d.toFixed(1) + " 公里" : "同區"}</td><td>${e(L.buildState(it.build, year, intelYear))}</td><td>${e(it.build.done || "未定")}</td><td class='muted'>${e(it.build.note)}</td></tr>`);
     p.push("</table><p class='muted'>時程依報導與官方說法整理，常會延後；距離為直線距離。</p>");
   } else p.push(`<p class='muted'>${NEAR_KM} 公里內沒有收錄的重大建設。</p>`);
   if (work && lat != null) {

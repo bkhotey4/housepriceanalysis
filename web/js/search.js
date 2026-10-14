@@ -70,6 +70,8 @@ export function hideSuggestions() {
   sugState.list = [];
 }
 
+// 搜尋別名的縣市範圍：台南專版是 D；全台版在縣市裡是那個縣市，全台總覽是 "*"（通用名稱不套用）
+const aliasCtx = () => D.tw ? (D.county ? D.county.code : "*") : "D";
 export function renderSuggestions(query) {
   query = (query || "").trim();
   const sug = $("#search-sug");
@@ -121,7 +123,7 @@ export function renderSuggestions(query) {
     return;
   }
 
-  const items = L.quickSuggest(query, data, { currentDistrict: S.current, cityName: L.CITY, limit: 8 });
+  const items = L.quickSuggest(query, data, { currentDistrict: S.current, cityName: L.CITY, limit: 8, county: aliasCtx() });
   sugState.list = items;
   sugState.index = -1;
   if (!items.length) { hideSuggestions(); return; }
@@ -168,7 +170,7 @@ export async function selectSuggestion(item) {
     sheet("peek");
   } else if (item.type === "tw_district") {
     if (item.countyCode && (!D.county || D.county.code !== item.countyCode)) {
-      await enterCounty(item.countyCode, true);
+      if (!(await enterCounty(item.countyCode, true))) return;
     }
     if (!D.dmap[item.town]) { toast(`${item.town}還沒有行政區資料。`); return; }
     selectDistrict(item.town, true);
@@ -250,12 +252,11 @@ export async function search(text) {
   if (!lmHit && normT.length >= 2) {
     lmHit = D.landmarks.find(l => L.normTw(l.name).includes(normT) || normT.includes(L.normTw(l.name)));
   }
+  const ctx = aliasCtx();
   if (!lmHit) {
     for (const al of L.SEARCH_ALIASES) {
-      if (al.keys.some(k => normT.includes(k) || k.includes(normT))) {
-        lmHit = D.landmarks.find(l => l.name.includes(al.target) || (l.note && l.note.includes(al.target)));
-        if (lmHit) break;
-      }
+      const hit = D.landmarks.find(l => l.name.includes(al.target) || (l.note && l.note.includes(al.target)));
+      if (hit && L.aliasMatch(al, normT, hit.county, ctx)) { lmHit = hit; break; }
     }
   }
   if (lmHit) {
@@ -274,10 +275,8 @@ export async function search(text) {
   let scHit = (D.schools || []).find(sc => normT.length >= 2 && (L.normTw(sc.name).includes(normT) || normT.includes(L.normTw(sc.name))));
   if (!scHit) {
     for (const al of L.SEARCH_ALIASES) {
-      if (al.keys.some(k => normT.includes(k) || k.includes(normT))) {
-        scHit = (D.schools || []).find(x => x.name.includes(al.target));
-        if (scHit) break;
-      }
+      const hit = (D.schools || []).find(x => x.name.includes(al.target));
+      if (hit && L.aliasMatch(al, normT, hit.county, ctx)) { scHit = hit; break; }
     }
   }
   if (scHit) {
@@ -311,7 +310,7 @@ export async function search(text) {
     if (!D.txs) {
       const catRoad = (D.roadCatalog || []).find(r => r.road === q.road);
       if (catRoad && catRoad.dists.length === 1) q.district = catRoad.dists[0];
-      else { toast("成交資料還在載入，請稍候再試一次。"); return "none"; }
+      else { toast(D.txErr ? "成交資料載入失敗，請到「成交」分頁按「重試」。" : "成交資料還在載入，請稍候再試一次。"); return "none"; }
     } else {
       const found = [...new Set(D.txs.filter(x => x.road === q.road).map(x => x.dist))];
       let cand = found;
@@ -346,11 +345,18 @@ export async function showAddress(q) {
   }
   await pinAt(q, `${q.district} ${L.describe(q)}`, L.describe(q), true);
 }
+let pinSeq = 0;
 export async function pinAt(q, what, label, isSearch) {
-  const cached = roadsNow(q.district);
+  const seq = ++pinSeq, cached = roadsNow(q.district);
   if (!cached) toast(`正在定位 ${what}...`);
   const data = cached || await loadRoads(q.district);
-  if (!data) { S.pin = null; refreshPins(); toast(`${what}：這一區沒有道路位置資料，無法標在地圖上。`); return; }
+  if (seq !== pinSeq) return;
+  if (!data) {
+    S.pin = null; refreshPins();
+    const failed = D.roadsErr.has((D.county ? D.county.code + "/" : "") + q.district);
+    toast(failed ? `${what}：道路位置暫時抓不到（網路或 OpenStreetMap 伺服器忙），稍後再試一次。` : `${what}：這一區還沒有道路位置資料，無法標在地圖上。`);
+    return;
+  }
   const pos = L.position(data, q);
   if (!pos) { S.pin = null; refreshPins(); toast(`${what}：OpenStreetMap 上找不到「${q.road}」的位置。`); return; }
   S.pin = { lat: pos.lat, lng: pos.lng, label, radius: pos.radius, note: pos.note, what };
