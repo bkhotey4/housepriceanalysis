@@ -653,6 +653,19 @@ class ProjectTest(unittest.TestCase):
         self.assertTrue(any("晚於" in e for e in errs))
 
 
+class LandmarkSourceTest(unittest.TestCase):
+    """搜尋別名指到的地標、學校、建設都要在原始資料（data/）裡。網頁檔每次部署都會從 data/ 重新產生，
+    只加在 web/data 的地標會被洗掉（曾經少了南紡、好市多、花園夜市等 19 個）。"""
+
+    def test_web_landmarks_come_from_source(self):
+        with open(os.path.join(ROOT, "web", "data", "landmarks.json"), encoding="utf-8") as f:
+            web = {x["name"] for x in json.load(f)}
+        src = {x["name"] for x in landmarks.load(county=None)}
+        self.assertEqual(sorted(web - src), [], "這些地標只在 web/data，下次部署會被洗掉：請加進 data/landmarks.json")
+        for name in ("南紡購物中心", "花園夜市", "成大醫院"):
+            self.assertTrue(any(name in n for n in src), name)
+
+
 class LandmarkTest(unittest.TestCase):
     def test_models(self):
         import math
