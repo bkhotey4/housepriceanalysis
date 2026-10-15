@@ -1215,8 +1215,12 @@ export function buildRoadCatalog(txs) {
 // 不然台中的人打「好市多」會被帶到台南店。ctx：目前縣市代碼；全台總覽是 "*"；沒給（舊呼叫）＝一律套用
 const GENERIC_ALIAS_KEYS = new Set(["好市多", "costco", "新光三越", "新光", "新天地", "西門新天地", "三井", "三井outlet", "outlet", "mitsui",
   "市立醫院", "市醫", "文化中心", "台積電", "復興", "成功國中", "陽明國中", "光武", "東興國中", "建興", "崇明", "金華", "敦化", "培英", "居仁", "七賢"]);
+// 查詢字串會先把「台」換成「臺」、轉小寫（normSearchQuery），別名關鍵字也要做一樣的轉換才比對得到（「台大」「台北101」）
 export function aliasMatch(al, query, itemCounty, ctx) {
-  return al.keys.some(k => (query.includes(k) || k.includes(query)) && (!GENERIC_ALIAS_KEYS.has(k) || !ctx || (itemCounty || "D") === ctx));
+  return al.keys.some(k => {
+    const nk = normTw(k).toLowerCase(), q = normTw(query).toLowerCase();
+    return (q.includes(nk) || nk.includes(q)) && (!GENERIC_ALIAS_KEYS.has(k) || !ctx || (itemCounty || "D") === ctx);
+  });
 }
 export const SEARCH_ALIASES = [
   { keys: ["成大", "成功大學"], target: "國立成功大學" },
@@ -1510,7 +1514,7 @@ export function quickSuggest(rawText, data, options = {}) {
       score = 420;
     } else {
       for (const al of SEARCH_ALIASES) {
-        if (sName.includes(al.target.toLowerCase()) && aliasMatch(al, query, sc.county, options.county)) {
+        if (sName.includes(normTw(al.target).toLowerCase()) && aliasMatch(al, query, sc.county, options.county)) {
           score = 620;
           break;
         }
@@ -1542,10 +1546,11 @@ export function quickSuggest(rawText, data, options = {}) {
     else if (lName.startsWith(query)) score = 680;
     else if (lName.includes(query)) score = 420;
     else if (lNote.includes(query)) score = 340;
-    else {
+    // 別名（「台大」→國立臺灣大學）比「說明文字剛好提到」更準：說明有提到時也要檢查別名，取比較高的分數
+    if (score < 620) {
       for (const al of SEARCH_ALIASES) {
         if (aliasMatch(al, query, lm.county, options.county)) {
-          if (lName.includes(al.target.toLowerCase()) || lNote.includes(al.target.toLowerCase())) {
+          if (lName.includes(normTw(al.target).toLowerCase()) || lNote.includes(normTw(al.target).toLowerCase())) {
             score = 620;
             break;
           }
@@ -1602,7 +1607,7 @@ export function quickSuggest(rawText, data, options = {}) {
     else if (pName.includes(query)) score = 380;
     else {
       for (const al of SEARCH_ALIASES) {
-        if (pName.includes(al.target.toLowerCase()) && aliasMatch(al, query, pr.county, options.county)) {
+        if (pName.includes(normTw(al.target).toLowerCase()) && aliasMatch(al, query, pr.county, options.county)) {
           score = 560;
           break;
         }
