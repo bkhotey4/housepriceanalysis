@@ -13,6 +13,16 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="房價分析">
 <link rel="stylesheet" href="css/app.css">
+<link rel="modulepreload" href="js/main.js">
+<link rel="modulepreload" href="js/logic.js">
+<link rel="modulepreload" href="js/view3d.js">
+<link rel="modulepreload" href="js/search.js">
+<link rel="modulepreload" href="js/finance.js">
+<link rel="modulepreload" href="js/watch.js">
+<link rel="modulepreload" href="js/compare.js">
+<link rel="modulepreload" href="js/value.js">
+<link rel="modulepreload" href="js/poi.js">
+<link rel="modulepreload" href="js/report.js">
 </head>
 <body>
 <header id="top">
@@ -32,6 +42,7 @@
 <main id="app">
   <div id="map-wrap">
     <canvas id="map" aria-label="3D 房價地圖"></canvas>
+    <div id="boot" role="status" aria-live="polite"><span class="spin" aria-hidden="true"></span><span id="boot-msg">正在載入房價資料…</span></div>
     <div id="chips" class="floating">
       <div class="seg" id="seg-cat" role="radiogroup" aria-label="房型"></div>
       <div class="seg" id="seg-metric" role="radiogroup" aria-label="柱高"></div>
@@ -55,7 +66,7 @@
     <div id="sheet-handle" aria-hidden="true"><span></span></div>
     <div id="sheet-head">
       <div class="title-row">
-        <h1 id="d-name">台南市</h1>
+        <h1 id="d-name">載入中…</h1>
         <div class="head-btns">
           <button id="btn-nation" class="small" hidden>全台</button>
           <button id="btn-city" class="small">全市</button>

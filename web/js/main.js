@@ -53,7 +53,20 @@ export const D = { roads: new Map(), roadsErr: new Set() };
 // 淹水潛勢：國家災害防救科技中心「3D 災害潛勢地圖」（官方圖資沒有開放給其他網站直接疊圖，所以用連結開啟）
 const FLOOD_URL = "https://dmap.ncdr.nat.gov.tw/1109/map/?group-layer=" + encodeURIComponent("淹水潛勢");
 export const allLines = () => (D.mrt ? D.mrt.lines : []).concat(D.transit || []);
-async function getJSON(path, ms = 20000) {
+// 啟動時先把彼此不相依的資料一起開始下載（之前是一批等一批）；之後的 getJSON 拿到的是同一個請求
+const PREFETCH = new Map();
+function prefetch(path, ms) {
+  if (PREFETCH.has(path)) return;
+  const p = fetchJSON(path, ms);
+  p.catch(() => {});                          // 沒人用到（例如猜錯縣市）時不要變成未處理的錯誤
+  PREFETCH.set(path, p);
+}
+function getJSON(path, ms = 20000) {
+  const p = PREFETCH.get(path);
+  if (p) { PREFETCH.delete(path); return p; }
+  return fetchJSON(path, ms);
+}
+async function fetchJSON(path, ms = 20000) {
   let r;
   try { r = await fetch(path, AbortSignal.timeout ? { signal: AbortSignal.timeout(ms) } : {}); }
   catch (e) { const err = new Error(path + (e && e.name === "TimeoutError" ? " 逾時" : " 連不上")); err.network = true; throw err; }
@@ -638,7 +651,7 @@ export function pick(hit, latlng) {
 }
 
 // ------------------------------------------------------------------ 面板
-const TABS = [["overview", "概況"], ["rank", "排行"], ["commute", "通勤"], ["roads", "路段"], ["bldg", "社區"], ["tx", "成交"], ["value", "估價"], ["cmp", "比較"], ["projects", "建設"], ["detail", "點選"], ["poi", "周邊"], ["watch", "看屋"]];
+const TABS = [["overview", "概況"], ["calc", "試算"], ["rank", "排行"], ["commute", "通勤"], ["roads", "路段"], ["bldg", "社區"], ["tx", "成交"], ["value", "估價"], ["cmp", "比較"], ["projects", "建設"], ["detail", "點選"], ["poi", "周邊"], ["watch", "看屋"]];
 export function renderPanel() {
   const name = S.current, b = D.book;
   $("#d-name").textContent = name;
@@ -661,7 +674,7 @@ export function renderPanel() {
     `<button role="tab" id="tab-${k}" data-tab="${k}" aria-controls="tab-body" aria-selected="${S.tab === k}" tabindex="${S.tab === k ? 0 : -1}">${t}${k === "watch" ? watchBadge() : ""}</button>`).join("");
   const body = $("#tab-body"), keepTop = body.scrollTop;
   body.setAttribute("aria-labelledby", "tab-" + S.tab);
-  body.innerHTML = ({ overview: tabOverview, rank: tabRank, commute: tabCommute, roads: tabRoads, bldg: tabBldg, tx: tabTx, value: tabValue, cmp: tabCmp, projects: tabProjects, detail: tabDetail, poi: tabPoi, watch: tabWatch }[S.tab] || tabOverview)();
+  body.innerHTML = ({ overview: tabOverview, calc: tabCalc, rank: tabRank, commute: tabCommute, roads: tabRoads, bldg: tabBldg, tx: tabTx, value: tabValue, cmp: tabCmp, projects: tabProjects, detail: tabDetail, poi: tabPoi, watch: tabWatch }[S.tab] || tabOverview)();
   const key = [S.tab, S.current, D.county ? D.county.code : "", S.bldg, S.watchSel, S.addr ? S.addr.text : ""].join("|");
   body.scrollTop = key === renderPanel.lastKey ? keepTop : 0;
   renderPanel.lastKey = key;
@@ -672,7 +685,7 @@ export function renderPanel() {
 
 // ------------------------------------------------------------------ 分享連結：網址記住縣市、區域（或地址）、房型、單價／總價、分頁
 // 例：?c=A&d=大安區&cat=apt&tab=rank；比較分頁另外帶 cmp=A:大安區,D:東區。畫面一變就更新網址列，重新整理或加入書籤也會回到同一個畫面。
-const SHARE_TABS = ["overview", "rank", "commute", "roads", "bldg", "tx", "value", "cmp", "projects"];
+const SHARE_TABS = ["overview", "calc", "rank", "commute", "roads", "bldg", "tx", "value", "cmp", "projects"];
 function shareParams() {
   const p = new URLSearchParams(), cur = new URLSearchParams(location.search);
   if (cur.get("tw") === "0") p.set("tw", "0");
@@ -835,7 +848,16 @@ function marketSection(name) {
       `</tbody></table><p class="muted">近兩年「含一個車位、而且車位價格分開登錄」的成交；車位價併在房價裡的不算。</p>`;
   }
   if (!h) return "";
-  return `<details class="more" data-det="mktOpen"${S.settings.mktOpen !== false ? " open" : ""}><summary>樓層、屋齡、公設、房數、車位行情</summary>${h}</details>`;
+  return `<details class="more" data-det="mktOpen"${S.settings.mktOpen ? " open" : ""}><summary>樓層、屋齡、公設、房數、車位行情</summary>${h}</details>`;
+}
+// 「試算」分頁：房貸（含新青安）、交屋前現金、賣屋換屋、買房還是租房。原本都塞在概況裡，概況長達快 7 個畫面
+const calcLink = () => `<div class="row"><button type="button" class="btn" data-act="go-calc">💰 房貸、交屋現金、賣屋換屋、租或買試算 →</button></div>`;
+function tabCalc() {
+  const name = S.current, bt = D.book.best(name, S.cat, "t");
+  let h = `<p class="muted">${bt.value ? `總價預設帶入${esc(name)}的中位總價（${L.fmtNum(bt.value)} 萬），可以改成你在看的房子。` : "先在總價填上你在看的房子。"}</p>`;
+  h += loanSection(bt.value) + costSection(bt.value) + sellSection(bt.value);
+  if (name !== L.CITY) h += rvbSection(name, bt.value);
+  return h;
 }
 function tabOverview() {
   const name = S.current, b = D.book, bt = b.best(name, S.cat, "t");
@@ -862,7 +884,7 @@ function tabOverview() {
     h += popSection(name) + distSVG(name) + marketSection(name);
     h += `<div class="row">${reportButton()}<button class="btn small" data-act="cmp-add">加入比較</button><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a><a class="btn" target="_blank" rel="noopener" href="${FLOOD_URL}">淹水潛勢</a>${schoolLink(name)}` +
       (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
-    h += loanSection(bt.value) + costSection(bt.value) + sellSection(bt.value) + rentSection(name) + rvbSection(name, bt.value);
+    h += rentSection(name) + calcLink();
   } else {
     // 情境捷徑：南科、明星學區是台南限定，只在台南顯示；新青安與雙區 PK 全台都能用
     const tainan = !D.tw || (D.county && D.county.code === "D");
@@ -874,7 +896,7 @@ function tabOverview() {
       card("youth", "💰", `${youthLabel()}首購試算`, `${L.YOUTH_LOAN.years} 年期與 ${L.YOUTH_LOAN.grace} 年寬限期斷崖體檢`) +
       card("duel", "⚔️", "雙區買房 PK 擂台", pair ? `${esc(pair[0].name)} vs ${esc(pair[1].name)}，或自選任兩區` : "全台任選兩區（可跨縣市）指標對決") +
       `</div></div>`;
-    h += tmSection() + popSection(name) + loanSection(bt.value) + costSection(bt.value) + sellSection(bt.value) + rentSection(name);
+    h += tmSection() + popSection(name) + rentSection(name) + calcLink();
     h += isNation() ? `<p class="muted">點地圖上的柱子（或「排行」）進入一個縣市，才會下載那個縣市的逐筆成交與路段；也可以直接搜尋「台北市大安區…」這樣的地址。透天厝的單價含土地，看透天請以總價為主。</p>`
       : `<p class="muted">點地圖上的柱子看各區，或在上方搜尋地址。透天厝的單價含土地，看透天請以總價為主。</p>`;
   }
@@ -1171,6 +1193,7 @@ function renderMenu() {
     <p class="muted">淹水潛勢：官方圖資沒有開放疊圖，請到 <a target="_blank" rel="noopener" href="${FLOOD_URL}">國家災害防救科技中心 3D 災害潛勢地圖</a> 查詢（各區「概況」也有「淹水潛勢」按鈕）。</p>${chk("hires", "放大時載入高解析衛星影像（較耗流量）")}
     ${chk("lines", "捷運、輕軌、高鐵（營運中與規劃）")}${chk("markers", "開發案與情資（菱形）")}${chk("landmarks", "知名地標 3D")}${chk("projects", "重大建設 3D")}${chk("schools", "🎓 明星學區與額滿學校")}${chk("roads", "路段房價（選了行政區才畫）")}${chk("labels", "名稱標籤")}
     <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option><option value="yield"${s.color === "yield" ? " selected" : ""}>毛租金投報率</option><option value="heat"${s.color === "heat" ? " selected" : ""}>市場冷熱（量＋價）</option><option value="pop"${s.color === "pop" ? " selected" : ""}>近 5 年人口增減</option></select></div>
+    <div class="row"><button type="button" class="btn" data-act="share">🔗 分享目前的畫面</button></div>
     <h3>外觀</h3><div class="row"><select data-set="theme" aria-label="外觀">${[["", "跟著系統"], ["light", "淺色"], ["dark", "深色"]].map(([v, t]) => `<option value="${v}"${(s.theme || "") === v ? " selected" : ""}>${t}</option>`).join("")}</select></div>
     <h3>篩選</h3>
     <div class="row"><span>總價預算</span><input type="text" inputmode="decimal" data-set="budget" value="${esc(s.budget)}" placeholder="萬，例 1500"></div>
@@ -1395,6 +1418,7 @@ function bindUI() {
   $("#menu").addEventListener("click", e => {
     if (e.target.closest("[data-close]")) { $("#menu").hidden = true; $("#btn-menu").setAttribute("aria-expanded", "false"); $("#btn-menu").focus(); return; }
     const act = e.target.closest("[data-act]")?.dataset.act;
+    if (act === "share") { shareNow(); return; }
     if (act === "err-report") reportOnGitHub();
     if (act === "err-copy") { (navigator.clipboard ? navigator.clipboard.writeText(errorReport()) : Promise.reject()).then(() => toast("已複製錯誤內容"), () => toast("這個瀏覽器不能自動複製，請改用「到 GitHub 回報」。")); }
     if (act === "err-clear") { try { localStorage.removeItem(ERR_KEY); } catch { /* 無妨 */ } renderMenu(); }
@@ -1447,7 +1471,7 @@ function bindUI() {
       } else if (mode === "youth") {
         // 直接把房貸試算切成新青安，捲到試算那一段（全台、各縣市都能用）
         S.settings.loan = { ...loanState(), ...presetTerms(true), auto: true }; saveStore();
-        renderPanel(); sheet("half");
+        S.tab = "calc"; renderPanel(); sheet("half");
         $(".loan-presets")?.scrollIntoView({ block: "start" });
         toast(`房貸試算已切換成${youthLabel()}，下方有和一般房貸的比較；估價分頁另有寬限期斷崖體檢。`);
       } else if (mode === "duel") {
@@ -1515,6 +1539,7 @@ function bindUI() {
     if (act === "watch-add") watchDialog(null);
     if (act === "cmp-add") { cmpAdd(); return; }
     if (act === "cmp-retry") { cmpRetry(); return; }
+    if (act === "go-calc") { S.tab = "calc"; renderPanel(); return; }
     if (act === "tx-retry") { if (D.txPath) { loadTx(D.txPath, D.txCurrent); renderPanel(); } return; }
     if (act === "tm-play") { tmPlay(); return; }
     if (act === "tm-stop") { tmStop(); tmUi(); return; }
@@ -1702,6 +1727,19 @@ export async function main() {
   matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", applyTheme);
   setTimeout(flushAutoReport, 5000);   // 上次離線時沒送出的錯誤回報
   const params = new URLSearchParams(location.search);
+  const bootMsg = t => { const el = $("#boot-msg"); if (el) el.textContent = t; };
+  {
+    const linked = ["d", "tab", "cat", "m", "cmp", "q"].some(k => params.has(k));
+    const guess = (params.get("c") || (linked ? "" : S.settings.lastCounty) || "").toUpperCase();
+    for (const n of ["intel", "mrt", "landmarks", "models", "workplaces", "schools"]) prefetch(`data/${n}.json`);
+    if (params.get("tw") !== "0") {
+      for (const f of ["index", "book", "rent", "pop"]) prefetch(`data/tw/${f}.json`);
+      if (/^[A-Z]$/.test(guess) && !params.get("q")) {          // 會直接進入的縣市：它的統計和逐筆成交也先開始下載
+        for (const f of ["book", "districts", "rent", "pop"]) prefetch(`data/tw/${guess}/${f}.json`);
+        prefetch(`data/tw/${guess}/tx.json`, 60000);
+      }
+    }
+  }
   let twErr = null;
   const tw = params.get("tw") === "0" ? null : await getJSON("data/tw/index.json").catch(e => { if (e.network || (e.status && e.status !== 404)) twErr = e; return null; });    // ?tw=0：強制台南版（測試用）
   const shared = ["intel", "mrt", "landmarks", "models", "workplaces", "schools"];
@@ -1782,7 +1820,7 @@ export async function main() {
     const shared = ["d", "tab", "cat", "m", "cmp", "q"].some(k => params.has(k));
     const want = (params.get("c") || (shared ? "" : S.settings.lastCounty) || "").toUpperCase();
     enterNation(false); view.reset();
-    if (want && !params.get("q")) await enterCounty(want, false);
+    if (want && !params.get("q")) { bootMsg("正在載入縣市資料…"); await enterCounty(want, false); }
   } else {
     refreshAll();
     // 逐筆成交比較大（壓縮後約 0.6MB），畫面先出來再載入
@@ -1790,6 +1828,7 @@ export async function main() {
   }
   applyShared(params);
   S.ready = true; syncUrl();
+  const boot = $("#boot"); if (boot) boot.hidden = true;
   if (params.get("q")) { $("#q").value = params.get("q"); const t0 = Date.now(), wait = () => (D.tw || D.txs) ? search(params.get("q")) : (D.txErr || Date.now() - t0 > 60000) ? null : setTimeout(wait, 200); wait(); }
   getJSON("data/status.json").then(st => { D.status = st; if (!st.ok) $("#btn-menu").classList.add("has-err"); }).catch(() => {});
   if ("serviceWorker" in navigator && location.protocol === "https:") {
@@ -1805,4 +1844,5 @@ export async function main() {
   }
   window.__app = { S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation, logError, shareUrl, renderSuggestions, selectSuggestion, hideSuggestions, minsTo };   // 測試用
 }
-main().catch(err => { logError("啟動", err); document.body.insertAdjacentHTML("beforeend", `<div class="note" style="position:fixed;top:60px;left:10px;right:10px;z-index:99">載入失敗：${esc(err.message)}</div>`); });
+main().catch(err => { const bm = document.querySelector("#boot-msg"); if (bm) { bm.textContent = "載入失敗，請重新整理再試一次。"; document.querySelector("#boot .spin")?.remove(); }
+  logError("啟動", err); document.body.insertAdjacentHTML("beforeend", `<div class="note" style="position:fixed;top:60px;left:10px;right:10px;z-index:99">載入失敗：${esc(err.message)}</div>`); });

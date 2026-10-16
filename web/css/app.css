@@ -417,14 +417,9 @@ table.list.cost tr.total td { font-weight: 700; border-top: 2px solid var(--line
   color: #cbd5e1;
 }
 
-/* ---------- 極窄螢幕 KPI 與排版優化 ---------- */
+/* ---------- 極窄螢幕 ---------- */
 @media (max-width: 380px) {
-  #kpis {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-  .scenario-grid {
-    grid-template-columns: 1fr;
-  }
+  .scenario-grid { grid-template-columns: 1fr; }
 }
 
 
@@ -484,3 +479,31 @@ svg.agebar { width: 100%; height: auto; margin: 2px 0 4px; }
 /* 房價時光機 */
 .tm-badge { font-weight: 700; color: var(--accent); margin: 2px 0 3px; }
 #tm-q { min-width: 7.5em; }
+
+/* 啟動中的提示：資料下載完之前地圖不是一片空白 */
+#boot { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 6; display: flex; align-items: center; gap: 10px;
+  background: var(--glass); color: var(--ink); padding: 12px 16px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.15); font-size: 0.95rem; }
+#boot .spin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #boot .spin { animation: none; } }
+
+/* ---------- 手機版：按鈕至少 44px 好點；地圖右側只留常用的；數字卡片排成一行，面板拉一半時內容看得到 */
+@media (max-width: 899px) {
+  #map-tools button { width: 44px; height: 44px; }
+  #map-tools button[data-act="rotl"], #map-tools button[data-act="rotr"], #map-tools button[data-act="share"] { display: none; }   /* 兩指可以旋轉；分享在 ☰ 選單 */
+  #tabs button { min-height: 44px; padding: 12px 12px 9px; }
+  .seg button { min-height: 36px; }
+  .btn, .head-btns button { min-height: 40px; }
+  .btn.small { min-height: 36px; }
+  .row input, .row select, .loan-f input, .valform input, .valform select { min-height: 40px; }
+  label.chk { min-height: 40px; display: flex; align-items: center; gap: 6px; }
+  #kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .kpi { padding: 4px 6px; }
+  .kpi .k { font-size: 0.68rem; }
+  .kpi .v { font-size: 0.98rem; }
+  .kpi .v small { font-size: 0.62rem; }
+}
+@media (max-width: 899px) {
+  #top .icon { min-width: 44px; min-height: 44px; }
+  #search input { align-self: stretch; }
+}

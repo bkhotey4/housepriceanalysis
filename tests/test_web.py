@@ -106,8 +106,11 @@ class WebAppTest(unittest.TestCase):
         self.assertIsNotNone(dear["breakeven"]); self.assertGreater(dear["end"]["buy"], dear["end"]["rent"])
         self.assertEqual(len(dear["years"]), 20)
         self.assertIsNone(pg.evaluate("__app.L.rentVsBuy({price: 1500, down: 20, rate: 2.2, loanYears: 30, rent: 0})"))
-        # 概況分頁有房貸試算，改利率後結果跟著更新
+        # 「試算」分頁有房貸試算，改利率後結果跟著更新；概況不再塞試算（只放一個連結）
         pg.evaluate("__app.selectDistrict('善化區')"); pg.wait_for_timeout(200)
+        self.assertNotIn("房貸試算", pg.inner_text("#tab-body"))
+        pg.click("#tab-body [data-act='go-calc']"); pg.wait_for_timeout(200)
+        self.assertEqual(pg.evaluate("__app.S.tab"), "calc")
         self.assertIn("房貸試算", pg.inner_text("#tab-body"))
         before = pg.inner_text("#loan-out")
         pg.fill("input[data-loan='rate']", "3"); pg.wait_for_timeout(100)
@@ -318,7 +321,7 @@ class WebAppTest(unittest.TestCase):
         self.assertEqual(url.count("%7C"), 8)                       # 9 個中途點
         self.assertIn("destination=23.100000", url)                 # 終點是第 11 間（沒有跳過中間的）
         self.assertAlmostEqual(pg.evaluate("__app.L.rebuyRefund(100, 1800, 900)"), 50)
-        pg.evaluate("__app.S.tab = 'overview'; __app.selectDistrict('善化區')")
+        pg.evaluate("__app.S.tab = 'calc'; __app.selectDistrict('善化區')")
         pg.evaluate("document.querySelector(`details[data-det='sellOpen'] > summary`).click()")
         pg.fill("input[data-sell='sell']", "1800"); pg.fill("input[data-sell='buy']", "1200"); pg.fill("input[data-sell='years']", "8")
         out = pg.inner_text("#sell-out")
@@ -581,9 +584,13 @@ class TaiwanWebTest(unittest.TestCase):
         pg.evaluate("__app.enterCounty('A')"); pg.wait_for_function("__app.D.county && __app.D.county.code === 'A'")
         pg.evaluate("__app.selectDistrict('大安區')"); pg.wait_for_timeout(200)
         pg.evaluate("__app.S.tab = 'overview'"); pg.evaluate("__app.selectDistrict('大安區')")
-        # 租金行情、交屋前現金、買房 vs 租房
+        # 租金行情在概況；交屋前現金、買房 vs 租房在「試算」
         body = pg.inner_text("#tab-body")
-        for want in ("租金行情", "毛租金報酬率", "交屋前要準備多少現金", "買房還是租房比較划算"):
+        for want in ("租金行情", "毛租金報酬率"):
+            self.assertIn(want, body)
+        pg.click("#tabs button[data-tab='calc']"); pg.wait_for_timeout(200)
+        body = pg.inner_text("#tab-body")
+        for want in ("交屋前要準備多少現金", "買房還是租房比較划算"):
             self.assertIn(want, body)
         pg.evaluate("document.querySelector(`details[data-det='rvbOpen'] > summary`).click()")
         self.assertIn("年後：買房約", pg.inner_text("#rvb-out"))
