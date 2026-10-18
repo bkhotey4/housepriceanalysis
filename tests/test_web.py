@@ -26,8 +26,23 @@ ADDRS = ["善化區中正路667巷5號", "善化區中正路300號", "善化區�
          "北區實踐街103巷25弄20號", "永康區永安路288號", "安平區國平北路88號", "東區崇德二十一街67號"]
 
 
+# 分頁分組後，路段／社區／成交在「行情」裡，排行／通勤／比較／建設在「更多」裡：先點分組、再點小分頁
+GROUP_OF = {"roads": "market", "bldg": "market", "tx": "market", "rank": "more", "commute": "more", "cmp": "more", "projects": "more"}
+
+
+def open_tab(pg, k):
+    g = GROUP_OF.get(k)
+    if g:
+        pg.click(f"#tabs button[data-group='{g}']")
+        pg.click(f"#subtabs button[data-tab='{k}']")
+    else:
+        pg.click(f"#tabs button[data-tab='{k}']")
+
+
 @unittest.skipIf(sync_playwright is None, "沒有安裝 playwright")
 @unittest.skipIf(not os.path.exists(os.path.join(WEB, "data", "meta.json")), "還沒執行 tools/export_web.py")
+
+
 class WebAppTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -192,9 +207,9 @@ class WebAppTest(unittest.TestCase):
         self.assertNotEqual(pg.evaluate("__app.S.current"), "台南市")
         self.assertEqual(pg.evaluate("__app.S.addr.road"), "中山路")
         # 建設：年份滑桿改變狀態
-        pg.click("#tabs button[data-tab='projects']")
+        open_tab(pg, "projects")
         pg.evaluate("__app.selectDistrict('台南市')")
-        pg.click("#tabs button[data-tab='projects']")
+        open_tab(pg, "projects")
         y0 = pg.evaluate("__app.S.year")
         n_done0 = pg.evaluate("__app.view.models.filter(m => m.hit === 'project' && m.state === '完工').length")
         pg.fill("#year", str(y0 + 9))
@@ -251,7 +266,7 @@ class WebAppTest(unittest.TestCase):
         self.assertTrue(res)
         self.assertTrue(all(r["n"] >= 2 for r in res))
         pg.evaluate("__app.selectDistrict('善化區')")
-        pg.click("#tabs button[data-tab='bldg']")
+        open_tab(pg, "bldg")
         pg.evaluate("document.querySelector('#tab-body tr.click').click()")
         pg.wait_for_timeout(800)
         self.assertIn("找這個社區正在賣的房子", pg.inner_text("#tab-body"))
@@ -262,7 +277,7 @@ class WebAppTest(unittest.TestCase):
         self.assertLess(m[0], m[1]); self.assertLess(m[1], m[2])
         self.assertAlmostEqual(pg.evaluate("__app.L.kmFor(__app.L.commuteMin(12, 'scooter'), 'scooter')"), 12, delta=0.5)
         pg.evaluate("__app.selectDistrict('台南市', false)")
-        pg.click("#tabs button[data-tab='commute']")
+        open_tab(pg, "commute")
         pg.select_option("#tab-body select[data-set='work']", "南科台南園區")
         counts = []
         for v in (15, 30):
@@ -283,20 +298,20 @@ class WebAppTest(unittest.TestCase):
         pg.evaluate("localStorage.removeItem('dth_route_v1')")
         pg.reload()                                                            # 上班地點已經記住：載入時自動查一次
         pg.wait_for_function("window.__app && window.__app.D.txs", timeout=30000)
-        pg.click("#tabs button[data-tab='commute']")
+        open_tab(pg, "commute")
         pg.wait_for_function("document.querySelector('#tab-body').innerText.includes('OpenStreetMap 道路')", timeout=8000)
         self.assertEqual(len(calls), 1)
         self.assertIn("/routed-car/table/v1/driving/", calls[0])
         mins = pg.evaluate("__app.D.districts.map(d => __app.minsTo(d.lat, d.lng))")
         self.assertEqual(set(mins), {round(600 / 60 * 1.25 + 3)})           # 10 分鐘 × 尖峰 1.25 ＋ 3 分鐘
-        pg.click("#tabs button[data-tab='rank']"); pg.click("#tabs button[data-tab='commute']")
+        open_tab(pg, "rank"); open_tab(pg, "commute")
         pg.wait_for_timeout(1500)
         self.assertEqual(len(calls), 1)                                        # 已經查過的不再查
         # 房價所得比：總價 ÷ 家庭年收入
         self.assertAlmostEqual(pg.evaluate("__app.L.priceIncomeRatio(1440, 100000)"), 12.0)
         self.assertIsNone(pg.evaluate("__app.L.priceIncomeRatio(1440, 0)"))
         pg.evaluate("__app.S.settings.incomeMonthly = '100000'")
-        pg.click("#tabs button[data-tab='rank']")
+        open_tab(pg, "rank")
         self.assertIn("不吃不喝幾年", pg.inner_text("#tab-body"))
         pg.evaluate("__app.S.settings.incomeMonthly = ''; localStorage.removeItem('dth_route_v1')")
         # 地標：面板切到地標所在的行政區
@@ -407,6 +422,24 @@ class WebAppTest(unittest.TestCase):
         self.assertEqual(pg.evaluate("__app.S.tab"), "poi")
         self.assertIn("善化區", pg.evaluate("__app.S.poi.label"))
         self.assertIn("咖啡、飲料、甜點、蛋糕", pg.inner_text("#tab-body"))
+
+    def test_tab_groups(self):
+        """分頁分組：外面一排 6 個不會超出寬度；點「行情」展開小分頁、記住上次看的那一個。"""
+        pg = self.open(phone=False)
+        pg.evaluate("__app.selectDistrict('東區')"); pg.wait_for_timeout(200)
+        tabs = pg.eval_on_selector_all("#tabs [role=tab]", "els => els.map(e => e.dataset.tab || e.dataset.group)")
+        self.assertEqual(tabs[:6], ["overview", "calc", "market", "value", "watch", "more"])
+        self.assertTrue(pg.evaluate("document.querySelector('#subtabs').hidden"))
+        self.assertLessEqual(pg.evaluate("(t => t.scrollWidth - t.clientWidth)(document.querySelector('#tabs'))"), 0)
+        pg.click("#tabs button[data-group='market']")
+        self.assertEqual(pg.evaluate("__app.S.tab"), "roads")
+        self.assertFalse(pg.evaluate("document.querySelector('#subtabs').hidden"))
+        pg.click("#subtabs button[data-tab='tx']")
+        self.assertIn("筆", pg.inner_text("#tab-body"))
+        pg.click("#tabs button[data-tab='overview']"); pg.click("#tabs button[data-group='market']")
+        self.assertEqual(pg.evaluate("__app.S.tab"), "tx")                      # 記住上次看的小分頁
+        self.assertEqual(pg.get_attribute("#tabs button[data-group='market']", "aria-selected"), "true")
+        self.assertEqual(pg.get_attribute("#tab-body", "aria-labelledby"), "tab-tx")
 
     def test_poi_nearby(self):
         import json as _json, re as _re
@@ -627,7 +660,7 @@ class TaiwanWebTest(unittest.TestCase):
         pg.wait_for_timeout(200)
         self.assertIn("營運中", pg.inner_text("#tab-body"))
         self.assertIn("先在地圖上點一個縣市", pg.evaluate("(() => { __app.S.tab = 'tx'; return 'x'; })()") and
-                      (pg.click("#tabs button[data-tab='tx']") or pg.inner_text("#tab-body")))
+                      (open_tab(pg, "tx") or pg.inner_text("#tab-body")))
         # 地址有縣市：自動切到臺北市、插圖釘
         self.assertEqual(pg.evaluate("__app.search('台北市大安區信義路三段120號')"), "address")
         pg.wait_for_timeout(600)
@@ -725,7 +758,7 @@ class TaiwanWebTest(unittest.TestCase):
         self.assertIn("遷入比遷出多 2,000 人", body)
         pg.evaluate("__app.S.settings.color = 'pop'; __app.selectDistrict('大安區')")
         self.assertIn("近 5 年人口增減", pg.inner_text("#legend"))
-        pg.evaluate("document.querySelector(`#tabs [data-tab='rank']`).click()")
+        open_tab(pg, "rank")
         self.assertIn("5 年", pg.inner_text("#tab-body thead"))
         self.assertRegex(pg.inner_text("#tab-body"), r"\+\d+%")
         self.assertEqual(errors, [])

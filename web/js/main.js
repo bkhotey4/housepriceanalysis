@@ -32,7 +32,7 @@ const trendColor = p => p == null ? NO_DATA : (t => t < 0 ? mix(DIV_MID, DIV_NEG
 // ------------------------------------------------------------------ 狀態（設定與看屋清單存在這台裝置的瀏覽器裡）
 export const S = {
   cat: "all", metric: "u", current: L.CITY, tab: "overview", year: new Date().getFullYear(),
-  addr: null, pin: null, roadFilter: null, picked: null, pickMode: null, roadKw: "", bldgKw: "", bldg: null, poi: null,
+  addr: null, pin: null, roadFilter: null, picked: null, pickMode: null, groupLast: {}, roadKw: "", bldgKw: "", bldg: null, poi: null,
   settings: { town: true, liq: false, slide: false, fault: false, hires: true, lines: true, markers: true, landmarks: true, projects: true,
               roads: true, labels: true, schools: true, color: "price", work: "", workKm: 5, budget: "", mode: "car", commuteMin: 20, workPt: null, autoReport: true },
   watch: [],
@@ -652,6 +652,14 @@ export function pick(hit, latlng) {
 
 // ------------------------------------------------------------------ 面板
 const TABS = [["overview", "概況"], ["calc", "試算"], ["rank", "排行"], ["commute", "通勤"], ["roads", "路段"], ["bldg", "社區"], ["tx", "成交"], ["value", "估價"], ["cmp", "比較"], ["projects", "建設"], ["detail", "點選"], ["poi", "周邊"], ["watch", "看屋"]];
+// 外面一排：常用的分頁＋兩個分組；「點選」「周邊」只在有東西時出現
+const TAB_GROUPS = {
+  market: { label: "行情", tabs: ["roads", "bldg", "tx"] },
+  more: { label: "更多", tabs: ["rank", "commute", "cmp", "projects"] },
+};
+const PRIMARY = ["overview", "calc", "market", "value", "watch", "more", "detail", "poi"];
+const groupOf = k => Object.keys(TAB_GROUPS).find(g => TAB_GROUPS[g].tabs.includes(k)) || null;
+export function openTab(k) { S.tab = TAB_GROUPS[k] ? (S.groupLast[k] || TAB_GROUPS[k].tabs[0]) : k; renderPanel(); }
 export function renderPanel() {
   const name = S.current, b = D.book;
   $("#d-name").textContent = name;
@@ -670,8 +678,18 @@ export function renderPanel() {
     ["成交件數", L.fmtNum(bu.n), bu.low && bu.n ? "樣本少" : "件"],
     ["近半年", `<span class="${trCls}">${L.trendText(tr).replace("▲ ", "▲").replace("▼ ", "▼")}</span>`, ""],
   ].map(([k, v, u]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}<small> ${u}</small></div></div>`).join("");
-  $("#tabs").innerHTML = TABS.filter(([k]) => (k !== "detail" || S.picked) && (k !== "poi" || S.poi)).map(([k, t]) =>
-    `<button role="tab" id="tab-${k}" data-tab="${k}" aria-controls="tab-body" aria-selected="${S.tab === k}" tabindex="${S.tab === k ? 0 : -1}">${t}${k === "watch" ? watchBadge() : ""}</button>`).join("");
+  const label = Object.fromEntries(TABS), group = groupOf(S.tab);
+  if (group) S.groupLast[group] = S.tab;
+  const tabBtn = (k, t) => `<button role="tab" id="tab-${k}" data-tab="${k}" aria-controls="tab-body" aria-selected="${S.tab === k}" tabindex="${S.tab === k ? 0 : -1}">${t}${k === "watch" ? watchBadge() : ""}</button>`;
+  $("#tabs").innerHTML = PRIMARY.filter(k => (k !== "detail" || S.picked) && (k !== "poi" || S.poi)).map(k => {
+    if (!TAB_GROUPS[k]) return tabBtn(k, label[k]);
+    const on = group === k;
+    return `<button role="tab" id="tab-group-${k}" data-group="${k}" aria-selected="${on}" aria-expanded="${on}" aria-controls="subtabs" tabindex="${on ? 0 : -1}">${TAB_GROUPS[k].label}<span class="caret" aria-hidden="true">▾</span></button>`;
+  }).join("");
+  const sub = $("#subtabs");
+  sub.hidden = !group;
+  sub.setAttribute("aria-label", group ? TAB_GROUPS[group].label : "");
+  sub.innerHTML = group ? TAB_GROUPS[group].tabs.map(k => tabBtn(k, label[k])).join("") : "";
   const body = $("#tab-body"), keepTop = body.scrollTop;
   body.setAttribute("aria-labelledby", "tab-" + S.tab);
   body.innerHTML = ({ overview: tabOverview, calc: tabCalc, rank: tabRank, commute: tabCommute, roads: tabRoads, bldg: tabBldg, tx: tabTx, value: tabValue, cmp: tabCmp, projects: tabProjects, detail: tabDetail, poi: tabPoi, watch: tabWatch }[S.tab] || tabOverview)();
@@ -859,7 +877,19 @@ function tabCalc() {
   if (name !== L.CITY) h += rvbSection(name, bt.value);
   return h;
 }
+// 第一次來：概況最上面一張簡短的引導卡，按「知道了」之後不再出現（記在這台裝置）
+function introCard() {
+  if (S.settings.introSeen) return "";
+  return `<div class="intro" role="note"><b>第一次使用？三個步驟開始</b><ol>` +
+    `<li>🔍 上方搜尋<b>地址、路名或社區</b>，看附近的成交與行情</li>` +
+    `<li>🗺️ 點地圖上的<b>柱子</b>，看那一區的走勢、價格分佈與重點</li>` +
+    `<li>🧮 「<b>估價</b>」估合理價、「<b>試算</b>」算房貸與交屋要準備的錢；「<b>看屋</b>」記下在看的房子，有新成交會提醒</li></ol>` +
+    `<div class="row"><button type="button" class="btn small primary" data-act="intro-ok">知道了</button></div></div>`;
+}
 function tabOverview() {
+  return introCard() + tabOverviewBody();
+}
+function tabOverviewBody() {
   const name = S.current, b = D.book, bt = b.best(name, S.cat, "t");
   const ls = D.long ? L.longSeries(D.long, name, S.cat, S.metric) : [], long5 = S.settings.span === 5 && ls.length >= 4;
   const spanSeg = ls.length >= 4 ? `<div class="seg span-seg" role="radiogroup" aria-label="走勢期間">${[[1, "近 1 年"], [5, "近 5 年"]].map(([k, t]) =>
@@ -1436,19 +1466,22 @@ function bindUI() {
     if (k === "incomeMonthly" || k === "cash") { S.settings[k] = e.target.value; saveStore(); const el = $("#budget-calc"); if (el) el.innerHTML = budgetCalc(); }
   });
   $("#menu").addEventListener("toggle", e => { const d = e.target; if (d.dataset && d.dataset.det) { S.settings[d.dataset.det] = d.open; saveStore(); } }, true);
-  $("#tabs").addEventListener("click", e => {
-    const b = e.target.closest("button[data-tab]"); if (!b) return;
-    S.tab = b.dataset.tab; renderPanel(); if (S.sheet !== "full") sheet("half");
-  });
+  const onTabClick = e => {
+    const b = e.target.closest("button[data-tab], button[data-group]"); if (!b) return;
+    openTab(b.dataset.tab || b.dataset.group); if (S.sheet !== "full") sheet("half");
+  };
+  $("#tabs").addEventListener("click", onTabClick);
+  $("#subtabs").addEventListener("click", onTabClick);
   // 鍵盤：左右鍵換分頁、Home／End 到頭尾（WAI-ARIA tabs 的慣例）
-  $("#tabs").addEventListener("keydown", e => {
+  // 外面一排和小分頁各自可以用左右鍵切換
+  for (const bar of ["#tabs", "#subtabs"]) $(bar).addEventListener("keydown", e => {
     const keys = { ArrowRight: 1, ArrowLeft: -1, Home: "first", End: "last" };
     if (!(e.key in keys)) return;
-    const btns = [...$("#tabs").querySelectorAll("button[data-tab]")], i = btns.findIndex(b => b.dataset.tab === S.tab);
+    const btns = [...$(bar).querySelectorAll("button[role=tab]")], i = Math.max(0, btns.findIndex(b => b.getAttribute("aria-selected") === "true"));
     const k = keys[e.key], j = k === "first" ? 0 : k === "last" ? btns.length - 1 : (i + k + btns.length) % btns.length;
     e.preventDefault();
-    S.tab = btns[j].dataset.tab; renderPanel();
-    $(`#tab-${S.tab}`)?.focus();
+    const t = btns[j]; openTab(t.dataset.tab || t.dataset.group);
+    (t.dataset.group ? $(`#tab-group-${t.dataset.group}`) : $(`#tab-${S.tab}`))?.focus();
   });
   // Esc 關掉設定選單，焦點回到選單按鈕
   document.addEventListener("keydown", e => {
@@ -1540,6 +1573,7 @@ function bindUI() {
     if (act === "cmp-add") { cmpAdd(); return; }
     if (act === "cmp-retry") { cmpRetry(); return; }
     if (act === "go-calc") { S.tab = "calc"; renderPanel(); return; }
+    if (act === "intro-ok") { S.settings.introSeen = true; saveStore(); renderPanel(); return; }
     if (act === "tx-retry") { if (D.txPath) { loadTx(D.txPath, D.txCurrent); renderPanel(); } return; }
     if (act === "tm-play") { tmPlay(); return; }
     if (act === "tm-stop") { tmStop(); tmUi(); return; }
@@ -1842,7 +1876,7 @@ export async function main() {
       document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); });
     }).catch(() => {});
   }
-  window.__app = { S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation, logError, shareUrl, renderSuggestions, selectSuggestion, hideSuggestions, minsTo };   // 測試用
+  window.__app = { openTab, S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation, logError, shareUrl, renderSuggestions, selectSuggestion, hideSuggestions, minsTo };   // 測試用
 }
 main().catch(err => { const bm = document.querySelector("#boot-msg"); if (bm) { bm.textContent = "載入失敗，請重新整理再試一次。"; document.querySelector("#boot .spin")?.remove(); }
   logError("啟動", err); document.body.insertAdjacentHTML("beforeend", `<div class="note" style="position:fixed;top:60px;left:10px;right:10px;z-index:99">載入失敗：${esc(err.message)}</div>`); });

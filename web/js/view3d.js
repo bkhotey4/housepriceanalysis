@@ -346,7 +346,7 @@ export class View3D {
         this.hits.push({ kind: "road", id: r.id, x0: sx - rad - 4, y0: sy - rad - 4, x1: sx + rad + 4, y1: sy + rad + 4, depth: dp - 800 });
         ay = sy - rad - 2;
       }
-      if (sel || z >= 22) this._roadLabels.push({ prio: sel ? 2 : -1, n: 5 + (r.n || 0), kind: "road", text: r.label, x: sx, y: ay });
+      if (sel || z >= (this.W < 600 ? 30 : 22)) this._roadLabels.push({ prio: sel ? 2 : -1, n: 5 + (r.n || 0), kind: "road", text: r.label, x: sx, y: ay });
     }
   }
 
@@ -498,7 +498,7 @@ export class View3D {
         const box = [sx + sp.box[0], sy + sp.box[1], sx + sp.box[2], sy + sp.box[3]];
         this.hits.push({ kind: hk, id: o.id, x0: box[0] - 2, y0: box[1] - 2, x1: box[2] + 2, y1: box[3] + 2, depth: it.depth + 500 });
         // 名稱：第一級地標在縣市總覽就顯示，其他放大後才顯示（標籤會自動避開重疊）
-        const showAt = hk === "project" ? 22 : (o.rank || 3) === 1 ? 6 : (o.rank || 3) === 2 ? 18 : 26;
+        const showAt = (hk === "project" ? 22 : (o.rank || 3) === 1 ? 6 : (o.rank || 3) === 2 ? 18 : 26) + (this.W < 600 && (o.rank || 3) > 1 ? 8 : 0);
         if (sel || (!fast && z >= showAt))
           labels.push({ prio: sel ? 2 : -1, n: 30 - (o.rank || 3), kind: hk, id: o.id, text: o.label, x: (box[0] + box[2]) / 2, y: box[1] - 2, small: true });
       } else if (it.kind === 4) {
@@ -527,8 +527,10 @@ export class View3D {
   _drawLabels(labels) {
     const c = this.ctx;
     labels.sort((a, b) => b.prio - a.prio || b.n - a.n);
-    const placed = [], lh = 18;
+    const placed = [], lh = 18, gap = this.W < 600 ? 6 : 3;
     const reserved = [[this.W - 60, 0, this.W, 60]].concat(this.reserved || []);
+    // 同時顯示的一般標籤上限：手機約 16 個、電腦依畫面大小（重要的行政區、選中的、圖釘不算在內）
+    let budget = Math.round(this.W * this.H / (this.W < 600 ? 16000 : 9000)), used = 0;
     for (const L of labels) {
       if (!L.text) continue;
       const font = `${L.bold ? 600 : 400} ${L.small ? 12 : 13}px system-ui, "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
@@ -538,7 +540,8 @@ export class View3D {
       const x = Math.min(Math.max(L.x, tw / 2 + 6), this.W - tw / 2 - 6);
       const box = [x - tw / 2 - 4, L.y - lh, x + tw / 2 + 4, L.y];
       if (L.prio < 2 && reserved.some(([a, b, cc, dd]) => !(box[2] < a || box[0] > cc || box[3] < b || box[1] > dd))) continue;
-      if (L.prio < 1 && placed.some(([a, b, cc, dd]) => !(box[2] < a || box[0] > cc || box[3] < b || box[1] > dd))) continue;
+      if (L.prio < 1 && placed.some(([a, b, cc, dd]) => !(box[2] + gap < a || box[0] - gap > cc || box[3] + gap < b || box[1] - gap > dd))) continue;
+      if (L.prio < 0) { if (used >= budget) continue; used++; }
       placed.push(box);
       const sel = L.prio === 2;
       c.fillStyle = sel ? INK : L.kind === "station" ? "rgba(255,255,255,0.85)" : "#fff";
