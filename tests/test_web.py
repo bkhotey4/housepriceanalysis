@@ -441,6 +441,31 @@ class WebAppTest(unittest.TestCase):
         self.assertEqual(pg.get_attribute("#tabs button[data-group='market']", "aria-selected"), "true")
         self.assertEqual(pg.get_attribute("#tab-body", "aria-labelledby"), "tab-tx")
 
+    def test_fit_ranking(self):
+        """選區小幫手：預算內、條件好的排前面；超出預算、樣本少的往後；可以調整重要程度；理由附數字、不寫「推薦購買」。"""
+        pg = self.open(phone=False)
+        rows = """[{name:'A', t:900, u:25, n:300, tr6:2, c5:15, pop:3, proj:2, yld:2.5, mins:15},
+                   {name:'B', t:1500, u:40, n:500, tr6:8, c5:45, pop:5, proj:5, yld:1.8, mins:10},
+                   {name:'C', t:700, u:18, n:3, tr6:-1, c5:5, pop:-4, proj:0, yld:3.2, mins:40}]"""
+        r = pg.evaluate(f"__app.L.rankDistricts({rows}, __app.L.FIT_DEFAULT, 1000)")
+        self.assertEqual([x["name"] for x in r], ["A", "C", "B"])
+        self.assertTrue(r[2]["overBudget"]); self.assertTrue(r[1]["lowSample"])
+        self.assertTrue(all(0 <= x["score"] <= 100 for x in r))
+        # 只看通勤：最近的 B 變第一
+        r = pg.evaluate(f"__app.L.rankDistricts({rows}, {{commute: 3}}, 0)")
+        self.assertEqual(r[0]["name"], "B")
+        # 畫面：沒設預算、上班地點時，這兩項不能選；改重要程度後重新排序
+        pg.evaluate("__app.S.settings.budget = ''; __app.S.settings.work = ''")
+        pg.evaluate("__app.openTab('fit')"); pg.wait_for_timeout(200)
+        self.assertEqual(pg.evaluate("document.querySelectorAll('.fit-row button:disabled').length"), 8)
+        self.assertGreaterEqual(pg.evaluate("document.querySelectorAll('.fit-card').length"), 5)
+        before = pg.inner_text(".fit-card")
+        pg.click("button[data-act='fitw'][data-k='yield'][data-v='3']"); pg.wait_for_timeout(200)
+        self.assertEqual(pg.evaluate("__app.S.settings.fitW.yield"), 3)
+        body = pg.inner_text("#tab-body")
+        self.assertNotIn("推薦購買", body); self.assertIn("不構成投資或購屋建議", body)
+        self.assertTrue(before)
+
     def test_poi_nearby(self):
         import json as _json, re as _re
         from urllib.parse import unquote as _uq

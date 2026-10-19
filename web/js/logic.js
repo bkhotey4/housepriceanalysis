@@ -1888,3 +1888,65 @@ export function timeTable(lb, names, cat, metric = "u", minN = 3) {
   const pick = f => all[Math.min(all.length - 1, Math.max(0, Math.round(f * (all.length - 1))))];
   return { quarters: qs, vals, lo: pick(0.05), hi: pick(0.98) };
 }
+
+// ------------------------------------------------------------------ 選區小幫手：依使用者重視的條件，替各區打分並列出加分／扣分理由
+// 不是「推薦購買」：只是把公開資料依使用者自己的條件排序，理由都附上數字，讓使用者決定要去哪幾區實地看。
+// 每一項先換成「在這些區裡的相對位置」（0～1，越大越好），再依重要程度（0 不考慮～3 很重要）加權平均成 0～100 分。
+export const FIT_CRITERIA = [
+  { key: "budget", label: "在預算內", hint: "中位總價在預算以內（要先在 ☰ 篩選填預算）" },
+  { key: "commute", label: "通勤近", hint: "到上班地點的時間（要先在「通勤」設上班地點）" },
+  { key: "value", label: "單價相對低", hint: "中位單價在這些區裡比較低" },
+  { key: "stable", label: "價格穩、不追高", hint: "近半年漲跌小、近幾年漲幅不過大" },
+  { key: "growth", label: "人口與建設", hint: "人口增加、附近有影響度高的重大建設" },
+  { key: "yield", label: "租金報酬", hint: "毛租金報酬率較高" },
+  { key: "liquid", label: "成交活絡", hint: "成交件數多，行情好比、也比較好轉手" },
+];
+export const FIT_DEFAULT = { budget: 2, commute: 2, value: 1, stable: 2, growth: 1, yield: 0, liquid: 1 };
+// 每一項的「好」：數字越大越好（沒有資料是 null）
+function fitRaw(r, key, budget) {
+  switch (key) {
+    case "budget": return budget > 0 && r.t != null ? (r.t <= budget ? 1 : -(r.t - budget) / budget) : null;
+    case "commute": return r.mins != null ? -r.mins : null;
+    case "value": return r.u != null ? -r.u : null;
+    case "stable": return r.tr6 == null && r.c5 == null ? null : -(Math.abs(r.tr6 || 0) + Math.max(0, (r.c5 ?? 0) - 20) * 0.5);
+    case "growth": return r.pop == null && r.proj == null ? null : (r.pop ?? 0) + Math.min(r.proj || 0, 6) * 1.5;
+    case "yield": return r.yld ?? null;
+    case "liquid": return r.n ? Math.log(r.n) : null;
+  }
+  return null;
+}
+// 相對位置：0（最差）～1（最好），同分取平均名次
+function percentiles(vals) {
+  const idx = vals.map((v, i) => [v, i]).filter(([v]) => v != null).sort((a, b) => a[0] - b[0]);
+  const out = vals.map(() => null), n = idx.length;
+  for (let i = 0; i < n;) {
+    let j = i; while (j + 1 < n && idx[j + 1][0] === idx[i][0]) j++;
+    const p = n > 1 ? ((i + j) / 2) / (n - 1) : 0.5;
+    for (let k = i; k <= j; k++) out[idx[k][1]] = p;
+    i = j + 1;
+  }
+  return out;
+}
+// rows：[{name, t, u, n, tr6, c5, pop, proj, yld, mins}]；weights：{key: 0～3}；budget：萬（0＝沒填）
+export function rankDistricts(rows, weights, budget = 0) {
+  const keys = FIT_CRITERIA.map(c => c.key);
+  const pct = Object.fromEntries(keys.map(k => [k, percentiles(rows.map(r => fitRaw(r, k, budget)))]));
+  // 預算：在預算內一律算滿分，超出的才依超出多少排（不然預算內的區也會被比出高低）
+  if (budget > 0) pct.budget = rows.map((r, i) => r.t == null ? null : r.t <= budget ? 1 : Math.min(0.5, pct.budget[i] ?? 0));
+  const out = rows.map((r, i) => {
+    let sum = 0, wsum = 0;
+    const parts = {};
+    for (const k of keys) {
+      const w = +weights[k] || 0, p = pct[k][i];
+      parts[k] = p;
+      if (!w) continue;
+      wsum += w; sum += w * (p ?? 0.5);              // 沒有資料當作中間值，不加分也不扣分
+    }
+    let score = wsum ? sum / wsum * 100 : 0;
+    const overBudget = budget > 0 && (+weights.budget || 0) > 0 && r.t != null && r.t > budget;
+    if (overBudget) score *= 0.7;                    // 超出預算：明顯往後排
+    if (r.n != null && r.n < 5) score *= 0.85;       // 樣本太少：行情參考性低
+    return { ...r, score: Math.round(score), parts, overBudget, lowSample: r.n != null && r.n < 5 };
+  });
+  return out.sort((a, b) => b.score - a.score || (a.name < b.name ? -1 : 1));
+}

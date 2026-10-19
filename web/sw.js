@@ -2,7 +2,7 @@
 // 資料檔先抓網路，8 秒沒回應或抓不到就用快取。
 const VERSION = "v15";        // 部署時 tools/ci.sh 會換成「v15-<commit>」，每次上線自動換版，不用手動改
 const SHELL = ["./", "index.html", "css/app.css", "js/main.js", "js/logic.js", "js/view3d.js", "js/report.js",
-               "js/search.js", "js/poi.js", "js/finance.js", "js/watch.js", "js/compare.js", "js/value.js", "manifest.webmanifest", "img/icon-192.png"];
+               "js/search.js", "js/poi.js", "js/finance.js", "js/watch.js", "js/compare.js", "js/value.js", "js/fit.js", "manifest.webmanifest", "img/icon-192.png"];
 // 安裝時強制向網路拿最新檔（不經瀏覽器的 HTTP 快取），免得新版 main.js 配到舊版 logic.js
 self.addEventListener("install", e => { e.waitUntil(caches.open("shell-" + VERSION).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: "reload" }))))); self.skipWaiting(); });
 self.addEventListener("activate", e => {

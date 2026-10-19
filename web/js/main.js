@@ -3,6 +3,7 @@
 import * as L from "./logic.js";
 import { View3D, mix } from "./view3d.js";
 import { buildReport } from "./report.js";
+import { fitWeights, tabFit } from "./fit.js";
 import { CMP_MAX, cmpAdd, cmpCode, cmpDefaultPair, cmpList, cmpPickAdd, cmpRetry, tabCmp } from "./compare.js";
 import { LOAN_DEFAULT, costResult, costSection, costState, loanPrice, loanResult, loanSection, loanState, presetTerms, youthLabel, rentSection, rentYield, rvbDefaultRent, rvbResult, rvbSection, rvbState, sellResult, sellSection, sellState } from "./finance.js";
 import { OVERPASS, refreshPois, showPoi } from "./poi.js";
@@ -651,11 +652,11 @@ export function pick(hit, latlng) {
 }
 
 // ------------------------------------------------------------------ 面板
-const TABS = [["overview", "概況"], ["calc", "試算"], ["rank", "排行"], ["commute", "通勤"], ["roads", "路段"], ["bldg", "社區"], ["tx", "成交"], ["value", "估價"], ["cmp", "比較"], ["projects", "建設"], ["detail", "點選"], ["poi", "周邊"], ["watch", "看屋"]];
+const TABS = [["overview", "概況"], ["calc", "試算"], ["fit", "選區"], ["rank", "排行"], ["commute", "通勤"], ["roads", "路段"], ["bldg", "社區"], ["tx", "成交"], ["value", "估價"], ["cmp", "比較"], ["projects", "建設"], ["detail", "點選"], ["poi", "周邊"], ["watch", "看屋"]];
 // 外面一排：常用的分頁＋兩個分組；「點選」「周邊」只在有東西時出現
 const TAB_GROUPS = {
   market: { label: "行情", tabs: ["roads", "bldg", "tx"] },
-  more: { label: "更多", tabs: ["rank", "commute", "cmp", "projects"] },
+  more: { label: "更多", tabs: ["fit", "rank", "commute", "cmp", "projects"] },
 };
 const PRIMARY = ["overview", "calc", "market", "value", "watch", "more", "detail", "poi"];
 const groupOf = k => Object.keys(TAB_GROUPS).find(g => TAB_GROUPS[g].tabs.includes(k)) || null;
@@ -692,7 +693,7 @@ export function renderPanel() {
   sub.innerHTML = group ? TAB_GROUPS[group].tabs.map(k => tabBtn(k, label[k])).join("") : "";
   const body = $("#tab-body"), keepTop = body.scrollTop;
   body.setAttribute("aria-labelledby", "tab-" + S.tab);
-  body.innerHTML = ({ overview: tabOverview, calc: tabCalc, rank: tabRank, commute: tabCommute, roads: tabRoads, bldg: tabBldg, tx: tabTx, value: tabValue, cmp: tabCmp, projects: tabProjects, detail: tabDetail, poi: tabPoi, watch: tabWatch }[S.tab] || tabOverview)();
+  body.innerHTML = ({ overview: tabOverview, calc: tabCalc, fit: tabFit, rank: tabRank, commute: tabCommute, roads: tabRoads, bldg: tabBldg, tx: tabTx, value: tabValue, cmp: tabCmp, projects: tabProjects, detail: tabDetail, poi: tabPoi, watch: tabWatch }[S.tab] || tabOverview)();
   const key = [S.tab, S.current, D.county ? D.county.code : "", S.bldg, S.watchSel, S.addr ? S.addr.text : ""].join("|");
   body.scrollTop = key === renderPanel.lastKey ? keepTop : 0;
   renderPanel.lastKey = key;
@@ -703,7 +704,7 @@ export function renderPanel() {
 
 // ------------------------------------------------------------------ 分享連結：網址記住縣市、區域（或地址）、房型、單價／總價、分頁
 // 例：?c=A&d=大安區&cat=apt&tab=rank；比較分頁另外帶 cmp=A:大安區,D:東區。畫面一變就更新網址列，重新整理或加入書籤也會回到同一個畫面。
-const SHARE_TABS = ["overview", "calc", "rank", "commute", "roads", "bldg", "tx", "value", "cmp", "projects"];
+const SHARE_TABS = ["overview", "calc", "fit", "rank", "commute", "roads", "bldg", "tx", "value", "cmp", "projects"];
 function shareParams() {
   const p = new URLSearchParams(), cur = new URLSearchParams(location.search);
   if (cur.get("tw") === "0") p.set("tw", "0");
@@ -924,6 +925,7 @@ function tabOverviewBody() {
     h += `<div class="scenario-section"><h3 style="margin:14px 0 8px">🧭 買房情境快捷導航</h3><div class="scenario-grid">` +
       (tainan ? card("nanke", "🚄", "南科通勤生活圈", "善化、新市、安南科技聚落") + card("school", "🎓", "明星額滿學區地圖", "建興、後甲、復興熱門雙語學區") : "") +
       card("youth", "💰", `${youthLabel()}首購試算`, `${L.YOUTH_LOAN.years} 年期與 ${L.YOUTH_LOAN.grace} 年寬限期斷崖體檢`) +
+      card("fit", "🎯", "依條件找適合的區", "預算、通勤、價格穩定…自己決定比重") +
       card("duel", "⚔️", "雙區買房 PK 擂台", pair ? `${esc(pair[0].name)} vs ${esc(pair[1].name)}，或自選任兩區` : "全台任選兩區（可跨縣市）指標對決") +
       `</div></div>`;
     h += tmSection() + popSection(name) + rentSection(name) + calcLink();
@@ -1507,6 +1509,8 @@ function bindUI() {
         S.tab = "calc"; renderPanel(); sheet("half");
         $(".loan-presets")?.scrollIntoView({ block: "start" });
         toast(`房貸試算已切換成${youthLabel()}，下方有和一般房貸的比較；估價分頁另有寬限期斷崖體檢。`);
+      } else if (mode === "fit") {
+        openTab("fit"); sheet("half");
       } else if (mode === "duel") {
         S.tab = "cmp"; S.cmpPick = null;       // 選單回到目前所在的縣市
         const pair = cmpDefaultPair();
@@ -1573,6 +1577,8 @@ function bindUI() {
     if (act === "cmp-add") { cmpAdd(); return; }
     if (act === "cmp-retry") { cmpRetry(); return; }
     if (act === "go-calc") { S.tab = "calc"; renderPanel(); return; }
+    if (act === "fitw") { const el = t.closest("[data-k]"); S.settings.fitW = { ...fitWeights(), [el.dataset.k]: +el.dataset.v }; saveStore(); renderPanel(); return; }
+    if (act === "fit-all") { S.fitAll = true; renderPanel(); return; }
     if (act === "intro-ok") { S.settings.introSeen = true; saveStore(); renderPanel(); return; }
     if (act === "tx-retry") { if (D.txPath) { loadTx(D.txPath, D.txCurrent); renderPanel(); } return; }
     if (act === "tm-play") { tmPlay(); return; }
@@ -1724,7 +1730,7 @@ function loadLong(code) {
   if (LONG_CACHE.has(code)) return;
   getJSON(code ? `data/tw/${code}/long.json` : "data/tw/long.json").then(lb => {
     LONG_CACHE.set(code, lb);
-    if ((D.county ? D.county.code : "") === code) { D.long = lb; if (["overview", "rank"].includes(S.tab)) renderPanel(); }
+    if ((D.county ? D.county.code : "") === code) { D.long = lb; if (["overview", "rank", "fit"].includes(S.tab)) renderPanel(); }
   }).catch(() => LONG_CACHE.set(code, null));
 }
 export async function enterCounty(code, fly = true) {
