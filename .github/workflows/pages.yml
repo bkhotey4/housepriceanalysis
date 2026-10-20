@@ -47,6 +47,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: bash tools/ci.sh "${{ github.event_name }}"
+      # 診斷用的明細檔（租賃解析、捷運路線、人口欄位）不放上網站，改存成這次執行的附件（Actions 頁面可下載，保留 30 天）
+      - name: 收起診斷檔
+        if: always()
+        run: |
+          mkdir -p diag
+          for f in rent_report.json transit_report.json pop_probe.json; do [ -f "web/data/tw/$f" ] && mv "web/data/tw/$f" diag/ || true; done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diag
+          path: diag
+          if-no-files-found: ignore
+          retention-days: 30
       # 先上傳這次產生的網站，再做下面的 git pull／push：pull 遇到衝突時，衝突標記不會跟著部署出去
       - uses: actions/upload-pages-artifact@v3
         with:

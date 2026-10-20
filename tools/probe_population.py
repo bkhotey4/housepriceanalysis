@@ -2,7 +2,7 @@
 
 戶政司的 API 長這樣：https://www.ris.gov.tw/rs-opendata/api/v1/datastore/ODRP0xx/<民國年或年月>?page=1
 但各資料集的代碼沒有統一的清單，所以先在 GitHub Actions 上逐一試，結果寫到
-web/data/tw/pop_probe.json（網站上看得到），下一輪再依實際欄位做「人口成長與年齡結構」。
+web/data/tw/pop_probe.json（CI 執行附件 diag，不部署到網站），下一輪再依實際欄位做「人口成長與年齡結構」。
 
     python tools/probe_population.py
 """

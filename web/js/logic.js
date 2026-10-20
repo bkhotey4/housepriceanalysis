@@ -1115,8 +1115,10 @@ export function affordableBudget(incomeMonthly, downPct = 20, opt = {}) {
 // ------------------------------------------------------------------ 雙區 PK 擂台
 export function duelCompare(a, b, cat = "all") {
   if (!a || !b) return null;
-  const buA = a.book.best(a.name, cat, "u"), buB = b.book.best(b.name, cat, "u");
-  const btA = a.book.best(a.name, cat, "t"), btB = b.book.best(b.name, cat, "t");
+  // 樣本太少的不比（例如一年只有兩三筆，中位數很容易被單筆拉走）
+  const ok = r => r.low ? { ...r, value: null } : r;
+  const buA = ok(a.book.best(a.name, cat, "u")), buB = ok(b.book.best(b.name, cat, "u"));
+  const btA = ok(a.book.best(a.name, cat, "t")), btB = ok(b.book.best(b.name, cat, "t"));
   const trA = a.book.trend(a.name, cat, "u"), trB = b.book.trend(b.name, cat, "u");
   const rcA = rentCell(a.rent, a.name), rcB = rentCell(b.rent, b.name);
   const yldA = grossYield(rcA?.unit, buA.value), yldB = grossYield(rcB?.unit, buB.value);

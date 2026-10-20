@@ -1,6 +1,6 @@
 // 看屋清單：與行情比較、附近新成交提醒（從 main.js 拆出來；共用的狀態與小工具從 main.js 匯入）
 import * as L from "./logic.js";
-import { $, D, S, esc, refreshPins, renderPanel, saveStore, toast, workPlace } from "./main.js";
+import { $, D, S, esc, minsTo, refreshPins, renderPanel, saveStore, toast, workPlace } from "./main.js";
 import { cmpCode } from "./compare.js";
 import { showPoi, sweetsFor } from "./poi.js";
 
@@ -25,8 +25,55 @@ function watchNearby(it) {
   return D.txs.filter(x => x.dist === it.district && L.inCat(x, cat) && (!road || x.road === road));
 }
 // 「看屋」分頁上的紅點：看屋清單附近還沒看過的新成交筆數
+// ---- 追蹤建案（預售屋）：記下建案、上次看過的日期與解約筆數；之後有新登錄或解約變多時在「看屋」提醒
+const followKey = f => `${f.code}|${f.dist}|${f.proj}`;
+export function followList() { return (S.settings.follow || []).filter(f => f && f.proj); }
+export function isFollowing(dist, proj) { const code = cmpCode() || "D"; return followList().some(f => f.code === code && f.dist === dist && f.proj === proj); }
+export function toggleFollow(dist, proj) {
+  const code = cmpCode() || "D", list = followList();
+  if (isFollowing(dist, proj)) { S.settings.follow = list.filter(f => !(f.code === code && f.dist === dist && f.proj === proj)); saveStore(); toast(`已取消追蹤「${proj}」`); return; }
+  const st = followStats({ code, dist, proj });
+  list.push({ code, dist, proj, county: D.county ? D.county.short : L.CITY, seen: st ? st.last : "", seenCancel: st ? st.cancel : 0 });
+  S.settings.follow = list; saveStore(); toast(`已追蹤「${proj}」：之後有新登錄或解約，「看屋」分頁會提醒`);
+}
+// 目前縣市的資料裡，這個建案的統計（不在目前縣市就回傳 null）
+function followStats(f) {
+  if (!D.txs || f.code !== (cmpCode() || "D")) return null;
+  const rows = D.txs.filter(x => x.presale && x.dist === f.dist && x.proj === f.proj);
+  if (!rows.length) return { n: 0, last: f.seen || "", cancel: (D.cancel && D.cancel.get(f.dist + "|" + f.proj)) || 0, fresh: [], u: null };
+  const last = rows.reduce((m, x) => x.date > m ? x.date : m, "");
+  return { n: rows.length, last, cancel: (D.cancel && D.cancel.get(f.dist + "|" + f.proj)) || 0,
+    fresh: rows.filter(x => f.seen && x.date > f.seen), u: L.median(rows.map(x => x.u)) };
+}
+function followNewCount() {
+  return followList().reduce((a, f) => { const st = followStats(f); return a + (st ? st.fresh.length + Math.max(0, st.cancel - (f.seenCancel || 0)) : 0); }, 0);
+}
+export function followSection() {
+  const list = followList();
+  if (!list.length) return `<p class="muted">想追蹤預售屋建案：「行情 → 社區」把房型切成「預售屋」，點開建案按「⭐ 追蹤這個建案」，之後有新登錄或解約，這裡會提醒。</p>`;
+  let h = `<h3>追蹤的建案（${list.length}）</h3><table class="list"><thead><tr><th>建案</th><th class="r">登錄</th><th class="r">中位萬/坪</th><th class="r">新消息</th></tr></thead><tbody>`;
+  for (const f of list) {
+    const st = followStats(f), here = !!st;
+    const news = here ? [st.fresh.length ? `新登錄 ${st.fresh.length} 筆` : "", st.cancel > (f.seenCancel || 0) ? `解約 +${st.cancel - (f.seenCancel || 0)}` : ""].filter(Boolean) : [];
+    h += `<tr${here ? ` class="click" data-follow="${esc(followKey(f))}"` : ""}><td>${esc(f.proj)}<div class="muted">${esc(f.county || "")} ${esc(f.dist)}${here && st.last ? `｜最近登錄 ${esc(st.last.slice(2).replace(/-/g, "/"))}` : ""}</div></td>` +
+      `<td class="r">${here ? st.n : "—"}</td><td class="r">${here && st.u != null ? st.u.toFixed(1) : "—"}</td>` +
+      `<td class="r">${here ? (news.length ? `<b class="up">${news.join("、")}</b>` : "—") : `<span class="muted">進入${esc(f.county || "")}才查得到</span>`}</td></tr>`;
+  }
+  h += `</tbody></table>`;
+  if (list.some(f => { const st = followStats(f); return st && (st.fresh.length || st.cancel > (f.seenCancel || 0)); }))
+    h += `<div class="row"><button class="btn small" data-act="follow-seen">建案的新消息我看過了</button></div>`;
+  return h + `<p class="muted">點一列看那個建案的每一筆成交、各樓層單價與每季走勢。新消息依實價登錄的更新，大約每 10 天一次。</p>`;
+}
+export function followSeen() {
+  S.settings.follow = followList().map(f => { const st = followStats(f); return st ? { ...f, seen: st.last || f.seen, seenCancel: st.cancel } : f; });
+  saveStore();
+}
+export function followOpen(key) {
+  const f = followList().find(x => followKey(x) === key);
+  return f ? { dist: f.dist, bldg: "P|" + f.proj } : null;
+}
 export function watchBadge() {
-  const n = Object.values(S.watchNews || {}).reduce((a, v) => a + v.length, 0);
+  const n = Object.values(S.watchNews || {}).reduce((a, v) => a + v.length, 0) + followNewCount();
   return n ? ` <span class="tab-badge" aria-label="${n} 筆新成交">${n > 99 ? "99+" : n}</span>` : "";
 }
 export function checkWatchNews() {
@@ -48,7 +95,7 @@ export function checkWatchNews() {
 export function tabWatch() {
   let h = `<div class="row"><button class="btn primary" data-act="watch-add">新增物件</button><button class="btn" data-act="watch-export">匯出備份</button><label class="btn">匯入<input type="file" id="watch-import" accept="application/json" hidden></label></div>`;
   h += `<p class="muted">看屋清單只存在這台裝置的瀏覽器裡，不會上傳。換手機時請用「匯出備份」再到新手機「匯入」。</p>`;
-  if (!S.watch.length) return h + `<p class="empty">清單是空的。按「新增物件」把正在看的房子記下來，就能和那一區的行情比較。</p>`;
+  if (!S.watch.length) return h + `<p class="empty">清單是空的。按「新增物件」把正在看的房子記下來，就能和那一區的行情比較。</p>` + followSection();
   h += `<table class="list"><thead><tr><th title="排入看屋行程">行程</th><th>物件</th><th class="r">總價</th><th class="r">萬/坪</th><th class="r">對區中位</th><th class="r" title="800 公尺內：飲料店／蛋糕麵包／甜點／咖啡">咖啡甜點</th><th class="r">評分</th></tr></thead><tbody>`;
   for (const it of S.watch) {
     const c = compareWatch(it);
@@ -63,7 +110,7 @@ export function tabWatch() {
   h += pinned.length ? `<div class="row"><button class="btn small" data-act="watch-sweets"${S.sweetsBusy ? " disabled" : ""}>${S.sweetsBusy ? "查詢中…" : "更新各物件附近的咖啡、飲料、甜點、蛋糕店"}</button></div>` +
     `<p class="muted">「咖啡甜點」欄：800 公尺內的 飲＝飲料店、糕＝蛋糕／麵包、甜＝甜點、咖＝咖啡店家數（OpenStreetMap，小店可能沒登錄）。要先「在地圖上標位置」的物件才查得到。</p>`
     : `<p class="muted">物件「在地圖上標位置」後，就能看附近的咖啡、飲料、甜點、蛋糕店分布。</p>`;
-  h += tripSection() + compareNotesSection();
+  h += tripSection() + compareNotesSection() + followSection();
   const it = S.watch.find(w => w.id === S.watchSel);
   if (it) {
     const c = compareWatch(it);
@@ -198,16 +245,22 @@ function notesSection(it) {
 }
 // 有評分或檢查表的物件，並排比較（最多 5 間）
 function compareNotesSection() {
-  const list = S.watch.filter(w => w.rating || L.visitScore(w.check)).slice(0, 5);
+  const rated = S.watch.filter(w => w.rating || L.visitScore(w.check));
+  const list = rated.concat(S.watch.filter(w => !rated.includes(w))).slice(0, 5);
   if (list.length < 2) return "";
-  if (!S.watchCmpOpen) return `<div class="row"><button class="btn small" data-act="wnote-cmp">並排比較看過的 ${list.length} 間</button></div>`;
+  if (!S.watchCmpOpen) return `<div class="row"><button class="btn small" data-act="wnote-cmp">並排比較 ${list.length} 間${S.watch.length > 5 ? "（評分過的優先，最多 5 間）" : ""}</button></div>`;
+  const w = workPlace();
   const cols = list.map(it => ({ it, c: compareWatch(it), sc: L.visitScore(it.check) }));
   const best = Math.max(...cols.map(x => x.sc ? x.sc.pct : -1));
   const mark = v => ({ "2": "✓ 好", "1": "△ 普通", "0": "✗ 差" }[v] || "");
   let h = `<h3>並排比較</h3><table class="list cmp"><thead><tr><th></th>${cols.map(x => `<th class="r">${esc(x.it.name.slice(0, 8))}</th>`).join("")}</tr></thead><tbody>`;
   const row = (k, f) => `<tr><td>${esc(k)}</td>${cols.map(x => `<td class="r">${f(x)}</td>`).join("")}</tr>`;
   h += row("總價（萬）", x => x.it.price ? L.fmtNum(x.it.price) : "—") + row("萬/坪", x => x.c && x.c.unit ? x.c.unit.toFixed(1) : "—") +
-    row("對區中位", x => x.c ? pct(x.c.vsT) : "—") + row("評分", x => x.it.rating ? "★".repeat(x.it.rating) : "—") +
+    row("坪數", x => x.it.ping ? (+x.it.ping).toFixed(1) : "—") + row("屋齡", x => x.it.age !== "" && x.it.age != null ? `${esc(x.it.age)} 年` : "—") +
+    row("對區中位", x => x.c ? pct(x.c.vsT) : "—") +
+    (w ? row(`到${esc(w.name)}`, x => x.it.lat != null ? `約 ${minsTo(x.it.lat, x.it.lng, w)} 分` : "沒標位置") : "") +
+    row("附近新成交", x => { const n = ((S.watchNews || {})[x.it.id] || []).length; return n ? `${n} 筆` : "—"; }) +
+    row("評分", x => x.it.rating ? stars(x.it.rating) : "—") +
     row("檢查表", x => x.sc ? `${x.sc.pct === best ? "<b>" : ""}${x.sc.pct}%${x.sc.pct === best ? "</b>" : ""}` : "—");
   for (const [k, label] of L.VISIT_CHECKS) if (cols.some(x => (x.it.check || {})[k])) h += row(label, x => mark((x.it.check || {})[k]));
   h += row("優點", x => esc(x.it.pros || "")) + row("缺點", x => esc(x.it.cons || ""));

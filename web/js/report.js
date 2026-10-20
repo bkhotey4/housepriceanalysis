@@ -80,7 +80,8 @@ export function buildReport(ctx) {
   } else p.push(`<p class='muted'>${NEAR_KM} 公里內沒有收錄的重大建設。</p>`);
   if (work && lat != null) {
     const km = L.distKm(lat, lng, work.lat, work.lng), mode = L.MODES[ctx.mode] || L.MODES.car;
-    p.push(`<h2>到上班地點</h2><p>${e(work.name)}：${mode[0]}約 ${L.commuteMin(km, ctx.mode)} 分鐘（直線 ${km.toFixed(1)} 公里，估計；尖峰可能多 3～5 成）</p>`);
+    p.push(`<h2>到上班地點</h2><p>${e(work.name)}：${mode[0]}約 ${ctx.roadMins != null ? `${ctx.roadMins} 分鐘（依實際道路，離峰；尖峰可能多 3～5 成）`
+      : `${L.commuteMin(km, ctx.mode)} 分鐘（直線 ${km.toFixed(1)} 公里，估計；尖峰可能多 3～5 成）`}</p>`);
   }
   if (poi && poi.res) {
     p.push("<h2>周邊生活機能與嫌惡設施</h2><table><tr><th>項目</th><th class='r'>範圍內</th><th>最近</th></tr>");

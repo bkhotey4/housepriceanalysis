@@ -62,6 +62,13 @@ function reasons(r, weights, budget, all) {
   return { pros: pros.slice(0, 4), cons: cons.slice(0, 4) };
 }
 
+// 地圖上色用：各區的「符合我的條件」分數（0～100）；沒有選任何條件時回傳 null
+export function fitScores() {
+  const weights = fitWeights(), budget = parseFloat(S.settings.budget) || 0, w = workPlace();
+  const eff = Object.fromEntries(Object.entries(weights).map(([k, v]) => [k, (k === "budget" && !budget) || (k === "commute" && !w) ? 0 : v]));
+  if (!Object.values(eff).some(v => +v > 0) || !D.districts || !D.districts.length) return null;
+  return new Map(L.rankDistricts(fitRows(), eff, budget).map(r => [r.name, r.score]));
+}
 export function tabFit() {
   if (!D.districts || !D.districts.length) return `<p class="empty">資料載入中…</p>`;
   const weights = fitWeights(), budget = parseFloat(S.settings.budget) || 0, w = workPlace();
@@ -77,7 +84,9 @@ export function tabFit() {
   const eff = Object.fromEntries(Object.entries(weights).map(([k, v]) => [k, missing[k] ? 0 : v]));
   if (!Object.values(eff).some(v => +v > 0)) return h + `<p class="empty">至少選一個條件。</p>`;
   const rows = fitRows(), ranked = L.rankDistricts(rows, eff, budget), shown = S.fitAll ? ranked : ranked.slice(0, 8);
-  h += `<h3>排序結果（${L.CAT_LABEL[S.cat === "presale" ? "all" : S.cat]}）</h3>`;
+  h += `<h3>排序結果（${L.CAT_LABEL[S.cat === "presale" ? "all" : S.cat]}）</h3>` +
+    `<div class="row"><button type="button" class="btn small${S.settings.color === "fit" ? " primary" : ""}" data-act="fit-map" aria-pressed="${S.settings.color === "fit"}">` +
+    `${S.settings.color === "fit" ? "✓ 地圖柱子顏色：符合程度" : "🗺️ 在地圖上用顏色標出符合程度"}</button></div>`;
   h += shown.map((r, i) => {
     const { pros, cons } = reasons(r, eff, budget, rows);
     const nums = [r.t != null ? `中位總價 ${L.fmtNum(r.t)} 萬` : "", r.u != null ? `${r.u.toFixed(1)} 萬/坪` : "", r.cl ? `近 ${r.cl.years} 年 ${r.cl.pct >= 0 ? "+" : ""}${r.cl.pct.toFixed(0)}%` : ""].filter(Boolean).join("｜");

@@ -465,6 +465,29 @@ class WebAppTest(unittest.TestCase):
         body = pg.inner_text("#tab-body")
         self.assertNotIn("推薦購買", body); self.assertIn("不構成投資或購屋建議", body)
         self.assertTrue(before)
+        # 地圖上色：柱子標「xx 分」，再按一次換回單價
+        pg.click("button[data-act='fit-map']"); pg.wait_for_timeout(200)
+        self.assertEqual(pg.evaluate("__app.S.settings.color"), "fit")
+        self.assertGreater(pg.evaluate("__app.view.bars.filter(b => / \d+ 分$/.test(b.label || '')).length"), 5)
+        pg.click("button[data-act='fit-map']"); pg.wait_for_timeout(200)
+        self.assertEqual(pg.evaluate("__app.S.settings.color"), "price")
+
+    def test_follow_presale(self):
+        """追蹤建案：預售建案可追蹤；有新登錄時「看屋」有提醒，按「看過了」清掉；點一列回到那個建案。"""
+        pg = self.open(phone=False)
+        tx = pg.evaluate("(() => { const x = __app.D.txs.find(t => t.presale && t.proj); return x && {dist: x.dist, proj: x.proj}; })()")
+        if not tx: self.skipTest("資料裡沒有預售建案")
+        pg.click("#chips button[data-cat='presale']"); pg.wait_for_timeout(200)
+        pg.evaluate(f"__app.selectDistrict({tx['dist']!r}); __app.S.bldg = 'P|' + {tx['proj']!r}; __app.openTab('bldg')"); pg.wait_for_timeout(300)
+        pg.click("button[data-act='follow']"); pg.wait_for_timeout(200)
+        self.assertIn("追蹤中", pg.inner_text("button[data-act='follow']"))
+        pg.evaluate("__app.S.settings.follow[0].seen = '2000-01-01'; __app.openTab('watch')"); pg.wait_for_timeout(200)
+        self.assertIn("新登錄", pg.inner_text("#tab-body"))
+        self.assertRegex(pg.inner_text("#tab-watch"), r"\d")
+        pg.click("button[data-act='follow-seen']"); pg.wait_for_timeout(200)
+        self.assertNotIn("新登錄", pg.inner_text("#tab-body"))
+        pg.evaluate("__app.S.cat = 'all'"); pg.click("[data-follow]"); pg.wait_for_timeout(300)
+        self.assertEqual(pg.evaluate("[__app.S.tab, __app.S.cat, __app.S.bldg]"), ["bldg", "presale", "P|" + tx["proj"]])
 
     def test_poi_nearby(self):
         import json as _json, re as _re

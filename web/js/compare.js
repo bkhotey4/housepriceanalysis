@@ -130,7 +130,7 @@ export function tabCmp() {
             `).join('')}
           </tbody>
         </table>
-        <div class="duel-verdict"><b>🏆 雙區 PK 點評：</b>${esc(duel.verdict)}</div>
+        <div class="duel-verdict"><b>🏆 雙區 PK 點評：</b>${esc(duel.verdict)}</div>${duel.rounds.some(r => r.valA == null || r.valB == null) ? `<p class="muted">「—」表示沒有資料或成交筆數太少，那一項不計分。</p>` : ""}
       </div>`;
     }
   }

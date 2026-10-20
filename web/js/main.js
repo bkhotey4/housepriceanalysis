@@ -3,13 +3,13 @@
 import * as L from "./logic.js";
 import { View3D, mix } from "./view3d.js";
 import { buildReport } from "./report.js";
-import { fitWeights, tabFit } from "./fit.js";
+import { fitScores, fitWeights, tabFit } from "./fit.js";
 import { CMP_MAX, cmpAdd, cmpCode, cmpDefaultPair, cmpList, cmpPickAdd, cmpRetry, tabCmp } from "./compare.js";
 import { LOAN_DEFAULT, costResult, costSection, costState, loanPrice, loanResult, loanSection, loanState, presetTerms, youthLabel, rentSection, rentYield, rvbDefaultRent, rvbResult, rvbSection, rvbState, sellResult, sellSection, sellState } from "./finance.js";
 import { OVERPASS, refreshPois, showPoi } from "./poi.js";
 import { hideSuggestions, pinAt, renderSuggestions, search, selectSuggestion, showAddress, sugState, updateActiveSug } from "./search.js";
 import { tabValue, valState } from "./value.js";
-import { TYPE_CAT, checkWatchNews, cleanWatch, tabWatch, watchBadge, watchChange, watchClick, watchDialog } from "./watch.js";
+import { TYPE_CAT, checkWatchNews, cleanWatch, tabWatch, watchBadge, watchChange, watchClick, watchDialog, followOpen, followSeen, isFollowing, toggleFollow } from "./watch.js";
 
 export const $ = (s, el = document) => el.querySelector(s);
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -248,6 +248,8 @@ const ROUTE_KEY = "dth_route_v1", ROUTE_DAYS = 30;
 const routeState = { pending: new Set(), failed: new Map(), last: 0 }, routeMem = new Map();      // failed：key → 失敗時間（5 分鐘後可再試）
 function routeCacheKey(w) { return [D.county ? D.county.code : D.tw ? "" : "D", S.settings.mode || "car", L.ptKey(w.lat, w.lng)].join("|"); }
 function routeStore() { try { return JSON.parse(localStorage.getItem(ROUTE_KEY) || "{}"); } catch { return {}; } }
+// 只有查過實際道路的點才回傳分鐘（報告裡要分清楚「道路時間」和「直線估算」）
+function roadMinsAt([lat, lng], w = workPlace()) { const rt = w && routeTimes(w); const m = rt && rt.mins[L.ptKey(lat, lng)]; return m != null ? m : null; }
 export function routeTimes(w = workPlace()) {
   if (!w || isNation()) return null;
   const k = routeCacheKey(w);
@@ -370,10 +372,14 @@ function refreshBars() {
   if (!solid.length) solid = vals.filter(([, b]) => b.value != null).map(([, b]) => b.value);
   if (!solid.length) solid = [1];
   const lo = Math.min(...solid), hi = Math.max(...solid), span = (hi - lo) || 1, active = filtersOn();
+  const fit = S.settings.color === "fit" ? fitScores() : null;
   view.bars = vals.map(([d, b, tr, yld]) => {
     const v = b.value, ok = !active || (budgetOK(d.name) && workOK(d.name));
     let color = NO_DATA;
-    if (S.settings.color === "pop") {
+    if (S.settings.color === "fit") {
+      const sc = fit && fit.get(d.name);
+      color = sc == null ? NO_DATA : ramp(YIELD_RAMP, (sc - 30) / 60);       // 30 分以下最淡、90 分以上最深
+    } else if (S.settings.color === "pop") {
       const p = L.popInfo(D.pop, d.name);
       color = p && p.chgAll != null ? trendColor(p.chgAll) : NO_DATA;
     } else if (S.settings.color === "heat") {
@@ -386,7 +392,7 @@ function refreshBars() {
     } else {
       color = v == null ? NO_DATA : b.low ? NO_DATA : ramp(SEQ, (v - lo) / span);
     }
-    const num = S.settings.color === "yield" ? (yld != null ? yld.toFixed(1) + "%" : "—") : (v == null ? "—" : S.metric === "u" ? v.toFixed(1) : L.fmtNum(v));
+    const num = S.settings.color === "fit" ? (fit && fit.get(d.name) != null ? fit.get(d.name) + " 分" : "—") : S.settings.color === "yield" ? (yld != null ? yld.toFixed(1) + "%" : "—") : (v == null ? "—" : S.metric === "u" ? v.toFixed(1) : L.fmtNum(v));
     return { id: d.name, lat: d.lat, lng: d.lng, value: v, frac: v == null ? 0 : Math.min(1.15, v / hi), color,
              label: `${d.name} ${num}${b.low && v != null ? "*" : ""}`, n: b.n, dim: active && !ok };
   });
@@ -401,6 +407,8 @@ function renderLegend() {
   let rows;
   if (D.barRange.tm) {
     rows = [0, 0.5, 1].map(k => [ramp(SEQ, k), (S.metric === "u" ? (lo + span * k).toFixed(0) : L.fmtNum(lo + span * k)) + " " + unit]);
+  } else if (S.settings.color === "fit") {
+    rows = [[ramp(YIELD_RAMP, 0), "30 分以下"], [ramp(YIELD_RAMP, 0.5), "60 分"], [ramp(YIELD_RAMP, 1), "90 分以上"]];
   } else if (S.settings.color === "pop") {
     rows = [[trendColor(-TREND_SPAN), "人口減少 8% 以上"], [trendColor(0), "持平"], [trendColor(TREND_SPAN), "人口增加 8% 以上"]];
   } else if (S.settings.color === "heat") {
@@ -415,7 +423,7 @@ function renderLegend() {
   rows.push([NO_DATA, "樣本少／無資料"]);
   let html = `<div class="lg-head">圖例 ${el.classList.contains("collapsed") ? "▸" : "▾"}</div>` +
     (D.barRange.tm ? `<div class="tm-badge">⏳ ${esc(D.barRange.tm.replace("Q", " 年第 "))} 季</div>` : "") +
-    `<div><b>${S.settings.color === "yield" ? "毛租金報酬率（年化）" : S.metric === "u" ? "中位單價" : "中位總價"}</b>${S.settings.color === "trend" ? "｜顏色：近半年漲跌" : S.settings.color === "heat" ? "｜顏色：市場冷熱" : S.settings.color === "pop" ? "｜顏色：近 5 年人口增減" : ""}</div>` +
+    `<div><b>${S.settings.color === "yield" ? "毛租金報酬率（年化）" : S.metric === "u" ? "中位單價" : "中位總價"}</b>${S.settings.color === "trend" ? "｜顏色：近半年漲跌" : S.settings.color === "heat" ? "｜顏色：市場冷熱" : S.settings.color === "fit" ? "｜顏色：符合我的條件（選區）" : S.settings.color === "pop" ? "｜顏色：近 5 年人口增減" : ""}</div>` +
     rows.map(([c, t]) => `<div><span class="sw" style="background:${c}"></span>${esc(t)}</div>`).join("");
   if (D.barRange.matched != null) html += `<div style="margin-top:3px"><b>符合條件 ${D.barRange.matched} 區</b></div>`;
   if (view.roads.length && S.current !== L.CITY && D.roadRange) {
@@ -556,7 +564,7 @@ function reportDialog() {
       q: S.addr && S.addr.district === S.current ? S.addr : null,
       point: S.pin ? [S.pin.lat, S.pin.lng] : [D.dmap[S.current].lat, D.dmap[S.current].lng],
       agent: { ...agent, client: f.get("client").trim(), note: f.get("note").trim() },
-      county: D.county ? D.county.code : (D.tw ? "" : "D"), work: workPlace(), mode: S.settings.mode, poi: S.poi && S.poi.status === "ok" ? S.poi : null, meta: D.meta });
+      county: D.county ? D.county.code : (D.tw ? "" : "D"), work: workPlace(), mode: S.settings.mode, roadMins: roadMinsAt(S.pin ? [S.pin.lat, S.pin.lng] : [D.dmap[S.current].lat, D.dmap[S.current].lng]), poi: S.poi && S.poi.status === "ok" ? S.poi : null, meta: D.meta });
     const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
     const w = window.open(url, "_blank");
     if (!w) { const link = document.createElement("a"); link.href = url; link.download = `${where}_行情報告.html`; link.click(); toast("瀏覽器擋住新視窗，已改成下載報告檔。"); }
@@ -1044,7 +1052,8 @@ function tabBldg() {
       (cx.warn ? "解約比例偏高，可能是投資客轉手不順、建案或建商出狀況，買之前多打聽、注意履約保證。" : "少量解約很常見（換約、貸款不過）。") + `</div>`;
     else if (cx) h += `<p class="muted">這個建案在實價登錄沒有解約紀錄。</p>`;
     h += linksRow(S.current, b.presale ? b.name : b.name, "找這個社區正在賣的房子");
-    h += `<div class="row"><button class="btn small" data-act="bldg-back">← 回社區列表</button></div>`;
+    h += `<div class="row"><button class="btn small" data-act="bldg-back">← 回社區列表</button>` +
+      (b.presale ? `<button class="btn small${isFollowing(S.current, b.name) ? " primary" : ""}" data-act="follow" data-proj="${esc(b.name)}">${isFollowing(S.current, b.name) ? "✓ 追蹤中（按一下取消）" : "⭐ 追蹤這個建案"}</button>` : "") + `</div>`;
     if (S.pin) h += poiButton(S.pin.lat, S.pin.lng, b.name);
     const rows = D.txs.filter(x => x.dist === S.current && L.inCat(x, S.cat) && L.bldgKey(x) === b.key);
     // 這一棟的公設比、實坪單價、電梯、管理組織（看最近的登錄）
@@ -1224,7 +1233,7 @@ function renderMenu() {
     <h3>地圖圖層</h3>${chk("town", "行政區界")}${chk("liq", "土壤液化潛勢")}${D.tw ? chk("slide", "山崩與地滑（地質敏感區）") : ""}${chk("fault", "活動斷層")}
     <p class="muted">淹水潛勢：官方圖資沒有開放疊圖，請到 <a target="_blank" rel="noopener" href="${FLOOD_URL}">國家災害防救科技中心 3D 災害潛勢地圖</a> 查詢（各區「概況」也有「淹水潛勢」按鈕）。</p>${chk("hires", "放大時載入高解析衛星影像（較耗流量）")}
     ${chk("lines", "捷運、輕軌、高鐵（營運中與規劃）")}${chk("markers", "開發案與情資（菱形）")}${chk("landmarks", "知名地標 3D")}${chk("projects", "重大建設 3D")}${chk("schools", "🎓 明星學區與額滿學校")}${chk("roads", "路段房價（選了行政區才畫）")}${chk("labels", "名稱標籤")}
-    <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option><option value="yield"${s.color === "yield" ? " selected" : ""}>毛租金投報率</option><option value="heat"${s.color === "heat" ? " selected" : ""}>市場冷熱（量＋價）</option><option value="pop"${s.color === "pop" ? " selected" : ""}>近 5 年人口增減</option></select></div>
+    <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option><option value="yield"${s.color === "yield" ? " selected" : ""}>毛租金投報率</option><option value="fit"${s.color === "fit" ? " selected" : ""}>符合我的條件（選區）</option><option value="heat"${s.color === "heat" ? " selected" : ""}>市場冷熱（量＋價）</option><option value="pop"${s.color === "pop" ? " selected" : ""}>近 5 年人口增減</option></select></div>
     <div class="row"><button type="button" class="btn" data-act="share">🔗 分享目前的畫面</button></div>
     <h3>外觀</h3><div class="row"><select data-set="theme" aria-label="外觀">${[["", "跟著系統"], ["light", "淺色"], ["dark", "深色"]].map(([v, t]) => `<option value="${v}"${(s.theme || "") === v ? " selected" : ""}>${t}</option>`).join("")}</select></div>
     <h3>篩選</h3>
@@ -1529,6 +1538,12 @@ function bindUI() {
       return;
     }
     const go = t.closest("[data-goto]"); if (go) { e.preventDefault(); selectDistrict(go.dataset.goto); return; }
+    const fo = t.closest("[data-follow]");
+    if (fo) {
+      const o = followOpen(fo.dataset.follow); if (!o) return;
+      S.cat = "presale"; $("#chips").querySelectorAll("button").forEach(x => x.setAttribute("aria-checked", x.dataset.cat ? x.dataset.cat === S.cat : x.dataset.metric === S.metric));
+      selectDistrict(o.dist); S.bldg = o.bldg; S.tab = "bldg"; refreshAll(); return;
+    }
     const tr = t.closest("tr.click");
     if (tr && tr.dataset.dist) { selectDistrict(tr.dataset.dist); return; }
     if (tr && tr.dataset.road) {
@@ -1577,8 +1592,11 @@ function bindUI() {
     if (act === "cmp-add") { cmpAdd(); return; }
     if (act === "cmp-retry") { cmpRetry(); return; }
     if (act === "go-calc") { S.tab = "calc"; renderPanel(); return; }
-    if (act === "fitw") { const el = t.closest("[data-k]"); S.settings.fitW = { ...fitWeights(), [el.dataset.k]: +el.dataset.v }; saveStore(); renderPanel(); return; }
+    if (act === "follow") { toggleFollow(S.current, t.closest("[data-proj]").dataset.proj); renderPanel(); return; }
+    if (act === "follow-seen") { followSeen(); renderPanel(); return; }
+    if (act === "fitw") { const el = t.closest("[data-k]"); S.settings.fitW = { ...fitWeights(), [el.dataset.k]: +el.dataset.v }; saveStore(); if (S.settings.color === "fit") refreshBars(); renderPanel(); return; }
     if (act === "fit-all") { S.fitAll = true; renderPanel(); return; }
+    if (act === "fit-map") { S.settings.color = S.settings.color === "fit" ? "price" : "fit"; saveStore(); refreshBars(); renderPanel(); return; }
     if (act === "intro-ok") { S.settings.introSeen = true; saveStore(); renderPanel(); return; }
     if (act === "tx-retry") { if (D.txPath) { loadTx(D.txPath, D.txCurrent); renderPanel(); } return; }
     if (act === "tm-play") { tmPlay(); return; }

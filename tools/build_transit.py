@@ -33,7 +33,7 @@ OUT = os.path.join(ROOT, "data", "tw", "transit.json")
 WEB_OUT = os.path.join(ROOT, "web", "data", "tw", "transit.json")
 MAX_AGE_DAYS = 30
 VERSION = 5          # 格式或抓法改了就加 1：舊檔案即使還沒滿 30 天也會重抓（4：加台鐵；5：台鐵車站要座標）
-REPORT = os.path.join(ROOT, "web", "data", "tw", "transit_report.json")   # 每條 relation 的明細（網站上看得到，方便查漏抓）
+REPORT = os.path.join(ROOT, "web", "data", "tw", "transit_report.json")   # 每條 relation 的明細（不部署到網站；CI 存成執行附件 diag，方便查漏抓）
 # 一次查全台太大，Overpass 會中途停掉（回傳一部分＋remark 錯誤訊息）：分區、分類各查一次再合併
 AREAS = [("北部", "24.55,120.9,25.35,122.1"), ("中部", "23.75,120.2,24.55,121.4"), ("南部", "21.8,120.0,23.75,121.0"),
          ("東部與離島", "21.8,118.0,26.5,122.2")]
@@ -449,7 +449,7 @@ def main():
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     os.makedirs(os.path.dirname(WEB_OUT), exist_ok=True)
     shutil.copyfile(OUT, WEB_OUT)
-    # 明細檔加上最後合成的路線清單（網站上 data/tw/transit_report.json 看得到，方便確認）
+    # 明細檔加上最後合成的路線清單（CI 執行附件 diag/transit_report.json，方便確認）
     with open(REPORT, "w", encoding="utf-8") as f:
         json.dump({"as_of": out["as_of"], "v": VERSION, "tra_failed": tra_failed, "hsr_failed": hsr_failed, "tra_elements": len(tra_elements),
                    "lines": [{"name": ln["name"], "kind": ln.get("kind"), "stations": len(ln["stations"]),

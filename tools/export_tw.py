@@ -197,7 +197,7 @@ def main():
     nat = prices.build_book(all_tx, [c["short"] for c in counties if c["has_data"]], as_of=as_of, source="live",
                             total=NATION, note="內政部不動產交易實價查詢服務網開放資料", today_ym=today.strftime("%Y-%m"))
     _dump("book.json", nat)
-    # 租賃檔的診斷（網站上看得到 data/tw/rent_report.json）：有幾個檔、表頭、原始列數、解析出幾筆
+    # 租賃檔的診斷（CI 執行附件 diag/rent_report.json，不部署到網站）：有幾個檔、表頭、原始列數、解析出幾筆
     _dump("rent_report.json", {"built": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "counties": rent_report})
     if all_rent:
         _dump("rent.json", rent.build_rent_book(all_rent, [c["short"] for c in counties if c.get("rent_n")],
