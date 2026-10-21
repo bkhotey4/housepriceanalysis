@@ -1,7 +1,7 @@
 // 選區小幫手：依使用者自己設定的條件與重要程度，替各區打分並列出加分／扣分理由（計算在 logic.js 的 rankDistricts）。
 // 刻意不寫「推薦購買」：只整理公開資料，讓使用者決定要去哪幾區實地看。
 import * as L from "./logic.js";
-import { D, S, esc, isNation, minsTo, workPlace, modeName } from "./main.js";
+import { D, S, esc, isNation, minsTo, workFar, workPlace, modeName } from "./main.js";
 import { rentYield } from "./finance.js";
 
 const LEVELS = [[0, "不考慮"], [1, "一般"], [2, "重要"], [3, "很重要"]];
@@ -72,7 +72,7 @@ export function fitScores() {
 export function tabFit() {
   if (!D.districts || !D.districts.length) return `<p class="empty">資料載入中…</p>`;
   const weights = fitWeights(), budget = parseFloat(S.settings.budget) || 0, w = workPlace();
-  const missing = { budget: !budget ? "先在 ☰ → 篩選填總價預算" : "", commute: !w ? "先在「通勤」設上班地點" : "" };
+  const missing = { budget: !budget ? "先在 ☰ → 篩選填總價預算" : "", commute: !w ? (workFar() ? `上班地點「${workFar().name}」離這裡太遠，先在「通勤」改選這附近的地點` : "先在「通勤」設上班地點") : "" };
   let h = `<p class="muted">依你重視的條件，把${esc(isNation() ? "各縣市" : L.CITY + "各區")}排出來，並列出加分和扣分的理由。` +
     `這不是購買建議，只是幫你決定先去哪幾區實地看。</p>`;
   h += `<div class="fit-w">` + L.FIT_CRITERIA.map(c => {

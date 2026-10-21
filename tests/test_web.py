@@ -472,6 +472,19 @@ class WebAppTest(unittest.TestCase):
         pg.click("button[data-act='fit-map']"); pg.wait_for_timeout(200)
         self.assertEqual(pg.evaluate("__app.S.settings.color"), "price")
 
+    def test_far_workplace_ignored(self):
+        """上班地點離目前看的縣市太遠（例如在台南看房、上班地點設在台北）：通勤不計算，也不出現在選區理由裡。"""
+        pg = self.open(phone=False)
+        pg.evaluate("__app.S.settings.workPt = {name: '自訂地點', lat: 25.046, lng: 121.517}; __app.S.settings.work = '__custom'; __app.openTab('commute')")
+        pg.wait_for_timeout(200)
+        self.assertIn("離這裡太遠", pg.inner_text("#tab-body"))
+        pg.evaluate("__app.openTab('fit')"); pg.wait_for_timeout(200)
+        body = pg.inner_text("#tab-body")
+        self.assertIn("離這裡太遠", body); self.assertNotIn("分鐘", body.split("排序結果")[-1])
+        # 換成附近的地點就照常計算
+        pg.evaluate("__app.S.settings.workPt = {name: '自訂地點', lat: 23.0, lng: 120.21}; __app.openTab('commute')"); pg.wait_for_timeout(200)
+        self.assertNotIn("離這裡太遠", pg.inner_text("#tab-body"))
+
     def test_follow_presale(self):
         """追蹤建案：預售建案可追蹤；有新登錄時「看屋」有提醒，按「看過了」清掉；點一列回到那個建案。"""
         pg = self.open(phone=False)

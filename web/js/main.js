@@ -231,10 +231,19 @@ function reportOnGitHub() {
 }
 
 // ------------------------------------------------------------------ 地圖上的東西
-export function workPlace() {
+// 上班地點：換到別的縣市時，離目前看的地方太遠（離最近一區的中心超過 WORK_FAR_KM）就當作沒設，
+// 免得在台北看房卻算「到南科 277 分鐘」；設定本身保留，回到原來的縣市就又會用
+const WORK_FAR_KM = 60;
+function workSet() {
   if (S.settings.work === "__custom") return S.settings.workPt || null;
   return D.workplaces.find(w => w.name === S.settings.work) || null;
 }
+export function workFar() {
+  const w = workSet();
+  if (!w || !D.districts || !D.districts.length) return null;
+  return D.districts.some(d => d.lat != null && L.distKm(d.lat, d.lng, w.lat, w.lng) <= WORK_FAR_KM) ? null : w;
+}
+export function workPlace() { return workFar() ? null : workSet(); }
 export const modeName = () => (L.MODES[S.settings.mode] || L.MODES.car)[0];
 // 通勤分鐘：查過實際道路就用道路時間（行政區中心），不然用直線距離估算
 export const minsTo = (lat, lng, w = workPlace()) => {
@@ -959,6 +968,8 @@ function tabCommute() {
     <div class="row"><button class="btn small" data-act="work-pick">在地圖上點選 A</button>
     <div class="seg">${Object.entries(L.MODES).map(([k, m]) => `<button data-act="mode" data-mode="${k}" aria-checked="${s.mode === k}">${m[0]}</button>`).join("")}</div></div>
     <div class="year"><span>通勤上限</span><input type="range" id="commute-min" min="10" max="60" step="5" value="${lim}"><b id="commute-v">${lim} 分鐘</b></div>`;
+  const far = workFar();
+  if (far) return h + `<p class="muted">上班地點「${esc(far.name)}」離這裡太遠，通勤先不計算。請在上面選這個縣市的上班地點，或在地圖上點一下公司位置。</p>`;
   if (!w) return h + `<p class="muted">先選上班地點，或在地圖上點一下公司位置。地圖會畫出${modeName()} ${lim} 分鐘的範圍，下面列出範圍內每一區的房價。</p>`;
   ensureRouteTimes();
   const rs = routeStatus(w);
