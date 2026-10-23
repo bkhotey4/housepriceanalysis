@@ -138,6 +138,21 @@ export const roadsNow = dist => { const v = D.roads.get(roadKey(dist)); return v
 export const isNation = () => !!D.tw && !D.county;
 
 export let view, toastTimer;
+// ---- 安裝成 App（PWA）：Chrome／Edge／Android 用瀏覽器提供的安裝視窗；iPhone、iPad 的 Safari 沒有，改教怎麼「加入主畫面」
+let installEvt = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; });
+window.addEventListener("appinstalled", () => { installEvt = null; toast("已安裝。之後可以從主畫面或桌面的「房價分析」圖示直接開啟。"); });
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+function installApp() {
+  if (installEvt) {
+    installEvt.prompt();
+    installEvt.userChoice.then(r => { if (r.outcome !== "accepted") toast("沒有安裝。想裝的時候再從 ☰ 選單按一次。"); }).catch(() => {});
+    installEvt = null; return;
+  }
+  if (isIOS()) toast("iPhone／iPad：用 Safari 開這個網站，按下方的「分享」按鈕（方框加向上箭頭）→「加入主畫面」→「新增」。", 12000);
+  else toast("用瀏覽器選單安裝：Chrome／Edge 按網址列右邊的安裝圖示，或選單裡的「安裝應用程式」／「加到主畫面」。", 10000);
+}
 export function toast(msg, ms = 4200, action = null) {
   const t = $("#toast");
   t.textContent = msg; t.hidden = false;
@@ -1245,7 +1260,7 @@ function renderMenu() {
     <p class="muted">淹水潛勢：官方圖資沒有開放疊圖，請到 <a target="_blank" rel="noopener" href="${FLOOD_URL}">國家災害防救科技中心 3D 災害潛勢地圖</a> 查詢（各區「概況」也有「淹水潛勢」按鈕）。</p>${chk("hires", "放大時載入高解析衛星影像（較耗流量）")}
     ${chk("lines", "捷運、輕軌、高鐵（營運中與規劃）")}${chk("markers", "開發案與情資（菱形）")}${chk("landmarks", "知名地標 3D")}${chk("projects", "重大建設 3D")}${chk("schools", "🎓 明星學區與額滿學校")}${chk("roads", "路段房價（選了行政區才畫）")}${chk("labels", "名稱標籤")}
     <h3>柱子顏色</h3><div class="row"><select data-set="color"><option value="price"${s.color === "price" ? " selected" : ""}>價格高低</option><option value="trend"${s.color === "trend" ? " selected" : ""}>近半年漲跌</option><option value="yield"${s.color === "yield" ? " selected" : ""}>毛租金投報率</option><option value="fit"${s.color === "fit" ? " selected" : ""}>符合我的條件（選區）</option><option value="heat"${s.color === "heat" ? " selected" : ""}>市場冷熱（量＋價）</option><option value="pop"${s.color === "pop" ? " selected" : ""}>近 5 年人口增減</option></select></div>
-    <div class="row"><button type="button" class="btn" data-act="share">🔗 分享目前的畫面</button></div>
+    <div class="row"><button type="button" class="btn" data-act="share">🔗 分享目前的畫面</button>${isStandalone() ? "" : `<button type="button" class="btn" data-act="install">📲 安裝成 App</button>`}</div>
     <h3>外觀</h3><div class="row"><select data-set="theme" aria-label="外觀">${[["", "跟著系統"], ["light", "淺色"], ["dark", "深色"]].map(([v, t]) => `<option value="${v}"${(s.theme || "") === v ? " selected" : ""}>${t}</option>`).join("")}</select></div>
     <h3>篩選</h3>
     <div class="row"><span>總價預算</span><input type="text" inputmode="decimal" data-set="budget" value="${esc(s.budget)}" placeholder="萬，例 1500"></div>
@@ -1471,6 +1486,7 @@ function bindUI() {
     if (e.target.closest("[data-close]")) { $("#menu").hidden = true; $("#btn-menu").setAttribute("aria-expanded", "false"); $("#btn-menu").focus(); return; }
     const act = e.target.closest("[data-act]")?.dataset.act;
     if (act === "share") { shareNow(); return; }
+    if (act === "install") { installApp(); return; }
     if (act === "err-report") reportOnGitHub();
     if (act === "err-copy") { (navigator.clipboard ? navigator.clipboard.writeText(errorReport()) : Promise.reject()).then(() => toast("已複製錯誤內容"), () => toast("這個瀏覽器不能自動複製，請改用「到 GitHub 回報」。")); }
     if (act === "err-clear") { try { localStorage.removeItem(ERR_KEY); } catch { /* 無妨 */ } renderMenu(); }

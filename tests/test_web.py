@@ -472,6 +472,20 @@ class WebAppTest(unittest.TestCase):
         pg.click("button[data-act='fit-map']"); pg.wait_for_timeout(200)
         self.assertEqual(pg.evaluate("__app.S.settings.color"), "price")
 
+    def test_install_app(self):
+        """☰ 選單有「安裝成 App」：瀏覽器給了安裝視窗就直接跳出；沒有（例如 iPhone）就說明怎麼加到主畫面。"""
+        pg = self.open(phone=True)
+        pg.click("#btn-menu"); pg.wait_for_timeout(200)
+        pg.click("button[data-act='install']"); pg.wait_for_timeout(200)
+        self.assertIn("安裝", pg.inner_text("#toast"))
+        # 模擬 Chrome 的 beforeinstallprompt：按鈕會呼叫 prompt()
+        pg.evaluate("""(() => { const e = new Event('beforeinstallprompt'); window.__prompted = 0;
+            e.prompt = () => { window.__prompted++; }; e.userChoice = Promise.resolve({outcome: 'accepted'}); window.dispatchEvent(e); })()""")
+        pg.click("button[data-act='install']"); pg.wait_for_timeout(200)
+        self.assertEqual(pg.evaluate("window.__prompted"), 1)
+        m = pg.evaluate("fetch('manifest.webmanifest').then(r => r.json())")
+        self.assertEqual(m["display"], "standalone"); self.assertTrue(any(i["sizes"] == "512x512" for i in m["icons"]))
+
     def test_far_workplace_ignored(self):
         """上班地點離目前看的縣市太遠（例如在台南看房、上班地點設在台北）：通勤不計算，也不出現在選區理由裡。"""
         pg = self.open(phone=False)
