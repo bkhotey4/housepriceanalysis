@@ -67,7 +67,8 @@
 
 * **實價登錄**：GitHub Actions 每月 2、12、22 日（內政部 1、11、21 日發布）自動下載、重新統計並部署（`.github/workflows/pages.yml`，
   實際步驟在 `tools/ci.sh`）。每次 push 到 main 也會跑一次。執行紀錄在 `logs/ci/latest.md`，有步驟失敗會自動開 Issue。
-* **情資、捷運**：改 `data/intel.json`、`data/mrt.json` 後執行 `python tools/check_data.py` 檢查格式，再 commit、push。
+* **情資、捷運**：每週一早上 08:49 由雲端排程（Claude 的 routine「全台購屋情資每週更新（雲端）」）自動查新消息、改 `data/intel.json`、`data/mrt.json`，
+  檢查通過後自己 commit、push，網站跟著自動部署，電腦不用開。手動改的話，改完執行 `python tools/check_data.py` 檢查格式，再 commit、push。
 * 部署卡住（Actions 裡有一次一直是「Waiting」，後面的都在排隊）時：點進那一次 →右上角「⋯」→「Cancel workflow」。
 
 ## 怎麼測試
