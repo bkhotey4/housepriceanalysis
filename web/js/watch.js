@@ -94,7 +94,7 @@ export function checkWatchNews() {
 }
 export function tabWatch() {
   let h = `<div class="row"><button class="btn primary" data-act="watch-add">新增物件</button><button class="btn" data-act="watch-export">匯出備份</button><label class="btn">匯入<input type="file" id="watch-import" accept="application/json" hidden></label></div>`;
-  h += `<p class="muted">看屋清單只存在這台裝置的瀏覽器裡，不會上傳。換手機時請用「匯出備份」再到新手機「匯入」。</p>`;
+  h += `<p class="muted">看屋清單只存在這台裝置的瀏覽器裡，不會上傳。換手機或電腦時請用「匯出備份」（含追蹤的建案與預算、上班地點等設定），再到新裝置「匯入」。</p>`;
   if (!S.watch.length) return h + `<p class="empty">清單是空的。按「新增物件」把正在看的房子記下來，就能和那一區的行情比較。</p>` + followSection();
   h += `<table class="list"><thead><tr><th title="排入看屋行程">行程</th><th>物件</th><th class="r">總價</th><th class="r">萬/坪</th><th class="r">對區中位</th><th class="r" title="800 公尺內：飲料店／蛋糕麵包／甜點／咖啡">咖啡甜點</th><th class="r">評分</th></tr></thead><tbody>`;
   for (const it of S.watch) {

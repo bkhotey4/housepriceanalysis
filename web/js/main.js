@@ -246,6 +246,8 @@ function reportOnGitHub() {
 }
 
 // ------------------------------------------------------------------ 地圖上的東西
+// 「匯出備份」一併帶走的設定（不含外觀、圖層這類每台裝置各自習慣的選項）
+const BACKUP_KEYS = ["follow", "budget", "work", "workPt", "mode", "fitW", "loan", "cost", "sell", "rvb", "val", "agent"];
 // 上班地點：換到別的縣市時，離目前看的地方太遠（離最近一區的中心超過 WORK_FAR_KM）就當作沒設，
 // 免得在台北看房卻算「到南科 277 分鐘」；設定本身保留，回到原來的縣市就又會用
 const WORK_FAR_KM = 60;
@@ -1656,7 +1658,9 @@ function bindUI() {
       S.pickMode = ll => { it.lat = +ll[0].toFixed(6); it.lng = +ll[1].toFixed(6); saveStore(); refreshPins(); sheet("half"); renderPanel(); toast("已標出位置"); };
     }
     if (act === "watch-export") {
-      const blob = new Blob([JSON.stringify({ app: "deep_tainan_house", watch: S.watch }, null, 1)], { type: "application/json" });
+      // 換電腦用：看屋清單＋追蹤的建案＋自己設的條件（預算、上班地點、選區重要程度、房貸等）
+      const settings = Object.fromEntries(BACKUP_KEYS.filter(k => S.settings[k] != null).map(k => [k, S.settings[k]]));
+      const blob = new Blob([JSON.stringify({ app: "deep_tainan_house", watch: S.watch, settings }, null, 1)], { type: "application/json" });
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "看屋清單備份.json"; a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     }
@@ -1677,7 +1681,18 @@ function bindUI() {
         if (!Array.isArray(list)) throw new Error("格式不對");
         const have = new Set(S.watch.map(w => w.id)); let n = 0;
         for (const w of list) if (w && w.name && !have.has(w.id)) { S.watch.push(cleanWatch({ lat: null, lng: null, ...w, id: w.id || "w" + Date.now() + n })); n++; }
-        saveStore(); refreshPins(); renderPanel(); toast(`匯入 ${n} 筆`);
+        // 新版備份也帶設定：追蹤的建案合併（不重複），其他設定以備份為準
+        const st = d && typeof d.settings === "object" && d.settings ? d.settings : {};
+        let nf = 0;
+        if (Array.isArray(st.follow)) {
+          const key = f => `${f.code}|${f.dist}|${f.proj}`, cur = S.settings.follow || [], seen = new Set(cur.map(key));
+          for (const f of st.follow) if (f && f.proj && !seen.has(key(f))) { cur.push(f); seen.add(key(f)); nf++; }
+          S.settings.follow = cur;
+        }
+        const ns = BACKUP_KEYS.filter(k => k !== "follow" && st[k] != null);
+        for (const k of ns) S.settings[k] = st[k];
+        saveStore(); refreshBars(); refreshPins(); renderPanel();
+        toast(`匯入看屋 ${n} 筆` + (nf ? `、追蹤建案 ${nf} 個` : "") + (ns.length ? `、設定 ${ns.length} 項` : ""));
       }).catch(err => toast("匯入失敗：" + err.message));
     }
   });

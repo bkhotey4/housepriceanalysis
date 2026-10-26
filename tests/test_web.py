@@ -486,6 +486,27 @@ class WebAppTest(unittest.TestCase):
         m = pg.evaluate("fetch('manifest.webmanifest').then(r => r.json())")
         self.assertEqual(m["display"], "standalone"); self.assertTrue(any(i["sizes"] == "512x512" for i in m["icons"]))
 
+    def test_backup_roundtrip(self):
+        """換電腦：「匯出備份」帶看屋清單、追蹤的建案與設定；在另一台（清空後）「匯入」全部回來。"""
+        import tempfile, os as _os
+        pg = self.open(phone=False)
+        pg.evaluate("""(() => { const S = __app.S;
+            S.watch.push({id: 'wb1', name: '備份測試', dist: '東區', price: 1200, lat: null, lng: null, code: 'D'});
+            S.settings.follow = [{code: 'D', dist: '東區', proj: '測試建案', county: '台南市', seen: '2026-01-01', seenCancel: 0}];
+            S.settings.budget = '1500'; S.settings.fitW = {yield: 3}; S.settings.mode = 'scooter'; })()""")
+        pg.evaluate("__app.openTab('watch')"); pg.wait_for_timeout(200)
+        with pg.expect_download() as dl:
+            pg.click("button[data-act='watch-export']")
+        path = _os.path.join(tempfile.mkdtemp(), "backup.json")
+        dl.value.save_as(path)
+        pg.evaluate("""(() => { const S = __app.S; S.watch.length = 0; S.settings.follow = []; S.settings.budget = '';
+            S.settings.fitW = {}; S.settings.mode = 'car'; __app.openTab('watch'); })()""")
+        pg.wait_for_timeout(200)
+        pg.set_input_files("#watch-import", path); pg.wait_for_timeout(500)
+        got = pg.evaluate("(() => { const S = __app.S; return [S.watch.map(w => w.name), S.settings.follow.map(f => f.proj), S.settings.budget, S.settings.fitW.yield, S.settings.mode]; })()")
+        self.assertEqual(got, [["備份測試"], ["測試建案"], "1500", 3, "scooter"])
+        self.assertIn("追蹤建案 1 個", pg.inner_text("#toast"))
+
     def test_far_workplace_ignored(self):
         """上班地點離目前看的縣市太遠（例如在台南看房、上班地點設在台北）：通勤不計算，也不出現在選區理由裡。"""
         pg = self.open(phone=False)
