@@ -1,9 +1,9 @@
 // 3D 地圖（Canvas 2D）：正交投影＋畫家演算法。
 // 手機：單指拖曳平移、雙指捏合縮放＋旋轉、雙指上下滑動調整俯角；點一下選取。
 // 滑鼠：左鍵拖曳平移、右鍵（或 Shift）拖曳旋轉、滾輪對著游標縮放。
-import { toXY, toLatLng, LAT0, LNG0, KM_LAT, KM_LNG } from "./logic.js";
+import { toXY, toLatLng, LAT0, LNG0, KM_LAT, KM_LNG, SITE_URL } from "./logic.js";
 
-export const WATERMARK = "全台房價即時動態分析｜bkhotey4.github.io/housepriceanalysis";
+export const WATERMARK = "全台房價即時動態分析" + (SITE_URL ? "｜" + SITE_URL : "");
 const INK = "#1f2328", MUTED = "#5b6168", BG = "#e9edf1";
 const MIN_ZOOM = 3, MAX_ZOOM = 2600;
 const TILE_URL = "https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}";

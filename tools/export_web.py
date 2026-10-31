@@ -108,6 +108,7 @@ def export_static():
     _dump("models.json", models)
     _dump("districts.json", geo.load_districts())
     _dump("workplaces.json", geo.load_json("workplaces.json")["places"])
+    _dump("loan.json", geo.load_json("loan.json"))
 
 
 # ------------------------------------------------------------------ 底圖：重投影成「緯度線性」，網頁上用仿射變換就能精準貼圖

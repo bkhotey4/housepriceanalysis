@@ -1,4 +1,4 @@
-"""檢查 data/intel.json 與 data/mrt.json 的格式；更新情資後執行。
+"""檢查 data/intel.json、data/mrt.json、data/loan.json 的格式；更新情資後執行。
 
     python tools/check_data.py
 
@@ -25,13 +25,14 @@ if __name__ == "__main__":
         sys.exit(1)
     intel, mrt = geo.load_json("intel.json"), geo.load_json("mrt.json")
     import datetime
-    for label, d in (("情資", intel), ("捷運", mrt)):
+    loan = geo.load_json("loan.json")
+    for label, d in (("情資", intel), ("捷運", mrt), ("房貸利率", {"as_of": loan.get("checked", "")})):
         try:
             age = (datetime.date.today() - datetime.date.fromisoformat(d["as_of"][:10])).days
         except (KeyError, ValueError):
             print("[提醒] %s沒有查證日（as_of）" % label)
             continue
-        if age > 21:
+        if age > (45 if label == "房貸利率" else 21):
             print("[提醒] %s的查證日是 %s，已經 %d 天沒更新（每週更新情資的排程可能沒有執行）" % (label, d["as_of"], age))
     print("情資 %d 筆（查證日 %s）、捷運 %d 條路線、鐵路計畫 %d 項（查證日 %s）" % (
         len(intel["items"]), intel["as_of"], len(mrt["lines"]), len(mrt.get("rail_projects", [])), mrt["as_of"]))

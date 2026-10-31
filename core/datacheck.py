@@ -214,10 +214,33 @@ def check_mrt(d, min_lines=5):
     return out
 
 
-def check_all():
-    """檢查目前 data/ 裡的兩個檔案，回傳問題清單。"""
+def check_loan(d):
+    """data/loan.json：房貸試算用的參考利率與新青安條件（網頁啟動時載入，數字不合理的欄位網頁會改用預設）。"""
     out = []
-    for name, fn in (("intel.json", check_intel), ("mrt.json", check_mrt)):
+    if not isinstance(d, dict):
+        return ["loan.json：最外層必須是物件"]
+    if not _DATE.match(str(d.get("checked") or "")):
+        out.append("loan.json：checked（查證日）應為 YYYY-MM-DD")
+    rules = {"normal": {"rate": (0, 15), "years": (1, 50)},
+             "youth": {"rate": (0, 15), "years": (1, 50), "grace": (0, 10), "cap": (1, 100000)}}
+    for part, fields in rules.items():
+        sec = d.get(part)
+        if not isinstance(sec, dict):
+            out.append("loan.json：缺少 %s" % part)
+            continue
+        for k, (lo, hi) in fields.items():
+            if not (_is_num(sec.get(k)) and lo <= sec[k] <= hi):
+                out.append("loan.json：%s.%s 應為 %s～%s 的數字" % (part, k, lo, hi))
+    y = d.get("youth") or {}
+    if isinstance(y, dict) and not _DATE.match(str(y.get("until") or "")):
+        out.append("loan.json：youth.until（申請期限）應為 YYYY-MM-DD")
+    return out
+
+
+def check_all():
+    """檢查目前 data/ 裡的情資、捷運、房貸參考條件，回傳問題清單。"""
+    out = []
+    for name, fn in (("intel.json", check_intel), ("mrt.json", check_mrt), ("loan.json", check_loan)):
         try:
             d = geo.load_json(name)
         except (OSError, ValueError) as e:

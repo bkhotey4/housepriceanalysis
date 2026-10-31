@@ -183,12 +183,13 @@ export function logError(where, err, quiet = false) {
   queueAutoReport(e);
 }
 // 匿名自動回報：送到維護者的 Google 表單（只送錯誤內容、版本、瀏覽器、所在縣市區，不含任何個人資料；設定裡可關閉）
-// 同一個錯誤一天只送一次、每次開網頁最多送 5 筆；離線時先存著，連上網路再送。只在正式網站（github.io）送，本機測試不送。
+// 同一個錯誤一天只送一次、每次開網頁最多送 5 筆；離線時先存著，連上網路再送。只在正式網站（https、非本機）送，本機測試不送。
 const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSe2B0IbU8MyMpVBlmn0AH34r5D6lWCwNVcXVNE4DDU4wTZHJw/formResponse",
       FORM_FIELD = "entry.1816938753", SENT_KEY = "dth_err_sent", PEND_KEY = "dth_err_pending";
 let autoSent = 0, autoTimer = null;
 function autoReportOn() {
-  return /\.github\.io$/.test(location.hostname) && !(S.settings && S.settings.autoReport === false);
+  return location.protocol === "https:" && !/^(localhost|127\.0\.0\.1|\[::1\])$|\.(localhost|test)$/.test(location.hostname) &&
+    !(S.settings && S.settings.autoReport === false);
 }
 function queueAutoReport(e) {
   if (!autoReportOn()) return;
@@ -1289,7 +1290,8 @@ function budgetCalc() {
     (r.byCash != null ? `<br>收入可負擔 ${L.fmtNum(r.byIncome)} 萬、現金夠付 ${L.fmtNum(r.byCash)} 萬的頭期款與稅費，${r.limit === "cash" ? "卡在現金" : "卡在收入"}` : `<br>（沒填現金：假設自備兩成）`) +
     `<br>每月房貸控制在 ${L.fmtNum(r.safeMonthly)} 元（收入 1/3）以內</div>` +
     `<div class="row"><button type="button" class="btn small primary" data-act="use-budget" data-budget="${r.price}">用 ${L.fmtNum(r.price)} 萬當預算，地圖標出買得起的區</button></div>` +
-    `<p class="muted">貸款以${youthLabel()}（${L.fmtNum(L.YOUTH_LOAN.cap)} 萬內）＋一般房貸試算，自備至少兩成，另留總價約 3% 的稅費雜支。銀行實際核貸要看信用與負債，這不是貸款建議。</p>`;
+    `<p class="muted">貸款以${L.youthExpired() ? `一般房貸（${L.NORMAL_LOAN.rate}%、${L.NORMAL_LOAN.years} 年；${L.YOUTH_POLICY.name}原方案已在 ${L.YOUTH_POLICY.until} 截止，沒有算進去）`
+      : `${youthLabel()}（${L.fmtNum(L.YOUTH_LOAN.cap)} 萬內）＋一般房貸`}試算，自備至少兩成，另留總價約 3% 的稅費雜支。銀行實際核貸要看信用與負債，這不是貸款建議。</p>`;
 }
 function problemSection() {
   const errs = loadErrors(), st = D.status;
@@ -1842,10 +1844,11 @@ export async function main() {
   }
   let twErr = null;
   const tw = params.get("tw") === "0" ? null : await getJSON("data/tw/index.json").catch(e => { if (e.network || (e.status && e.status !== 404)) twErr = e; return null; });    // ?tw=0：強制台南版（測試用）
-  const shared = ["intel", "mrt", "landmarks", "models", "workplaces", "schools"];
+  const shared = ["intel", "mrt", "landmarks", "models", "workplaces", "schools", "loan"];
   // 這幾份輔助資料任何一份載不到都不要讓整個網站停住：用空的資料繼續
-  const empty = { intel: { items: [] }, mrt: { lines: [] }, landmarks: [], models: null, workplaces: { places: [] }, schools: [] };
-  const [intel, mrt, landmarks, models, workplaces, schools] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`).catch(e => { logError("載入 " + n, e, true); return empty[n]; })));
+  const empty = { intel: { items: [] }, mrt: { lines: [] }, landmarks: [], models: null, workplaces: { places: [] }, schools: [], loan: null };
+  const [intel, mrt, landmarks, models, workplaces, schools, loan] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`).catch(e => { logError("載入 " + n, e, true); return empty[n]; })));
+  L.setLoanTerms(loan);      // 房貸利率、新青安條件（data/loan.json）
   if (twErr) setTimeout(() => toast("全台資料載入失敗（網路不穩？），先顯示臺南市；重新整理可以再試一次。", 8000), 500);
   Object.assign(D, { intel: intel.items || [], mrt, landmarks: landmarks || [], workplaces, schools: schools || [], roadCatalog: [],
     intelAsOf: intel.as_of || "", intelYear: +(intel.as_of || "").slice(0, 4) || null });

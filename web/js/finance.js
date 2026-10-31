@@ -3,7 +3,8 @@ import * as L from "./logic.js";
 import { $, D, S, esc } from "./main.js";
 
 // ---- 房貸試算：總價預設帶入這一區的中位總價，其他條件記在這台裝置
-export const LOAN_DEFAULT = { price: "", down: 20, rate: L.NORMAL_LOAN.rate, years: L.NORMAL_LOAN.years, grace: 0, youth: false, auto: true };
+// 利率、年限用 getter：data/loan.json 載入後（L.setLoanTerms）才會是最新的參考值
+export const LOAN_DEFAULT = { price: "", down: 20, get rate() { return L.NORMAL_LOAN.rate; }, get years() { return L.NORMAL_LOAN.years; }, grace: 0, youth: false, auto: true };
 // auto：利率、年限、寬限期跟著程式裡的參考條件（政策或利率調整時自動更新）；使用者自己改過這三欄就不再自動帶入
 export function loanState() {
   const st = Object.assign({}, LOAN_DEFAULT, S.settings.loan || {});

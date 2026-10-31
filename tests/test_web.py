@@ -486,6 +486,28 @@ class WebAppTest(unittest.TestCase):
         m = pg.evaluate("fetch('manifest.webmanifest').then(r => r.json())")
         self.assertEqual(m["display"], "standalone"); self.assertTrue(any(i["sizes"] == "512x512" for i in m["icons"]))
 
+    def test_loan_terms_from_data(self):
+        """房貸利率與新青安條件來自 data/loan.json（不是寫死在程式裡）；新青安過期後預算反推只用一般房貸。浮水印用實際網址。"""
+        import json as _json
+        pg = self.open(phone=False)
+        with open(os.path.join(ROOT, "data", "loan.json"), encoding="utf-8") as f:
+            loan = _json.load(f)
+        got = pg.evaluate("[__app.L.NORMAL_LOAN.rate, __app.L.YOUTH_LOAN.rate, __app.L.YOUTH_LOAN.cap, __app.L.YOUTH_POLICY.until]")
+        self.assertEqual(got, [loan["normal"]["rate"], loan["youth"]["rate"], loan["youth"]["cap"], loan["youth"]["until"]])
+        # 換一組條件：試算預設、預算反推都跟著改；不合理的數字（負利率）不採用
+        r = pg.evaluate("""(() => { const L = __app.L;
+            L.setLoanTerms({normal: {rate: 3, years: 20}, youth: {rate: -1, until: '2099-12-31'}});
+            const a = [L.NORMAL_LOAN.rate, L.NORMAL_LOAN.years, L.YOUTH_LOAN.rate, L.youthExpired()];
+            const active = L.affordableBudget(60000).maxLoanWan;
+            L.setLoanTerms({youth: {until: '2000-01-01'}});
+            const expired = L.affordableBudget(60000);
+            const normalOnly = Math.round(20000 / ((0.03 / 12) / (1 - Math.pow(1 + 0.03 / 12, -240))) / 10000);
+            return [a, active, expired.maxLoanWan, normalOnly, L.youthExpired()]; })()""")
+        self.assertEqual(r[0], [3, 20, loan["youth"]["rate"], False])
+        self.assertGreater(r[1], r[2]); self.assertEqual(r[2], r[3]); self.assertTrue(r[4])
+        self.assertNotIn("bkhotey4", pg.evaluate("import('./js/view3d.js').then(m => m.WATERMARK)"))
+        self.assertIn(pg.evaluate("location.host"), pg.evaluate("import('./js/view3d.js').then(m => m.WATERMARK)"))
+
     def test_backup_roundtrip(self):
         """換電腦：「匯出備份」帶看屋清單、追蹤的建案與設定；在另一台（清空後）「匯入」全部回來。"""
         import tempfile, os as _os

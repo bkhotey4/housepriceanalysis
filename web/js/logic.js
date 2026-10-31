@@ -7,6 +7,8 @@ export const KM_LAT = 110.57;
 export let KM_LNG = 111.32 * Math.cos(LAT0 * Math.PI / 180);
 export function setOrigin(lat, lng) { LAT0 = lat; LNG0 = lng; KM_LNG = 111.32 * Math.cos(lat * Math.PI / 180); }
 // 目前範圍的「總計」名稱：台南版是「台南市」；全台版在首頁是「全台」，進到縣市後是那個縣市（setCity）
+// 網站網址（浮水印、報告頁尾用）：照實際開啟的網址，換網域或搬家都不用改程式
+export const SITE_URL = typeof location === "undefined" ? "" : (location.host + location.pathname).replace(/index\.html$/, "").replace(/\/$/, "");
 export let CITY = "台南市";
 export let COUNTY_NAME = "台南市";      // 搜尋其他平台、Google 地圖時加在地名前面
 export function setCity(name, county = name) { CITY = name; COUNTY_NAME = county; }
@@ -836,13 +838,27 @@ export function mortgage(priceWan, downPct, ratePct, years, grace = 0) {
 
 // 青年安心成家購屋優惠貸款（新青安）：貸款上限 1,000 萬、最長 40 年、寬限期最長 5 年。
 // 利率是公股銀行一段式機動利率（政府補貼後）的參考值，會隨央行升降息調整，實際以承辦銀行公告為準。
+// 這裡的數字只是預設值：實際用的是 data/loan.json（每週情資更新時查證），啟動時由 setLoanTerms 覆寫。
 export const YOUTH_LOAN = { rate: 1.775, years: 40, grace: 5, cap: 1000 };
-// 政策期限：原方案 2023-08-01 ～ 2026-07-31（政府利息補貼也只到這天）。續辦方案的條件還沒寫進來，
-// 過了期限畫面會提醒「以原方案條件試算」。之後確認新方案條件時，改這兩組常數與 until 即可。
+// 政策期限：原方案 2023-08-01 ～ 2026-07-31（政府利息補貼也只到這天）。過了期限畫面會提醒「以原方案條件試算」，
+// 預算反推也不再把新青安算進去；續辦方案確認後改 data/loan.json 的 youth（含 until）即可。
 export const YOUTH_POLICY = { name: "新青安", until: "2026-07-31", checked: "2026-10-14", source: "財政部、內政部國土管理署公告" };
 export const youthExpired = (today = new Date()) => today.toISOString().slice(0, 10) > YOUTH_POLICY.until;
 // 一般房貸的參考條件（房貸試算的預設、超過新青安上限的部分）：本息平均攤還、沒有寬限期
 export const NORMAL_LOAN = { rate: 2.2, years: 30 };
+// 套用 data/loan.json：原地改上面三組物件（其他模組 import 的是同一個物件），數字不合理的欄位維持預設
+export function setLoanTerms(d) {
+  if (!d || typeof d !== "object") return;
+  const ok = (v, lo, hi) => typeof v === "number" && v >= lo && v <= hi;
+  const pick = (src, rules) => Object.fromEntries(Object.entries(rules).filter(([k, [lo, hi]]) => src && ok(src[k], lo, hi)).map(([k]) => [k, src[k]]));
+  Object.assign(NORMAL_LOAN, pick(d.normal, { rate: [0, 15], years: [1, 50] }));
+  Object.assign(YOUTH_LOAN, pick(d.youth, { rate: [0, 15], years: [1, 50], grace: [0, 10], cap: [1, 100000] }));
+  const y = d.youth || {}, date = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  if (typeof y.name === "string" && y.name) YOUTH_POLICY.name = y.name;
+  if (date(y.until)) YOUTH_POLICY.until = y.until;
+  if (date(d.checked)) YOUTH_POLICY.checked = d.checked;
+  if (typeof d.source === "string" && d.source) YOUTH_POLICY.source = d.source;
+}
 // 有額度上限的優惠貸款：上限內用優惠條件，超過的部分當成另一筆一般房貸（restRate、restYears，不設寬限期）
 export function mortgageCapped(priceWan, downPct, ratePct, years, grace, capWan, restRate, restYears) {
   const loanWan = Math.max(0, priceWan * (1 - downPct / 100));
@@ -1096,7 +1112,9 @@ export function affordableBudget(incomeMonthly, downPct = 20, opt = {}) {
   const yRate = (opt.youthRate ?? YOUTH_LOAN.rate) / 100 / 12;
   const nRate = (opt.normalRate ?? NORMAL_LOAN.rate) / 100 / 12;
   const yFactor = yRate / (1 - Math.pow(1 + yRate, -(YOUTH_LOAN.years - YOUTH_LOAN.grace) * 12));   // 以寬限期結束後的月付計
-  const youthMaxMonthly = YOUTH_LOAN.cap * 10000 * yFactor;
+  // 新青安過了申請期限（又還沒有續辦條件）就申請不到了：額度當 0，全部用一般房貸算
+  const youthCap = opt.youthCap ?? (youthExpired() ? 0 : YOUTH_LOAN.cap);
+  const youthMaxMonthly = youthCap * 10000 * yFactor;
 
   let maxLoanWan = 0;
   if (safeMonthly <= youthMaxMonthly) {
@@ -1105,7 +1123,7 @@ export function affordableBudget(incomeMonthly, downPct = 20, opt = {}) {
     const remMonthly = safeMonthly - youthMaxMonthly;
     const nFactor = nRate / (1 - Math.pow(1 + nRate, -NORMAL_LOAN.years * 12));
     const extraLoanWan = remMonthly / nFactor / 10000;
-    maxLoanWan = YOUTH_LOAN.cap + extraLoanWan;
+    maxLoanWan = youthCap + extraLoanWan;
   }
   const maxPriceWan = Math.round(maxLoanWan / (1 - downPct / 100));
   const downWan = Math.round(maxPriceWan * downPct / 100);
