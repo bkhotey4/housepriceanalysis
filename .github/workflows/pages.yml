@@ -89,6 +89,30 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+  cloudflare:
+    # 同一份網站另外送一份到 Cloudflare Pages（網址 <專案名>.pages.dev）。
+    # 要在 GitHub → Settings → Secrets and variables → Actions 設好 CLOUDFLARE_API_TOKEN、CLOUDFLARE_ACCOUNT_ID 才會執行；
+    # 專案名稱用變數 CF_PAGES_PROJECT（沒設就用 twhouse）。失敗不影響 GitHub Pages。
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROJECT: ${{ vars.CF_PAGES_PROJECT || 'twhouse' }}
+    steps:
+      - if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: artifact
+      - if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        name: 部署到 Cloudflare Pages
+        run: |
+          mkdir site && tar -xf artifact/artifact.tar -C site
+          npx -y wrangler@3.114.0 pages project create "$PROJECT" --production-branch main 2>/dev/null || true   # 第一次自動建立專案；已存在就略過
+          npx -y wrangler@3.114.0 pages deploy site --project-name "$PROJECT" --branch main --commit-dirty=true
   report:
     # 建置或部署失敗（例如 ci.sh 以外的步驟出錯）時也開 Issue 通知
     needs: [build, deploy]
