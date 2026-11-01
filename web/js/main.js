@@ -1206,7 +1206,7 @@ function openingsSection() {
   for (const it of items.slice(0, 60)) {
     const src = (it.sources || [])[0], pm = it.permit;
     const st = it.stage === "已開幕" ? "done" : it.stage === "取消" ? "" : ["施工中", "徵才中", "已取得建照"].includes(it.stage) ? "build" : "plan";
-    const sub = [D.county ? "" : (L.COUNTIES.find(c => c.code === it.county) || {}).short, it.district, it.location, it.expected ? `預計 ${it.expected}` : "",
+    const sub = [D.county ? "" : (L.COUNTIES.find(c => c.code === it.county) || {}).short, it.district, it.location, it.expected ? `${it.stage === "已開幕" ? "開幕" : "預計"} ${it.expected}` : "",
       pm ? `建照 ${pm.date}${pm.use ? "（" + pm.use + "）" : ""}` : "", it.confidence ? `可信度 ${it.confidence}` : ""].filter(Boolean).join("｜");
     h += `<tr><td><span class="pill ${st}">${esc(it.stage)}</span>${esc(it.name)}<div class="muted">${esc(sub)}` +
       `${src ? `｜<a href="${esc(src.url)}" target="_blank" rel="noopener">${esc(String(src.title).slice(0, 18))}</a>` : ""}</div>` +
