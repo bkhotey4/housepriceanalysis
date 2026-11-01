@@ -192,12 +192,13 @@ def main():
                 for x in rents:
                     all_rent.append(dict(x, dist=c["short"]))
             if not args.legacy_tainan:
+                # 沒有任何土地成交（例如連江縣）也寫一份空的，網頁才會顯示「沒有成交」而不是「還沒產生」
                 lands = plvr_tw.load_county_land(c["code"])
-                if lands:
-                    lb = land.build_land_book(lands, names, min(max(x["ym"] for x in lands), today.strftime("%Y-%m")), c["short"])
-                    _dump("%s/land.json" % c["code"], lb)
-                    entry["land_n"] = len(lb["rows"])
-                    print("  大面積土地成交：近兩年 %d 筆" % entry["land_n"], flush=True)
+                latest = min(max(x["ym"] for x in lands), today.strftime("%Y-%m")) if lands else raw["complete_through"]
+                lb = land.build_land_book(lands, names, latest, c["short"])
+                _dump("%s/land.json" % c["code"], lb)
+                entry["land_n"] = len(lb["rows"])
+                print("  大面積土地成交：近兩年 %d 筆" % entry["land_n"], flush=True)
         entry["roads"] = road_list(c["code"])
         counties.append(entry)
     if not all_tx:
