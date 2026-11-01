@@ -237,10 +237,59 @@ def check_loan(d):
     return out
 
 
+LAND_DEALS = ["購地", "合建", "都更", "標售得標", "地上權", "其他"]
+LAND_STATUS = ["取得土地", "規劃中", "申請建照", "已取得建照", "已開工", "預售中", "完工", "取消"]
+
+
+def check_landbank(d):
+    """data/landbank.json：建商、開發商取得土地的公開紀錄（可以是空清單）。"""
+    out = []
+    if not isinstance(d, dict) or not isinstance(d.get("items"), list):
+        return ["landbank.json：最外層必須是 {\"as_of\": ..., \"items\": [...]}"]
+    if d.get("as_of") is not None and not _DATE.match(str(d["as_of"])):
+        out.append("landbank.json：as_of 應為 YYYY-MM-DD 或 null")
+    seen = set()
+    for i, it in enumerate(d["items"]):
+        if not isinstance(it, dict):
+            out.append("landbank 第 %d 筆：必須是物件" % (i + 1))
+            continue
+        dev, loc = str(it.get("developer") or "").strip(), str(it.get("location") or "").strip()
+        where = "landbank「%s %s」" % (dev[:12] or "第 %d 筆" % (i + 1), loc[:16])
+        if not dev:
+            out.append("%s：缺少 developer（建商名稱）" % where)
+        if not loc:
+            out.append("%s：缺少 location（地段或路名）" % where)
+        key = (dev, it.get("county"), loc)
+        if key in seen:
+            out.append("%s：重複（同一建商、縣市、地點）" % where)
+        seen.add(key)
+        if it.get("county") not in BY_CODE:
+            out.append("%s：county 不是縣市代碼" % where)
+        if it.get("deal") not in LAND_DEALS:
+            out.append("%s：deal 只能是 %s" % (where, "／".join(LAND_DEALS)))
+        if it.get("status") not in LAND_STATUS:
+            out.append("%s：status 只能是 %s" % (where, "／".join(LAND_STATUS)))
+        if not re.match(r"^\d{4}(-\d{2}(-\d{2})?)?$", str(it.get("date") or "")):
+            out.append("%s：date（取得日期）應為 YYYY-MM-DD、YYYY-MM 或 YYYY" % where)
+        for k, hi in (("area_ping", 1e6), ("amount_wan", 1e8)):
+            v = it.get(k)
+            if v is not None and not (_is_num(v) and 0 < v <= hi):
+                out.append("%s：%s 應為正數或 null" % (where, k))
+        lat, lng = it.get("lat"), it.get("lng")
+        if (lat is None) != (lng is None):
+            out.append("%s：lat、lng 要一起填或一起是 null" % where)
+        elif lat is not None and not (_is_num(lat) and _is_num(lng) and _in_county(lat, lng, it.get("county"))):
+            out.append("%s：座標 (%s, %s) 不在該縣市範圍內" % (where, lat, lng))
+        if it.get("confidence") not in CONFIDENCE:
+            out.append("%s：confidence 只能是 高／中／低" % where)
+        _check_sources(it.get("sources"), where, out)
+    return out
+
+
 def check_all():
     """檢查目前 data/ 裡的情資、捷運、房貸參考條件，回傳問題清單。"""
     out = []
-    for name, fn in (("intel.json", check_intel), ("mrt.json", check_mrt), ("loan.json", check_loan)):
+    for name, fn in (("intel.json", check_intel), ("mrt.json", check_mrt), ("loan.json", check_loan), ("landbank.json", check_landbank)):
         try:
             d = geo.load_json(name)
         except (OSError, ValueError) as e:

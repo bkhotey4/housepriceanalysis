@@ -669,6 +669,17 @@ def _make_tw_fixture(root):
         build_population.write_web(pop)
     finally:
         build_population.WEB_TW = old_web
+    from core import land as landmod                # 大面積土地成交：大安區 3 筆住宅區（同一段）、信義區 1 筆農地
+    lands = [{"id": "LD%d" % i, "dist": d, "ym": "2026-0%d" % (i + 3), "date": "2026-0%d-10" % (i + 3), "sec": sec, "lot": "%d" % (100 + i),
+              "ping": 400 + i * 50, "tw": 60000 + i * 5000, "u": 150, "zone": z, "zone_text": zt, "pieces": 1, "note": ""}
+             for i, (d, sec, z, zt) in enumerate([("大安區", "龍泉段", "R", "住宅區"), ("大安區", "龍泉段", "R", "住宅區"),
+                                                  ("大安區", "龍泉段", "C", "商業區"), ("信義區", "三張犁段", "A", "農業區")])]
+    export_tw._dump("A/land.json", landmod.build_land_book(lands, [t["name"] for t in towns], "2026-08", "台北市"))
+    with open(os.path.join(web, "data", "landbank.json"), "w", encoding="utf-8") as f:
+        json.dump({"as_of": "2026-10-30", "items": [{"developer": "測試建設", "county": "A", "district": "大安區", "location": "大安區龍泉段",
+                   "date": "2026-06-30", "deal": "購地", "status": "取得土地", "area_ping": 1200, "amount_wan": 180000, "plan": "規劃住宅大樓",
+                   "lat": None, "lng": None, "confidence": "高", "sources": [{"title": "測試建設重大訊息", "url": "https://mops.twse.com.tw/", "date": "2026-06-30"}]}]},
+                  f, ensure_ascii=False)
     line = [25.0335, 121.5300, 25.0337, 121.5400, 25.0339, 121.5500]
     export_tw._dump("A/roads/大安區.json", {"roads": {"信義路三段": [line]}, "places": {}, "fetched": "2026-10-02"})
     # 全台首頁的統計：原本的臺南市＋假的臺北市
@@ -681,6 +692,8 @@ def _make_tw_fixture(root):
     for c in index["counties"]:
         if c["code"] == "A":
             c.update(has_data=True, towns=3, town_names=[t["name"] for t in towns], roads=["大安區"], tx_count=len(txs))
+        elif c["code"] != "D":          # 其他縣市在測試裡沒有資料：鄉鎮清單也清掉，免得「中正區」（基隆也有）變成同名多個縣市
+            c.update(has_data=False, town_names=[])
     export_tw._dump("index.json", index)
     from tools import build_transit                 # 營運中的捷運：用 test_taiwan 的假 Overpass 回傳
     try:
@@ -755,7 +768,7 @@ class TaiwanWebTest(unittest.TestCase):
         t1 = pg.inner_text("#cost-out .total"); pg.fill("input[data-cost='agent']", "0"); pg.wait_for_timeout(100)
         self.assertNotEqual(pg.inner_text("#cost-out .total"), t1)
         pg.fill("input[data-cost='agent']", "2"); pg.evaluate("document.querySelector(`details[data-det='costOpen'] > summary`).click()")
-        pg.evaluate("__app.selectDistrict('中正區')")
+        pg.evaluate("__app.selectDistrict('中正區')"); pg.evaluate("__app.openTab('overview')"); pg.wait_for_timeout(100)
         self.assertIn("近一年沒有這一區的租賃登錄", pg.inner_text("#tab-body"))
         pg.evaluate("__app.selectDistrict('大安區')")
         pg.evaluate("document.querySelector(`#tab-body [data-act='cmp-add']`).click()"); pg.wait_for_timeout(200)
@@ -824,6 +837,37 @@ class TaiwanWebTest(unittest.TestCase):
         url = unquote(pop.value.url)
         self.assertIn("github.com/bkhotey4/housepriceanalysis/issues/new", url)
         self.assertIn("假的錯誤", url)
+        self.assertEqual(errors, [])
+
+    def test_land_tab(self):
+        """土地分頁：縣市層級依區彙整大面積土地成交、點區看每一筆（同段多筆有標示）；建商購地紀錄依縣市、區篩選。"""
+        ctx = self.browser.new_context(viewport={"width": 1280, "height": 900})
+        ctx.route("https://wmts.nlsc.gov.tw/**", lambda r: r.abort())
+        self.addCleanup(ctx.close)
+        pg = ctx.new_page()
+        errors = []
+        pg.on("pageerror", lambda e: errors.append(str(e)))
+        pg.goto(self.url)
+        pg.wait_for_function("window.__app && __app.D.tw")
+        pg.evaluate("__app.openTab('land')"); pg.wait_for_timeout(200)
+        body = pg.inner_text("#tab-body")
+        self.assertIn("測試建設", body)                         # 全台首頁：全部建商購地紀錄
+        pg.evaluate("__app.enterCounty('A')"); pg.wait_for_function("__app.D.county && __app.D.land")
+        pg.evaluate("__app.openTab('land')"); pg.wait_for_timeout(200)
+        body = pg.inner_text("#tab-body")
+        self.assertIn("大面積土地成交", body); self.assertIn("大安區", body)
+        self.assertNotIn("信義區", body.split("建商購地紀錄")[0])   # 預設只看住宅＋商業區，信義區的農地不列
+        pg.click("button[data-act='landf'][data-v='all']"); pg.wait_for_timeout(100)
+        self.assertIn("信義區", pg.inner_text("#tab-body"))
+        pg.click("button[data-act='landf'][data-v='rc']")
+        pg.click("#tab-body tr.click[data-dist='大安區']"); pg.wait_for_timeout(300)
+        self.assertEqual(pg.evaluate("__app.S.current"), "大安區")
+        if pg.evaluate("__app.S.tab") != "land":
+            pg.evaluate("__app.openTab('land')"); pg.wait_for_timeout(200)
+        body = pg.inner_text("#tab-body")
+        self.assertIn("龍泉段", body); self.assertIn("同段 3 筆", body); self.assertIn("測試建設", body)
+        pg.evaluate("__app.selectDistrict('中正區')"); pg.evaluate("__app.openTab('land')"); pg.wait_for_timeout(200)
+        self.assertNotIn("測試建設", pg.inner_text("#tab-body"))
         self.assertEqual(errors, [])
 
     def test_long_trend(self):

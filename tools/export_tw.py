@@ -12,6 +12,7 @@
     web/data/tw/<代碼>/districts.json 該縣市鄉鎮市區與位置
     web/data/tw/<代碼>/rent.json      該縣市各鄉鎮市區近一年的租金行情（實價登錄租賃檔）
     web/data/tw/rent.json             全台各縣市的租金行情
+    web/data/tw/<代碼>/land.json      該縣市近兩年的大面積純土地成交（建商買地、整合土地的線索）
 道路位置另由 tools/fetch_roads_tw.py 逐步下載到 web/data/tw/<代碼>/roads/。
 """
 import argparse
@@ -25,7 +26,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "data"))
 
-from core import address, geo, plvr_tw, prices, rent  # noqa: E402
+from core import address, geo, land, plvr_tw, prices, rent  # noqa: E402
 from core.taiwan import COUNTIES, NATION, load_towns, norm  # noqa: E402
 
 OUT = os.path.join(ROOT, "web", "data", "tw")
@@ -190,6 +191,13 @@ def main():
                 print("  租賃：近一年 %d 筆" % n_rent, flush=True)
                 for x in rents:
                     all_rent.append(dict(x, dist=c["short"]))
+            if not args.legacy_tainan:
+                lands = plvr_tw.load_county_land(c["code"])
+                if lands:
+                    lb = land.build_land_book(lands, names, min(max(x["ym"] for x in lands), today.strftime("%Y-%m")), c["short"])
+                    _dump("%s/land.json" % c["code"], lb)
+                    entry["land_n"] = len(lb["rows"])
+                    print("  大面積土地成交：近兩年 %d 筆" % entry["land_n"], flush=True)
         entry["roads"] = road_list(c["code"])
         counties.append(entry)
     if not all_tx:

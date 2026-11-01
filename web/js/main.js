@@ -9,6 +9,7 @@ import { LOAN_DEFAULT, costResult, costSection, costState, loanPrice, loanResult
 import { OVERPASS, refreshPois, showPoi } from "./poi.js";
 import { hideSuggestions, pinAt, renderSuggestions, search, selectSuggestion, showAddress, sugState, updateActiveSug } from "./search.js";
 import { tabValue, valState } from "./value.js";
+import { landClick, loadLand, tabLand } from "./land.js";
 import { TYPE_CAT, checkWatchNews, cleanWatch, tabWatch, watchBadge, watchChange, watchClick, watchDialog, followOpen, followSeen, isFollowing, toggleFollow } from "./watch.js";
 
 export const $ = (s, el = document) => el.querySelector(s);
@@ -687,11 +688,11 @@ export function pick(hit, latlng) {
 }
 
 // ------------------------------------------------------------------ 面板
-const TABS = [["overview", "概況"], ["calc", "試算"], ["fit", "選區"], ["rank", "排行"], ["commute", "通勤"], ["roads", "路段"], ["bldg", "社區"], ["tx", "成交"], ["value", "估價"], ["cmp", "比較"], ["projects", "建設"], ["detail", "點選"], ["poi", "周邊"], ["watch", "看屋"]];
+const TABS = [["overview", "概況"], ["calc", "試算"], ["fit", "選區"], ["rank", "排行"], ["commute", "通勤"], ["roads", "路段"], ["bldg", "社區"], ["tx", "成交"], ["value", "估價"], ["cmp", "比較"], ["projects", "建設"], ["land", "土地"], ["detail", "點選"], ["poi", "周邊"], ["watch", "看屋"]];
 // 外面一排：常用的分頁＋兩個分組；「點選」「周邊」只在有東西時出現
 const TAB_GROUPS = {
   market: { label: "行情", tabs: ["roads", "bldg", "tx"] },
-  more: { label: "更多", tabs: ["fit", "rank", "commute", "cmp", "projects"] },
+  more: { label: "更多", tabs: ["fit", "rank", "commute", "cmp", "projects", "land"] },
 };
 const PRIMARY = ["overview", "calc", "market", "value", "watch", "more", "detail", "poi"];
 const groupOf = k => Object.keys(TAB_GROUPS).find(g => TAB_GROUPS[g].tabs.includes(k)) || null;
@@ -728,7 +729,7 @@ export function renderPanel() {
   sub.innerHTML = group ? TAB_GROUPS[group].tabs.map(k => tabBtn(k, label[k])).join("") : "";
   const body = $("#tab-body"), keepTop = body.scrollTop;
   body.setAttribute("aria-labelledby", "tab-" + S.tab);
-  body.innerHTML = ({ overview: tabOverview, calc: tabCalc, fit: tabFit, rank: tabRank, commute: tabCommute, roads: tabRoads, bldg: tabBldg, tx: tabTx, value: tabValue, cmp: tabCmp, projects: tabProjects, detail: tabDetail, poi: tabPoi, watch: tabWatch }[S.tab] || tabOverview)();
+  body.innerHTML = ({ overview: tabOverview, calc: tabCalc, fit: tabFit, rank: tabRank, commute: tabCommute, roads: tabRoads, bldg: tabBldg, tx: tabTx, value: tabValue, cmp: tabCmp, projects: tabProjects, land: tabLand, detail: tabDetail, poi: tabPoi, watch: tabWatch }[S.tab] || tabOverview)();
   const key = [S.tab, S.current, D.county ? D.county.code : "", S.bldg, S.watchSel, S.addr ? S.addr.text : ""].join("|");
   body.scrollTop = key === renderPanel.lastKey ? keepTop : 0;
   renderPanel.lastKey = key;
@@ -739,7 +740,7 @@ export function renderPanel() {
 
 // ------------------------------------------------------------------ 分享連結：網址記住縣市、區域（或地址）、房型、單價／總價、分頁
 // 例：?c=A&d=大安區&cat=apt&tab=rank；比較分頁另外帶 cmp=A:大安區,D:東區。畫面一變就更新網址列，重新整理或加入書籤也會回到同一個畫面。
-const SHARE_TABS = ["overview", "calc", "fit", "rank", "commute", "roads", "bldg", "tx", "value", "cmp", "projects"];
+const SHARE_TABS = ["overview", "calc", "fit", "rank", "commute", "roads", "bldg", "tx", "value", "cmp", "projects", "land"];
 function shareParams() {
   const p = new URLSearchParams(), cur = new URLSearchParams(location.search);
   if (cur.get("tw") === "0") p.set("tw", "0");
@@ -1534,6 +1535,7 @@ function bindUI() {
   body.addEventListener("click", async e => {
     const t = e.target;
     if (S.tab === "watch" && watchClick(t)) return;
+    if (S.tab === "land" && landClick(t)) return;
     const scCard = t.closest(".scenario-card");
     if (scCard) {
       const mode = scCard.dataset.scenario;
@@ -1759,7 +1761,7 @@ function enterNation(fly = true) {
   D.county = null;
   L.setCity(D.tw.nation || "全台", "全台");
   enterSeq++;
-  D.book = D.twBook; D.rent = D.twRent; D.pop = D.twPop; D.txs = null; D.txPromise = Promise.resolve(); loadLong("");
+  D.book = D.twBook; D.rent = D.twRent; D.pop = D.twPop; D.txs = null; D.txPromise = Promise.resolve(); loadLong(""); loadLand("");
   D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   D.districts = D.tw.counties.map(c => ({ name: c.short, lat: c.lat, lng: c.lng, zone: c.region, code: c.code }));
   D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
@@ -1805,7 +1807,7 @@ export async function enterCounty(code, fly = true) {
   try { ({ raw: book, dd, rent, pop } = await countyData(code)); }
   catch (e) { logError(`載入${c.short}資料`, e); toast(`${c.short}的資料載入失敗，請檢查網路後再試。`); return false; }
   if (seq !== enterSeq) return false;           // 等資料時使用者又換到別的縣市了
-  D.county = c; D.rent = rent; D.pop = pop; loadLong(code);
+  D.county = c; D.rent = rent; D.pop = pop; loadLong(code); loadLand(code);
   D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   L.setCity(c.short, c.short);
   D.book = new L.Book(book);
@@ -1844,11 +1846,12 @@ export async function main() {
   }
   let twErr = null;
   const tw = params.get("tw") === "0" ? null : await getJSON("data/tw/index.json").catch(e => { if (e.network || (e.status && e.status !== 404)) twErr = e; return null; });    // ?tw=0：強制台南版（測試用）
-  const shared = ["intel", "mrt", "landmarks", "models", "workplaces", "schools", "loan"];
+  const shared = ["intel", "mrt", "landmarks", "models", "workplaces", "schools", "loan", "landbank"];
   // 這幾份輔助資料任何一份載不到都不要讓整個網站停住：用空的資料繼續
-  const empty = { intel: { items: [] }, mrt: { lines: [] }, landmarks: [], models: null, workplaces: { places: [] }, schools: [], loan: null };
-  const [intel, mrt, landmarks, models, workplaces, schools, loan] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`).catch(e => { logError("載入 " + n, e, true); return empty[n]; })));
+  const empty = { intel: { items: [] }, mrt: { lines: [] }, landmarks: [], models: null, workplaces: { places: [] }, schools: [], loan: null, landbank: { items: [] } };
+  const [intel, mrt, landmarks, models, workplaces, schools, loan, landbank] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`).catch(e => { logError("載入 " + n, e, true); return empty[n]; })));
   L.setLoanTerms(loan);      // 房貸利率、新青安條件（data/loan.json）
+  D.landbank = landbank || { items: [] };     // 建商購地紀錄
   if (twErr) setTimeout(() => toast("全台資料載入失敗（網路不穩？），先顯示臺南市；重新整理可以再試一次。", 8000), 500);
   Object.assign(D, { intel: intel.items || [], mrt, landmarks: landmarks || [], workplaces, schools: schools || [], roadCatalog: [],
     intelAsOf: intel.as_of || "", intelYear: +(intel.as_of || "").slice(0, 4) || null });

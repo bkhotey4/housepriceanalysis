@@ -215,6 +215,22 @@ def load_county(code, cancels=None):
     return prices.dedupe([x for x in txs if x["id"] not in gone])
 
 
+def load_county_land(code):
+    """某縣市的純土地成交（全部大小，已去重）；大面積的篩選在 core/land.py。"""
+    from . import land
+    code = code.lower()
+    items = []
+    for name in folders():
+        path = os.path.join(_dir(name), "%s_lvr_land_a.csv" % code)
+        if not os.path.exists(path):
+            continue
+        with open(path, "rb") as f:
+            text = f.read().decode("utf-8-sig", "replace")
+        if text.strip():
+            items.extend(land.parse_land_csv(text))
+    return prices.dedupe(items)
+
+
 def rent_files(code):
     """某縣市已下載的租賃檔路徑（診斷用）。"""
     code = code.lower()

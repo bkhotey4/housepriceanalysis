@@ -1,4 +1,4 @@
-"""檢查 data/intel.json、data/mrt.json、data/loan.json 的格式；更新情資後執行。
+"""檢查 data/intel.json、data/mrt.json、data/loan.json、data/landbank.json 的格式；更新情資後執行。
 
     python tools/check_data.py
 

@@ -113,6 +113,36 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(len(prices.dedupe(self.txs + self.txs)), 8)
 
 
+class LandTest(unittest.TestCase):
+    """純土地成交（建商買地線索）：只取交易標的＝土地，大面積才列，分區分類正確。"""
+    def row(self, rid, dist, addr, m2, urban, nonurban, date, total, note="", target="土地", pieces="土地2建物0車位0"):
+        r = [""] * 33
+        r[0], r[1], r[2], r[3], r[4], r[5], r[7], r[8], r[21], r[26], r[27] = dist, target, addr, str(m2), urban, nonurban, date, pieces, str(total), note, rid
+        return r
+
+    def test_parse_and_book(self):
+        from core import land
+        rows = [self.row("L1", "善化區", "臺南市善化區大同段1489地號", 2000, "住", "", "1150812", 80000000),
+                self.row("L2", "善化區", "善化區大同段1490地號", 900, "都市：其他:商業區", "", "1150705", 50000000),
+                self.row("L3", "新市區", "新市區月潭段202地號", 6000, "", "一般農業區", "1150820", 42000000),
+                self.row("L4", "善化區", "大同段12地號", 100, "住", "", "1150801", 30000000),               # 太小
+                self.row("L5", "善化區", "大同段13地號", 3000, "住", "", "1150801", 90000000, note="親友間交易"),
+                self.row("L6", "善化區", "大同段14地號", 3000, "住", "", "1150801", 90000000, target="房地(土地+建物)"),
+                self.row("L7", "善化區", "大同段15地號", 3000, "住", "", "1120801", 90000000)]               # 太舊
+        text = "\n".join(",".join(r) for r in rows)
+        items = land.parse_land_csv(text)
+        self.assertEqual(sorted(x["id"] for x in items), ["L1", "L2", "L3", "L4", "L7"])
+        x = next(i for i in items if i["id"] == "L1")
+        self.assertEqual((x["sec"], x["lot"], x["zone"], x["pieces"], x["date"]), ("大同段", "1489", "R", 2, "2026-08-12"))
+        self.assertAlmostEqual(x["ping"], 2000 / prices.PING_M2); self.assertEqual(x["tw"], 8000)
+        self.assertEqual(next(i for i in items if i["id"] == "L2")["zone"], "C")
+        self.assertEqual(next(i for i in items if i["id"] == "L3")["zone"], "N")
+        b = land.build_land_book(items, ["善化區", "新市區"], "2026-09", "臺南市")
+        self.assertEqual([r[1] for r in b["rows"]], ["2026-08-20", "2026-08-12", "2026-07-05"])   # 新的在前，L4、L7 不列
+        self.assertEqual(b["summary"]["善化區"][0], 2); self.assertEqual(b["summary"]["善化區"][6], 2)
+        self.assertEqual(b["since"], "2024-10")
+
+
 class BookTest(unittest.TestCase):
     def test_complete_through_rule(self):
         # 2026-09-30 擷取時全市各月件數：8 月申報未齊（116 件）應被判定為不完整
