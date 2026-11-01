@@ -1,5 +1,424 @@
 {
- "as_of": null,
+ "as_of": "2026-11-01",
  "note": "建商、開發商取得土地（購地、合建、都更、標售得標、地上權）的公開紀錄。每週雲端排程從公開資訊觀測站重大訊息、各縣市標售公告與新聞整理；每筆都附來源。",
- "items": []
+ "items": [
+  {
+   "developer": "凱基人壽",
+   "county": "A",
+   "district": "信義區",
+   "location": "原六張犁陸軍保養廠C區基地（緊鄰台北101、景勤1號及2號公園，近北醫附醫）",
+   "date": "2026-01-19",
+   "deal": "地上權",
+   "status": "取得土地",
+   "area_ping": 4815,
+   "amount_wan": 1010000,
+   "plan": "國產署招標之大面積住宅區土地，70年地上權；底價66億8,111萬餘元，溢價率51.17%，另一投標者華固建設出價78億元",
+   "lat": 25.031,
+   "lng": 121.566,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "凱基壽101億標下陸保廠C基地地上權 溢價率51.17%",
+     "url": "https://money.udn.com/money/story/5613/9274926",
+     "date": "2026-01-19"
+    },
+    {
+     "title": "史上第3高！信義區陸保廠C基地標脫 凱基人壽「101億」拿下地上權",
+     "url": "https://finance.ettoday.net/news/3103909",
+     "date": "2026-01-19"
+    }
+   ]
+  },
+  {
+   "developer": "遠雄建設",
+   "county": "A",
+   "district": "南港區",
+   "location": "台北市南港區土地及其地上物（公告未載段、地號）",
+   "date": "2026-02-10",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 1056,
+   "amount_wan": 278106,
+   "plan": "公告取得目的為「擴增公司營業收入」；含建物1,544.81平方公尺",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "【公告】遠雄向非關係人取得土地及其地上物（公開資訊觀測站轉載）",
+     "url": "https://tw.stock.yahoo.com/news/%E5%85%AC%E5%91%8A-%E9%81%A0%E9%9B%84%E5%90%91%E9%9D%9E%E9%97%9C%E4%BF%82%E4%BA%BA%E5%8F%96%E5%BE%97%E5%9C%9F%E5%9C%B0%E5%8F%8A%E5%85%B6%E5%9C%B0%E4%B8%8A%E7%89%A9-131313974.html",
+     "date": "2026-02-10"
+    }
+   ]
+  },
+  {
+   "developer": "冠德建設",
+   "county": "A",
+   "district": "大安區",
+   "location": "通化安和公辦都更案（原國軍老舊眷舍「文昌街散戶」，鄰近捷運信義安和站及大安站）",
+   "date": "2026-06-01",
+   "deal": "都更",
+   "status": "取得土地",
+   "area_ping": 1306,
+   "amount_wan": null,
+   "plan": "地上23層、地下4層SC建築，地面層店鋪及辦公，設區民活動中心，可興建樓地板逾9,500坪，總銷137億元（基地4,318平方公尺，公有地99%為國防部所有）",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "北市通化安和公辦都更簽約 總銷137億元打造雙捷運新地標",
+     "url": "https://news.pchome.com.tw/public/morenews/20260601/index-78030981784763350016.html",
+     "date": "2026-06-01"
+    }
+   ]
+  },
+  {
+   "developer": "新潤置地",
+   "county": "A",
+   "district": "信義區",
+   "location": "虎林街60巷公辦都更案（虎林街及永吉路街口）",
+   "date": "2026-08-11",
+   "deal": "都更",
+   "status": "取得土地",
+   "area_ping": 773,
+   "amount_wan": 278700,
+   "plan": "2棟地上23層、地下5層RC建築，更新後樓地板約7,300坪，回饋幸福住宅16戶；原住戶56戶（基地約2,555平方公尺）",
+   "lat": 25.0445,
+   "lng": 121.574,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "北市虎林街60巷公辦都更案簽約 住戶整合率達94.37％",
+     "url": "https://annewsmedia.com/2026/08/11/regional-focus/20793/",
+     "date": "2026-08-11"
+    }
+   ]
+  },
+  {
+   "developer": "長虹建設",
+   "county": "A",
+   "district": "中山區",
+   "location": "大直傾斜民宅南側基地公辦都更（案名「大直藏璽」）",
+   "date": "2026-10-28",
+   "deal": "都更",
+   "status": "取得土地",
+   "area_ping": null,
+   "amount_wan": 503100,
+   "plan": "1幢2棟、地上24層及地下4層SRC建築，樓地板約11,383坪，更新前139戶；預計2027年第4季提送事權報核、2029年核定；北市住都中心 2026-10-28 新聞稿載樓地板約 11,383 坪、地上 24 層地下 4 層 SRC",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "基泰大直損鄰案後…東南側公辦都更案簽約 投資金額近95億元",
+     "url": "https://udn.com/news/story/7241/9842315",
+     "date": "2026-10-28"
+    },
+    {
+     "title": "大直傾斜民宅2基地公辦都更簽約 總投資近95億元 247戶重建家園",
+     "url": "https://n.yam.com/Article/20261028363703",
+     "date": "2026-10-28"
+    },
+    {
+     "title": "防災都更再跨大步！大直傾斜民宅東、南側公辦都更今簽約",
+     "url": "https://uro.gov.taipei/News_Content.aspx?n=FDB0CAB1DD42E805&sms=72544237BBE4C5F6&s=1CCC63878C658668",
+     "date": "2026-10-28"
+    }
+   ]
+  },
+  {
+   "developer": "華固建設",
+   "county": "F",
+   "district": "新店區",
+   "location": "斯馨段土地（央北重劃區，央北二路與啟文路交叉口）",
+   "date": "2026-06-11",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 791,
+   "amount_wan": 197733,
+   "plan": "興建房屋及車位出售或出租；每坪約250萬元創區域新高，規劃27~40坪產品，總銷約62~65億元，最快2028年第1季推案",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "【公告】華固取得新北市新店區土地（公開資訊觀測站轉載）",
+     "url": "https://tw.stock.yahoo.com/news/%E5%85%AC%E5%91%8A-%E8%8F%AF%E5%9B%BA%E5%8F%96%E5%BE%97%E6%96%B0%E5%8C%97%E5%B8%82%E6%96%B0%E5%BA%97%E5%8D%80%E5%9C%9F%E5%9C%B0-082827102.html",
+     "date": "2026-06-11"
+    },
+    {
+     "title": "華固砸19億 新店獵地",
+     "url": "https://money.udn.com/money/story/5710/9561126",
+     "date": "2026-06-12"
+    }
+   ]
+  },
+  {
+   "developer": "築豐建設（瑞築建設與光耀科技合作聯盟）",
+   "county": "F",
+   "district": "中和區",
+   "location": "錦和段797地號（錦和生活圈海砂屋社區公辦都更）",
+   "date": "2026-07-16",
+   "deal": "都更",
+   "status": "取得土地",
+   "area_ping": 1114,
+   "amount_wan": 520000,
+   "plan": "新北市防災都更2.0專案、法定容積1.5倍重建，地上15層、地下5層住宅大樓；投資額52億元",
+   "architect": "閤康聯合建築師事務所",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "築豐建設攜手新北住都中心啟動中和錦和段都更簽約 打造52億元防災永續新聚落",
+     "url": "https://money.udn.com/money/story/11799/9631768",
+     "date": "2026-07-16"
+    }
+   ]
+  },
+  {
+   "developer": "宏盛建設",
+   "county": "F",
+   "district": "蘆洲區",
+   "location": "重陽段232地號等1筆土地（環狀線北環段Y21站（捷2）土地開發案）",
+   "date": "2026-07-21",
+   "deal": "其他",
+   "status": "取得土地",
+   "area_ping": 340,
+   "amount_wan": 153287,
+   "plan": "捷運土地開發（聯合開發）；2026-07-21獲選最優申請人，2026-08-06董事會通過與台北市政府捷運工程局簽訂投資契約，預計投入15億3,287萬元",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "宏盛:公告本公司參與「臺北都會區大眾捷運系統環狀線北環段Y21站(捷2) 土地開發案」獲選為最優申請人",
+     "url": "https://news.cnyes.com/news/id/6541710",
+     "date": "2026-07-21"
+    },
+    {
+     "title": "宏盛:本公司擬簽訂「新北環狀線北環段Y21站土地開發案」投資契約",
+     "url": "https://news.cnyes.com/news/id/6562971",
+     "date": "2026-08-06"
+    }
+   ]
+  },
+  {
+   "developer": "華固建設",
+   "county": "F",
+   "district": "新莊區",
+   "location": "環漢段土地（新莊塭仔圳重劃區，建國一路上）",
+   "date": "2026-09-01",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 1089,
+   "amount_wan": 115000,
+   "plan": "興建房屋及車位出售或出租；初步規劃約24至25樓住宅大樓，總銷估約50億元，預計2027年底配地、最快2028年開發",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "【公告】華固取得新北市新莊區土地（公開資訊觀測站轉載）",
+     "url": "https://tw.stock.yahoo.com/news/%E5%85%AC%E5%91%8A-%E8%8F%AF%E5%9B%BA%E5%8F%96%E5%BE%97%E6%96%B0%E5%8C%97%E5%B8%82%E6%96%B0%E8%8E%8A%E5%8D%80%E5%9C%9F%E5%9C%B0-063603926.html",
+     "date": "2026-09-01"
+    },
+    {
+     "title": "華固又獵地！砸11.5億元買塭仔圳千坪土地、最快2028年開發",
+     "url": "https://money.udn.com/money/story/5621/9727762",
+     "date": "2026-09-01"
+    }
+   ]
+  },
+  {
+   "developer": "大陸建設（欣陸投控旗下）",
+   "county": "F",
+   "district": "板橋區",
+   "location": "新雅段1218地號等3筆土地",
+   "date": "2026-09-16",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 924,
+   "amount_wan": 220800,
+   "plan": "住宅區，未來將興建住宅大樓，尚未啟動規劃，最快2028年以後推案；每坪約238.9萬元",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "大陸建設砸22億買板橋逾900坪土地 預計2028年後推案",
+     "url": "https://udn.com/news/story/7241/9758954",
+     "date": "2026-09-16"
+    }
+   ]
+  },
+  {
+   "developer": "國泰建設",
+   "county": "F",
+   "district": "泰山區",
+   "location": "貴仁段建地（泰山塭仔圳重劃區）",
+   "date": "2026-10-22",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 1118,
+   "amount_wan": 122995,
+   "plan": "興建住宅大樓出售；每坪約 110 萬元，國建稱預計最快 2027 年配地（聯合報），產品規劃與總銷未定",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "【公告】國建取得新北市泰山區貴仁段營建用地（公開資訊觀測站轉載）",
+     "url": "https://tw.stock.yahoo.com/news/%E5%85%AC%E5%91%8A-%E5%9C%8B%E5%BB%BA%E5%8F%96%E5%BE%97%E6%96%B0%E5%8C%97%E5%B8%82%E6%B3%B0%E5%B1%B1%E5%8D%80%E8%B2%B4%E4%BB%81%E6%AE%B5%E7%87%9F%E5%BB%BA%E7%94%A8%E5%9C%B0-092521377.html",
+     "date": "2026-10-22"
+    },
+    {
+     "title": "國建砸12.3億買塭仔圳千坪土地 每坪單價約110萬元",
+     "url": "https://udn.com/news/story/7241/9831879",
+     "date": "2026-10-22"
+    },
+    {
+     "title": "國泰建設斥資12.3億加碼搶進泰山塭仔圳千坪土地 估明年底重劃交地",
+     "url": "https://www.ctee.com.tw/news/20261022702328-430606",
+     "date": "2026-10-22"
+    }
+   ]
+  },
+  {
+   "developer": "愛山林建設",
+   "county": "F",
+   "district": "新店區",
+   "location": "中華路與三民路口公辦都更案（案名「新店曦」，裕隆城旁）",
+   "date": "2026-10-28",
+   "deal": "都更",
+   "status": "取得土地",
+   "area_ping": 2408,
+   "amount_wan": 660000,
+   "plan": "規劃兩棟住宅大樓及一棟法院大樓；新北市住都中心主導，二度招商後於2026-10-28完成出資人綜合評選獲選最優申請人（尚待簽約）",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "新店裕隆城旁2千坪都更案有進展！愛山林擬投66億元",
+     "url": "https://udn.com/news/story/7241/9846563",
+     "date": "2026-10-30"
+    }
+   ]
+  },
+  {
+   "developer": "愛山林建設",
+   "county": "C",
+   "district": "七堵區",
+   "location": "德新村（一德新村）都市更新案，七堵明德一路，鄰台鐵七堵站及規劃中基隆捷運七堵站",
+   "date": "2026-07-29",
+   "deal": "都更",
+   "status": "取得土地",
+   "area_ping": 4260,
+   "amount_wan": 548800,
+   "plan": "產業園區與住宅（另一報導寫辦公大樓、商場與住宅）；愛山林持股51%、約27.99億元；交易相對人為臺灣港務公司、國營臺灣鐵路、台灣菸酒及基隆市政府；簽約後需提都市更新計畫送市都委會審議",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "愛山林拿逾4,000坪「基隆七堵德新村都更案」 總金額54.8億元",
+     "url": "https://udn.com/news/story/7241/9658852",
+     "date": "2026-07-29"
+    },
+    {
+     "title": "基隆一德新村都更案招商完成 基隆捷運站旁首件都更案",
+     "url": "https://ec.ltn.com.tw/article/breakingnews/5522950",
+     "date": "2026-07-30"
+    }
+   ]
+  },
+  {
+   "developer": "櫻花建設",
+   "county": "H",
+   "district": "中壢區",
+   "location": "中壢區中運段347地號等2筆土地（中壢體育園區／運動公園一帶）",
+   "date": "2026-04-17",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 1280,
+   "amount_wan": 117581,
+   "plan": "取得營建用地後興建房屋出售",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "櫻花建取得桃園市中壢區中運段2筆土地，合計約11.76億元（重訊轉載）",
+     "url": "https://tw.stock.yahoo.com/news/%E6%AB%BB%E8%8A%B1%E5%BB%BA%E5%8F%96%E5%BE%97%E6%A1%83%E5%9C%92%E5%B8%82%E4%B8%AD%E5%A3%A2%E5%8D%80%E4%B8%AD%E9%81%8B%E6%AE%B52%E7%AD%86%E5%9C%9F%E5%9C%B0-%E5%90%88%E8%A8%88%E7%B4%8411-76%E5%84%84%E5%85%83-012000710.html",
+     "date": "2026-04-19"
+    },
+    {
+     "title": "建商搶精華地 新北台中新竹同步創區域新高",
+     "url": "https://news.housefun.com.tw/news/article/158255486602.html",
+     "date": "2026-07-06"
+    }
+   ]
+  },
+  {
+   "developer": "宏匯光合聯盟（宏匯、群光電能科技、甲山林建設）",
+   "county": "H",
+   "district": "蘆竹區",
+   "location": "機場捷運A10山鼻站車站專用區（山鼻重劃區）",
+   "date": "2026-09-09",
+   "deal": "其他",
+   "status": "規劃中",
+   "area_ping": 1513,
+   "amount_wan": null,
+   "plan": "捷運土地開發：商場與住宅複合式大樓（媒體寫地上11或12層、地下4層），含捷運轉乘設施與綠色運具充電設備；預估開發金額近30億元；桃園首件捷運土地開發案，2026-09-09簽約",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "「宏匯光合聯盟」拿下 A10山鼻站案 桃園首件捷運土地開發案完成簽約",
+     "url": "https://money.udn.com/money/story/5930/9744823",
+     "date": "2026-09-09"
+    },
+    {
+     "title": "桃園首件捷開案告捷！宏匯、群光、甲山林組聯盟拿下A10開發案",
+     "url": "https://estate.ltn.com.tw/article/28811",
+     "date": "2026-09-09"
+    },
+    {
+     "title": "桃園捷運帶動沿線開發 A10、G15a引進逾14億民間投資",
+     "url": "https://www.ctee.com.tw/news/20260826700978-431401",
+     "date": "2026-08-26"
+    }
+   ]
+  },
+  {
+   "developer": "春福建設",
+   "county": "H",
+   "district": "桃園區",
+   "location": "正光花園新城（海砂屋社區，鄰正光路警察宿舍公辦都更案）",
+   "date": "2026-03-31",
+   "deal": "都更",
+   "status": "規劃中",
+   "area_ping": 2382,
+   "amount_wan": null,
+   "plan": "公辦都更（住都中心協助推進、春福為出資人），原 195 戶更新為 564 戶，3 棟地上 24 層／地下 4 層，投入約 58.87 億元，更新後總價值估 96.83 億元；預計 2028 年動工、2033 年完工（聯合報）",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "桃園海砂屋30年重生！正光花園新城公辦都更啟動",
+     "url": "https://www.chinatimes.com/realtimenews/20260331004621-260405",
+     "date": "2026-04-01"
+    },
+    {
+     "title": "桃園「正光花園新城」195戶海砂屋 都更確定了",
+     "url": "https://udn.com/news/story/7324/9415154",
+     "date": "2026-04-01"
+    }
+   ]
+  }
+ ]
 }
