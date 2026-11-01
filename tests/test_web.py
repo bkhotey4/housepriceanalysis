@@ -680,6 +680,10 @@ def _make_tw_fixture(root):
                    "date": "2026-06-30", "deal": "購地", "status": "取得土地", "area_ping": 1200, "amount_wan": 180000, "plan": "規劃住宅大樓",
                    "lat": None, "lng": None, "confidence": "高", "sources": [{"title": "測試建設重大訊息", "url": "https://mops.twse.com.tw/", "date": "2026-06-30"}]}]},
                   f, ensure_ascii=False)
+    with open(os.path.join(web, "data", "openings.json"), "w", encoding="utf-8") as f:
+        json.dump({"as_of": "2026-11-01", "items": [{"name": "測試壽司 大安店", "brand": "測試壽司", "category": "餐飲", "county": "A", "district": "大安區",
+                   "location": "信義路三段", "stage": "徵才中", "expected": "2026-12", "updated": "2026-11-01", "lat": None, "lng": None, "confidence": "中",
+                   "sources": [{"title": "測試壽司徵才", "url": "https://example.com/job", "date": "2026-10-30"}]}]}, f, ensure_ascii=False)
     line = [25.0335, 121.5300, 25.0337, 121.5400, 25.0339, 121.5500]
     export_tw._dump("A/roads/大安區.json", {"roads": {"信義路三段": [line]}, "places": {}, "fetched": "2026-10-02"})
     # 全台首頁的統計：原本的臺南市＋假的臺北市
@@ -868,6 +872,26 @@ class TaiwanWebTest(unittest.TestCase):
         self.assertIn("龍泉段", body); self.assertIn("同段 3 筆", body); self.assertIn("測試建設", body)
         pg.evaluate("__app.selectDistrict('中正區')"); pg.evaluate("__app.openTab('land')"); pg.wait_for_timeout(200)
         self.assertNotIn("測試建設", pg.inner_text("#tab-body"))
+        self.assertEqual(errors, [])
+
+    def test_openings_in_projects_tab(self):
+        """建設分頁下方列出即將開幕的店，依縣市、區篩選。"""
+        ctx = self.browser.new_context(viewport={"width": 1280, "height": 900})
+        ctx.route("https://wmts.nlsc.gov.tw/**", lambda r: r.abort())
+        self.addCleanup(ctx.close)
+        pg = ctx.new_page()
+        errors = []
+        pg.on("pageerror", lambda e: errors.append(str(e)))
+        pg.goto(self.url)
+        pg.wait_for_function("window.__app && __app.D.tw")
+        pg.evaluate("__app.openTab('projects')"); pg.wait_for_timeout(200)
+        body = pg.inner_text("#tab-body")
+        self.assertIn("即將開幕的店", body); self.assertIn("測試壽司 大安店", body); self.assertIn("台北市", body)
+        pg.evaluate("__app.enterCounty('A')"); pg.wait_for_function("__app.D.county")
+        pg.evaluate("__app.selectDistrict('大安區')"); pg.evaluate("__app.openTab('projects')"); pg.wait_for_timeout(200)
+        self.assertIn("測試壽司 大安店", pg.inner_text("#tab-body"))
+        pg.evaluate("__app.selectDistrict('中正區')"); pg.evaluate("__app.openTab('projects')"); pg.wait_for_timeout(200)
+        self.assertNotIn("測試壽司", pg.inner_text("#tab-body"))
         self.assertEqual(errors, [])
 
     def test_long_trend(self):

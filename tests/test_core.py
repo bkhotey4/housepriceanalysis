@@ -440,6 +440,22 @@ class GeoTest(unittest.TestCase):
         bad = copy.deepcopy(mrt); del bad["lines"][1]["short"]
         self.assertTrue(datacheck.check_mrt(bad))
 
+    def test_openings_check(self):
+        """即將開幕的店：階段、類別、日期、座標、來源都要合規。"""
+        import copy
+        good = {"as_of": "2026-11-01", "items": [{"name": "壽司郎 南科店", "brand": "壽司郎", "category": "餐飲", "county": "D",
+                 "district": "善化區", "location": "南科", "stage": "已確認", "expected": "2026-12", "updated": "2026-11-01",
+                 "permit": {"no": "(115)南工造字第00001號", "date": "2026-09-01", "owner": "測試股份有限公司", "use": "B3餐飲業"},
+                 "lat": 23.10, "lng": 120.27, "confidence": "中", "sources": [{"title": "新聞", "url": "https://example.com/a", "date": "2026-10-30"}]}]}
+        self.assertEqual(datacheck.check_openings(good), [])
+        for k, v in (("stage", "快開了"), ("category", "壽司"), ("county", "ZZ"), ("expected", "明年"), ("updated", ""),
+                     ("lat", 25.03), ("permit", {"no": ""}), ("confidence", "很高"), ("sources", [])):
+            bad = copy.deepcopy(good); bad["items"][0][k] = v
+            self.assertTrue(datacheck.check_openings(bad), k)
+        bad = copy.deepcopy(good); bad["items"].append(copy.deepcopy(good["items"][0]))
+        self.assertTrue(datacheck.check_openings(bad))             # 重複
+        self.assertEqual(datacheck.check_openings({"as_of": None, "items": []}), [])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -1186,11 +1186,34 @@ function tabProjects() {
   const yMin = new Date().getFullYear();
   let h = `<div class="year"><span>建設年份</span><input type="range" id="year" min="${yMin}" max="${yMin + 9}" value="${S.year}"><b id="year-v">${S.year} 年</b></div>`;
   h += `<p class="muted">拉到未來的年份，看那時候哪些建設完工。年份依報導與官方說法整理，常會延後。</p>`;
-  if (!items.length) return h + `<p class="empty">這一區沒有收錄有時程的重大建設。</p>`;
+  if (!items.length) return h + `<p class="empty">這一區沒有收錄有時程的重大建設。</p>` + openingsSection();
   const rows = items.map(it => ({ it, st: L.buildState(it.build, S.year, D.intelYear) })).sort((a, b) => (b.it.impact_level || 0) - (a.it.impact_level || 0));
   h += `<table class="list"><tbody>`;
   for (const { it, st } of rows) h += `<tr class="click" data-proj="${it.id}"><td><span class="pill ${stateClass(st)}">${st}</span>${esc(it.name)}<div class="muted">${esc(it.district || "")}｜${esc(it.build.note || "")}</div></td></tr>`;
-  return h + "</tbody></table>";
+  return h + "</tbody></table>" + openingsSection();
+}
+// 即將開幕的店（data/openings.json）：連鎖餐飲、量販、商場等，依目前範圍（全台／縣市／區）篩選；已開幕的只留最近半年
+const OPEN_ORDER = ["已開幕", "施工中", "徵才中", "已取得建照", "申請建照", "已確認", "傳聞", "取消"];
+function openingsSection() {
+  const all = (D.openings && D.openings.items) || [], code = D.county ? D.county.code : (D.tw ? null : "D");
+  const recent = new Date(Date.now() - 183 * 864e5).toISOString().slice(0, 10);
+  const items = all.filter(it => (!code || it.county === code) && (!code || S.current === L.CITY || (it.district || "").includes(S.current)) &&
+      (it.stage !== "已開幕" || String(it.expected || it.updated) >= recent))
+    .sort((a, b) => OPEN_ORDER.indexOf(a.stage) - OPEN_ORDER.indexOf(b.stage) || String(a.expected || "9").localeCompare(String(b.expected || "9")));
+  let h = `<h3>即將開幕的店</h3>`;
+  if (!items.length) return h + `<p class="empty">${all.length ? "這個範圍目前沒有收錄即將開幕的連鎖店或商場。" : "即將開幕的店還在整理中（每週更新時從新聞、品牌公告、徵才資訊與建照資料補進來）。"}</p>`;
+  h += `<table class="list"><tbody>`;
+  for (const it of items.slice(0, 60)) {
+    const src = (it.sources || [])[0], pm = it.permit;
+    const st = it.stage === "已開幕" ? "done" : it.stage === "取消" ? "" : ["施工中", "徵才中", "已取得建照"].includes(it.stage) ? "build" : "plan";
+    const sub = [D.county ? "" : (L.COUNTIES.find(c => c.code === it.county) || {}).short, it.district, it.location, it.expected ? `預計 ${it.expected}` : "",
+      pm ? `建照 ${pm.date}${pm.use ? "（" + pm.use + "）" : ""}` : "", it.confidence ? `可信度 ${it.confidence}` : ""].filter(Boolean).join("｜");
+    h += `<tr><td><span class="pill ${st}">${esc(it.stage)}</span>${esc(it.name)}<div class="muted">${esc(sub)}` +
+      `${src ? `｜<a href="${esc(src.url)}" target="_blank" rel="noopener">${esc(String(src.title).slice(0, 18))}</a>` : ""}</div>` +
+      `${it.note ? `<div class="muted">${esc(it.note)}</div>` : ""}</td></tr>`;
+  }
+  h += `</tbody></table>`;
+  return h + `<p class="muted">${D.openings.as_of ? `整理到 ${esc(D.openings.as_of)}。` : ""}整理自新聞、品牌公告、徵才資訊與建照開放資料；「傳聞」是還沒有官方或品牌證實的消息，開幕時間常延後或取消。</p>`;
 }
 function writeIntel(it) {
   let h = `<h2 style="margin-top:2px">${esc(it.name)}</h2><p class="muted">${esc([it.type, it.district, it.impact_level ? "影響度 " + it.impact_level + "/5" : "", it.confidence ? "可信度 " + it.confidence : ""].filter(Boolean).join("｜"))}</p>`;
@@ -1846,12 +1869,13 @@ export async function main() {
   }
   let twErr = null;
   const tw = params.get("tw") === "0" ? null : await getJSON("data/tw/index.json").catch(e => { if (e.network || (e.status && e.status !== 404)) twErr = e; return null; });    // ?tw=0：強制台南版（測試用）
-  const shared = ["intel", "mrt", "landmarks", "models", "workplaces", "schools", "loan", "landbank"];
+  const shared = ["intel", "mrt", "landmarks", "models", "workplaces", "schools", "loan", "landbank", "openings"];
   // 這幾份輔助資料任何一份載不到都不要讓整個網站停住：用空的資料繼續
-  const empty = { intel: { items: [] }, mrt: { lines: [] }, landmarks: [], models: null, workplaces: { places: [] }, schools: [], loan: null, landbank: { items: [] } };
-  const [intel, mrt, landmarks, models, workplaces, schools, loan, landbank] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`).catch(e => { logError("載入 " + n, e, true); return empty[n]; })));
+  const empty = { intel: { items: [] }, mrt: { lines: [] }, landmarks: [], models: null, workplaces: { places: [] }, schools: [], loan: null, landbank: { items: [] }, openings: { items: [] } };
+  const [intel, mrt, landmarks, models, workplaces, schools, loan, landbank, openings] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`).catch(e => { logError("載入 " + n, e, true); return empty[n]; })));
   L.setLoanTerms(loan);      // 房貸利率、新青安條件（data/loan.json）
   D.landbank = landbank || { items: [] };     // 建商購地紀錄
+  D.openings = openings || { items: [] };     // 即將開幕的店
   if (twErr) setTimeout(() => toast("全台資料載入失敗（網路不穩？），先顯示臺南市；重新整理可以再試一次。", 8000), 500);
   Object.assign(D, { intel: intel.items || [], mrt, landmarks: landmarks || [], workplaces, schools: schools || [], roadCatalog: [],
     intelAsOf: intel.as_of || "", intelYear: +(intel.as_of || "").slice(0, 4) || null });
