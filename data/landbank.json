@@ -419,6 +419,244 @@
      "date": "2026-04-01"
     }
    ]
+  },
+  {
+   "developer": "新春建設（春福機構）",
+   "county": "D",
+   "district": "中西區",
+   "location": "中國城暨運河星鑽區段徵收區 星鑽段 2425 地號（觀特一）",
+   "date": "2026-09-30",
+   "deal": "標售得標",
+   "status": "取得土地",
+   "area_ping": 1627.98,
+   "amount_wan": 133000,
+   "plan": "",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "春福、三發都出手！星鑽段吸金39億全脫標、永康經貿地全軍覆沒（富比士地產王）",
+     "url": "https://www.fbs168.com/news/11189-chunfu-sanfa-bid-win-tainan-xingzuan-land-auction",
+     "date": "2026-09-30"
+    },
+    {
+     "title": "台南「蛋黃區」土地搶手 中國城運河星鑽2筆脫標進帳39.14億（聯合報）",
+     "url": "https://udn.com/news/story/7241/9790592",
+     "date": "2026-10-02"
+    },
+    {
+     "title": "臺南市政府115年度第3次區段徵收剩餘可建築土地標售順利完成（臺南市政府地政局）",
+     "url": "https://land.tainan.gov.tw/News_Content.aspx?n=29646&s=8839291",
+     "date": "2026-09-30"
+    }
+   ]
+  },
+  {
+   "developer": "桂田集團",
+   "county": "D",
+   "district": "安南區",
+   "location": "北安商業區（商60）重劃區 大慶路",
+   "date": "2026-07-28",
+   "deal": "標售得標",
+   "status": "取得土地",
+   "area_ping": 733.07,
+   "amount_wan": 47015.3,
+   "plan": "商業區；董事長稱尚無明確規劃，看好南科效應先購地",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "南市府標售廢標率爆表 桂田逆勢僅加價1.9萬元卡商60逾700坪土地（壹蘋新聞網）",
+     "url": "https://news.nextapple.com/property/20260728/6720AC5B96CCC81DCC4AADB1FC532278",
+     "date": "2026-07-28"
+    },
+    {
+     "title": "台南土地「標脫率僅18%」 桂田4.7億獵地、奇美醫療出包失手（ETtoday）",
+     "url": "https://house.ettoday.net/news/3209004",
+     "date": "2026-07-28"
+    }
+   ]
+  },
+  {
+   "developer": "國泰建設",
+   "county": "D",
+   "district": "北區",
+   "location": "鄭子寮重劃區 和緯路三段與文賢一路口",
+   "date": "2026-01-09",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 731.53,
+   "amount_wan": 70226.8,
+   "plan": "公告為營建用地，開發規劃尚未確定",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "國建砸7.02億元 買下台南市北區731坪土地（經濟日報）",
+     "url": "https://money.udn.com/money/story/5621/9255763",
+     "date": "2026-01-09"
+    },
+    {
+     "title": "國泰台南案不到2個半月賣65% 再加碼鄭子寮買7億土地（壹蘋新聞網）",
+     "url": "https://news.nextapple.com/property/20260112/189942DDB1E0780957834CB9E04A9FD9",
+     "date": "2026-01-12"
+    }
+   ]
+  },
+  {
+   "developer": "皇龍",
+   "county": "D",
+   "district": "永康區",
+   "location": "永興段 440-1 地號",
+   "date": "2026-04-13",
+   "deal": "購地",
+   "status": "已取得建照",
+   "area_ping": 1471.89,
+   "amount_wan": 76832.65,
+   "plan": "向關係人皇龍建設取得土地及建物建照（建照等相關成本約 2,782.5 萬元另計，整體上限 8.73 億元）；公司稱瞄準小坪數、低總價首購產品",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "【公告】皇龍董事會決議擬取得台南市永康區永興段440-1地號土地及建物建照等相關成本。（公開資訊觀測站，Yahoo 股市轉載）",
+     "url": "https://tw.stock.yahoo.com/news/公告-皇龍董事會決議擬取得台南市永康區永興段440-1地號土地及建物建照等相關成本-025004525.html",
+     "date": "2026-04-13"
+    },
+    {
+     "title": "皇龍斥資7.68億元 買台南永康區1,471坪土地（聯合報）",
+     "url": "https://udn.com/news/story/7241/9439087",
+     "date": "2026-04-13"
+    }
+   ]
+  },
+  {
+   "developer": "皇龍開發",
+   "county": "D",
+   "district": "安南區",
+   "location": "九份子重劃區 生態街與宜居二路口（住6）",
+   "date": "2026-06",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 1266.93,
+   "amount_wan": 66513.8,
+   "plan": "總價含建照與容積移轉；業者估房價 4～5 字頭",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "皇龍6.65億卡九份子生態河首排 景觀宅房價估坐穩4字頭（壹蘋新聞網）",
+     "url": "https://news.nextapple.com/property/20260624/60F82FFA1630FBD2E6AD97B9303DDE8B",
+     "date": "2026-06-24"
+    }
+   ]
+  },
+  {
+   "developer": "府都建設",
+   "county": "D",
+   "district": "安平區",
+   "location": "安北路與世平路口（海興段 16 地號，正對世平公園）",
+   "date": "2026-01",
+   "deal": "購地",
+   "status": "規劃中",
+   "area_ping": 1785.36,
+   "amount_wan": 74092.2,
+   "plan": "府都稱基地仍在整體規劃階段，短期尚無開發計畫",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "安平老街旁大基地易主 「豪宅一哥」7.4億買1785坪創總價紀錄（ETtoday）",
+     "url": "https://house.ettoday.net/news/3206436",
+     "date": "2026-07-23"
+    }
+   ]
+  },
+  {
+   "developer": "佳順建設（寶佳體系）",
+   "county": "D",
+   "district": "歸仁區",
+   "location": "高鐵特區 高發三路二段與歸仁七路口（武東段）",
+   "date": "2025-11",
+   "deal": "購地",
+   "status": "申請建照",
+   "area_ping": 649,
+   "amount_wan": 34401.7,
+   "plan": "地上 13 層、地下 2 層店舖及集合住宅（「歸仁區武東段新建工程」2026-05 經市都委會修正通過）",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "寶佳子弟兵3.44億卡位台南高鐵特區 開發案火速送審（ETtoday）",
+     "url": "https://house.ettoday.net/news/3198287",
+     "date": "2026-07-09"
+    }
+   ]
+  },
+  {
+   "developer": "國泰人壽",
+   "county": "D",
+   "district": "新市區",
+   "location": "大營段 15 筆土地（地號 1335～1528-2）",
+   "date": "2025-11-13",
+   "deal": "購地",
+   "status": "規劃中",
+   "area_ping": 20686.16,
+   "amount_wan": 455095.52,
+   "plan": "倉儲物流中心與廠辦出租，預計 2030 年完工",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "國壽砸45億台南獵地 打造倉儲廠辦估2030年完工（中央社）",
+     "url": "https://www.cna.com.tw/news/afe/202511130408.aspx",
+     "date": "2025-11-13"
+    },
+    {
+     "title": "全台最大包租公出手！國壽砸45.5億買台南土地 投報率可望超過3％（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20251114700177-439901",
+     "date": "2025-11-14"
+    }
+   ]
+  },
+  {
+   "developer": "台灣金聯資產管理",
+   "county": "D",
+   "district": "永康區",
+   "location": "鹽行國中區段徵收區 平道段 平道路與平道二路口",
+   "date": "2026-10-06",
+   "deal": "標售得標",
+   "status": "取得土地",
+   "area_ping": 509.25,
+   "amount_wan": 22912.16,
+   "plan": "",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "台南標售爆冷28標竟無建商投標（壹蘋新聞網）",
+     "url": "https://news.nextapple.com/property/20261006/504F4B9A52852DC745AF2A84D7B7734D",
+     "date": "2026-10-06"
+    },
+    {
+     "title": "台南土地標售 奇美醫療砸3.94億買地（工商時報，Yahoo 轉載）",
+     "url": "https://tw.stock.yahoo.com/news/台南土地標售-奇美醫療砸3-94億買地-070543561.html",
+     "date": "2026-10-06"
+    },
+    {
+     "title": "115年第3次市地重劃區抵費地暨第4次標售區段徵收剩餘可建築用地聯合標售順利完成開標（臺南市政府地政局）",
+     "url": "https://land.tainan.gov.tw/News_Content.aspx?n=29646&sms=22480&s=8840262",
+     "date": "2026-10-06"
+    }
+   ]
   }
  ]
 }

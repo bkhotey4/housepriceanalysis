@@ -1,5 +1,331 @@
 {
- "as_of": null,
+ "as_of": "2026-11-01",
  "note": "即將開幕的連鎖店與大型商場：每週雲端排程從新聞、品牌公告、徵才資訊與建照開放資料整理。只是公開線索，開幕時間常延後或取消。",
- "items": []
+ "items": [
+  {
+   "name": "IKEA 台南店",
+   "brand": "IKEA",
+   "category": "超市量販",
+   "county": "D",
+   "district": "東區",
+   "location": "南紡購物中心 A2 館 B1（中華東路一段 366 號）",
+   "stage": "已確認",
+   "expected": "2026-11",
+   "updated": "2026-11-01",
+   "lat": 22.991,
+   "lng": 120.233,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "IKEA終於登陸台南！宣布進駐南紡購物中心徵才中（ETtoday）",
+     "url": "https://fashion.ettoday.net/news/3184252",
+     "date": "2026-06-16"
+    },
+    {
+     "title": "IKEA台南店11月開幕 400坪店面「太小了」在地人喊話市府（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260616701776-431401",
+     "date": "2026-06-16"
+    },
+    {
+     "title": "【南紡法說會重點內容備忘錄】未來展望趨勢 20261027（Fugle 富果）",
+     "url": "https://blog.fugle.tw/post/earnings-call-1440-2026-10-27",
+     "date": "2026-10-27"
+    }
+   ],
+   "note": "IKEA 2026-06-16 官方宣布進駐並徵才，未公布開幕日；「11 月底、約 400 坪」為媒體說法，南紡 10-27 法說稱 2026 年底前開幕"
+  },
+  {
+   "name": "煙波生活 台南車站商場",
+   "brand": "煙波國際觀光集團",
+   "category": "百貨商場",
+   "county": "D",
+   "district": "東區",
+   "location": "臺鐵新臺南車站地下層（B1 商場）",
+   "stage": "已開幕",
+   "expected": "2026-10-17",
+   "updated": "2026-11-01",
+   "lat": 22.9972,
+   "lng": 120.213,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "新台南車站10／17通車！商店街進駐20大品牌搶先曝光（中時）",
+     "url": "https://www.chinatimes.com/realtimenews/20261016002208-260405",
+     "date": "2026-10-16"
+    },
+    {
+     "title": "煙波集團跨足商場經營！台南車站B1試營運 年底前拚20品牌進駐（MKnews）",
+     "url": "https://mknews.com.tw/2026/10/1006649/",
+     "date": "2026-10-19"
+    }
+   ],
+   "note": "10-17 與鐵路地下化通車同日試營運，首波 7-ELEVEN、康是美、Mister Donut、爭鮮 gogo、大苑子、蔚旭 WESH、eminent、台鐵便當；目標 2026 年底前 20 品牌"
+  },
+  {
+   "name": "大苑子 台南車站1936店",
+   "brand": "大苑子",
+   "category": "餐飲",
+   "county": "D",
+   "district": "東區",
+   "location": "臺鐵新臺南車站 B2 近 2 號出口",
+   "stage": "已開幕",
+   "expected": "2026-10-17",
+   "updated": "2026-11-01",
+   "lat": 22.9972,
+   "lng": 120.213,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "鐵道迷必搶！台南鐵路地下化10/17通車 大苑子「1936店」南車開幕優惠（聯合報）",
+     "url": "https://travel.udn.com/travel/story/7208/9817099",
+     "date": "2026-10-16"
+    }
+   ]
+  },
+  {
+   "name": "壽司郎 新光三越台南新天地店",
+   "brand": "壽司郎",
+   "category": "餐飲",
+   "county": "D",
+   "district": "中西區",
+   "location": "新光三越台南新天地（西門路一段 658 號），約 130 坪、228 席",
+   "stage": "已開幕",
+   "expected": "2026-08-07",
+   "updated": "2026-11-01",
+   "lat": 22.9869,
+   "lng": 120.1977,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "壽司郎「DIGIRO 數位迴轉壽司」插旗台南打造數位用餐新體驗（NOWnews）",
+     "url": "https://www.nownews.com/news/6863729",
+     "date": "2026-08-06"
+    }
+   ],
+   "note": "南台灣首間 DIGIRO 數位店，8-07 試營運"
+  },
+  {
+   "name": "台南希爾頓世家酒店 Signia by Hilton Tainan",
+   "brand": "Hilton（Signia）／福泰飯店集團",
+   "category": "其他",
+   "county": "D",
+   "district": "中西區",
+   "location": "西門路一段 660 號（原大億麗緻酒店舊址）",
+   "stage": "徵才中",
+   "expected": "2027",
+   "updated": "2026-11-01",
+   "lat": 22.987,
+   "lng": 120.198,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "台南希爾頓世家酒店明年開幕 10/29首場招募開出逾40職缺（ETtoday）",
+     "url": "https://travel.ettoday.net/article/3257937.htm",
+     "date": "2026-10-20"
+    },
+    {
+     "title": "雙引擎點火 33家星級酒店全面卡位（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260728700190-430503",
+     "date": "2026-07-28"
+    }
+   ],
+   "note": "344 間客房；業者 10-20 稱預計 2027 年第 1 季末開幕（先前報導曾稱 2026-11、2027-01，多次延後）；10-29 台南首場招募"
+  },
+  {
+   "name": "藏壽司 善化店（南科）",
+   "brand": "藏壽司",
+   "category": "餐飲",
+   "county": "D",
+   "district": "善化區",
+   "location": "西拉雅大道與台 19 線路口，基地約 640 坪",
+   "stage": "已取得建照",
+   "expected": "",
+   "updated": "2026-11-01",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "南科首間藏壽司來了！ 西拉雅大道640坪基地曝光（ETtoday）",
+     "url": "https://house.ettoday.net/news/3113741",
+     "date": "2026-02-05"
+    }
+   ],
+   "note": "建照起造人亞洲藏壽司，地上 1 層 2 棟鋼骨、樓地板約 170 坪（媒體報導，非建照開放資料）；截至 2026-11-01 未見動工、徵才或開幕消息"
+  },
+  {
+   "name": "好市多 台南二店",
+   "brand": "好市多",
+   "category": "超市量販",
+   "county": "D",
+   "district": "東區",
+   "location": "南台南站副都心 生產路與崇聖路口（商四用地）",
+   "stage": "已確認",
+   "expected": "2028",
+   "updated": "2026-11-01",
+   "lat": 22.967,
+   "lng": 120.231,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "台南好市多二店要來了！力拚今年7月送都審、117年夏天開幕（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260629701378-431401",
+     "date": "2026-06-29"
+    },
+    {
+     "title": "南鐵地下化10／17通車 南台南副都心匯聚南鐵綠園道＋公辦都更利多（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20261019700664-431206",
+     "date": "2026-10-19"
+    }
+   ],
+   "note": "2026-03-31 簽約；規劃汽車 1,006 席、機車 434 席、南台灣首座好市多加油站；2026-07 送都審、目標年底取得建照、2028 年夏開幕；尚未動工"
+  },
+  {
+   "name": "萬家福（原家樂福）台南崇明店複合商場",
+   "brand": "萬家福（統一集團）",
+   "category": "超市量販",
+   "county": "D",
+   "district": "東區",
+   "location": "生產路與崇德路口（新都心段），基地約 4,000 坪",
+   "stage": "施工中",
+   "expected": "2028",
+   "updated": "2026-11-01",
+   "lat": 22.969,
+   "lng": 120.222,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "統一併家樂福後 首開新店（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260423700125-430503",
+     "date": "2026-04-23"
+    },
+    {
+     "title": "南鐵地下化10／17通車 南台南副都心匯聚南鐵綠園道＋公辦都更利多（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20261019700664-431206",
+     "date": "2026-10-19"
+    }
+   ],
+   "note": "2026-04-22 動土；地上 5 層地下 2 層、樓地板近 2 萬坪，量販為核心"
+  },
+  {
+   "name": "台茂 台南站前複合商場（新光三越中山店原址）",
+   "brand": "台茂購物中心",
+   "category": "百貨商場",
+   "county": "D",
+   "district": "中西區",
+   "location": "中山路 162 號原新光三越台南中山店大樓",
+   "stage": "傳聞",
+   "expected": "",
+   "updated": "2026-11-01",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "「台灣知名百貨公司」分店爆熄燈！經營30年傳台茂接手、改建商場飯店，官方最新回應曝（風傳媒）",
+     "url": "https://www.storm.mg/article/11144270",
+     "date": "2026-06-25"
+    },
+    {
+     "title": "昔台南「地王」殞落！新光三越中山店10/31熄燈，為何新天地、小北門業績火熱，它卻退場？（數位時代）",
+     "url": "https://www.bnext.com.tw/article/92722/shin-kong-mitsukoshi-tainan-zhongshan-closure",
+     "date": "2026-10-20"
+    }
+   ],
+   "note": "新光三越中山店 2026-10-31 結束營業；地主樂富一號 REIT 規劃 B2～8F 由台茂經營複合商場、9～13F 國際連鎖飯店，正式名稱、品牌與時程均未公布，10 月報導仍寫「研擬」"
+  },
+  {
+   "name": "萬楓酒店 台南南科（Fairfield by Marriott）",
+   "brand": "Marriott Fairfield",
+   "category": "其他",
+   "county": "D",
+   "district": "善化區",
+   "location": "善化南科園區旁",
+   "stage": "施工中",
+   "expected": "2028",
+   "updated": "2026-11-01",
+   "lat": 23.118,
+   "lng": 120.29,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "台南商場、飯店2026年接力開幕 專家看好正面帶動房市（經濟日報）",
+     "url": "https://money.udn.com/money/story/5930/9178641",
+     "date": "2025-12-03"
+    }
+   ],
+   "note": "2025 年底前已動土，經濟日報 2025-12-03 稱預計 2028 年完工營運；另有公告稱 2029 年"
+  },
+  {
+   "name": "成大醫院老人醫院",
+   "brand": "成大醫院",
+   "category": "醫療",
+   "county": "D",
+   "district": "北區",
+   "location": "北區東興段",
+   "stage": "施工中",
+   "expected": "2027-08",
+   "updated": "2026-11-01",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "臺南市籌設醫院興建進度一覽表（臺南市政府衛生局，更新 2026-06）",
+     "url": "https://health.tainan.gov.tw/warehouse/BD18FBEC-A457-49AE-8502-672EF1BFD6BE/F_1780975147238e.pdf",
+     "date": "2026-06"
+    }
+   ],
+   "note": "衛福部 2021-12-15 許可設立，興建中；急性一般病床 270 床、精神急性 30 床；預計 2027 年 8 月啟用（衛生局進度表 2026-06）"
+  },
+  {
+   "name": "南科奇美醫院",
+   "brand": "奇美醫療財團法人",
+   "category": "醫療",
+   "county": "D",
+   "district": "新市區",
+   "location": "新市區新科段",
+   "stage": "施工中",
+   "expected": "2028-01",
+   "updated": "2026-11-01",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "臺南市籌設醫院興建進度一覽表（臺南市政府衛生局，更新 2026-06）",
+     "url": "https://health.tainan.gov.tw/warehouse/BD18FBEC-A457-49AE-8502-672EF1BFD6BE/F_1780975147238e.pdf",
+     "date": "2026-06"
+    },
+    {
+     "title": "南科施工地挖到史前遺址 奇美醫院：配合搶救文化資產（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260416701857-431401",
+     "date": "2026-04-16"
+    }
+   ],
+   "note": "2025-01 取得建照、2025-03 動土，急性一般 200 床；2026-03 工地發現史前文化遺留局部停工待文資審議；預計 2028 年 1 月啟用（衛生局進度表 2026-06）"
+  },
+  {
+   "name": "成大醫院沙崙醫院（沙崙醫療服務與創新園區）",
+   "brand": "成大醫院",
+   "category": "醫療",
+   "county": "D",
+   "district": "歸仁區",
+   "location": "歸仁區武東段（沙崙高鐵特區）",
+   "stage": "施工中",
+   "expected": "2032-04",
+   "updated": "2026-11-01",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "臺南市籌設醫院興建進度一覽表（臺南市政府衛生局，更新 2026-06）",
+     "url": "https://health.tainan.gov.tw/warehouse/BD18FBEC-A457-49AE-8502-672EF1BFD6BE/F_1780975147238e.pdf",
+     "date": "2026-06"
+    }
+   ],
+   "note": "2025-12-18 動土，許可 540 床（急性一般 450、精神 30、國際醫療 30、急性後期 30），含兒童醫療中心；2026-04 交通影響評估、05-28 都市設計審議；預計 2032 年 4 月啟用（衛生局進度表 2026-06）"
+  }
+ ]
 }
