@@ -26,8 +26,8 @@ ADDRS = ["善化區中正路667巷5號", "善化區中正路300號", "善化區�
          "北區實踐街103巷25弄20號", "永康區永安路288號", "安平區國平北路88號", "東區崇德二十一街67號"]
 
 
-# 分頁分組後，路段／社區／成交在「行情」裡，排行／通勤／比較／建設在「更多」裡：先點分組、再點小分頁
-GROUP_OF = {"roads": "market", "bldg": "market", "tx": "market", "rank": "more", "commute": "more", "cmp": "more", "projects": "more"}
+# 分頁分組後，路段／社區／成交在「行情」裡，土地／選區／排行／通勤／比較在「更多」裡：先點分組、再點小分頁（建設在外面一排）
+GROUP_OF = {"roads": "market", "bldg": "market", "tx": "market", "land": "more", "fit": "more", "rank": "more", "commute": "more", "cmp": "more"}
 
 
 def open_tab(pg, k):
@@ -423,12 +423,28 @@ class WebAppTest(unittest.TestCase):
         self.assertIn("善化區", pg.evaluate("__app.S.poi.label"))
         self.assertIn("咖啡、飲料、甜點、蛋糕", pg.inner_text("#tab-body"))
 
+    def test_phone_layout(self):
+        """手機：分享連結指定分頁時面板拉出一半；房型、單價按鈕排成一排；外面一排分頁不用左右捲；搜尋提示不會被切掉。"""
+        pg = self.open(phone=True, query="?tw=0&tab=rank")
+        self.assertEqual(pg.evaluate("__app.S.sheet"), "half")
+        self.assertLessEqual(pg.evaluate("document.querySelector('#chips').getBoundingClientRect().height"), 48)
+        self.assertLessEqual(pg.evaluate("(t => t.scrollWidth - t.clientWidth)(document.querySelector('#tabs'))"), 0)
+        self.assertEqual(pg.get_attribute("#q", "placeholder"), "地址、社區或地標")
+        # 指北針（右上角）不能被右側按鈕蓋住
+        box = pg.evaluate("__app.view.compassBox")
+        tools = pg.evaluate("(r => [r.top, r.bottom])(document.querySelector('#map-tools').getBoundingClientRect())")
+        top_bar = pg.evaluate("document.querySelector('#map').getBoundingClientRect().top")
+        self.assertLess(box[3] + top_bar, tools[0])
+        # 沒指定分頁：面板維持收起
+        pg2 = self.open(phone=True)
+        self.assertEqual(pg2.evaluate("__app.S.sheet"), "peek")
+
     def test_tab_groups(self):
-        """分頁分組：外面一排 6 個不會超出寬度；點「行情」展開小分頁、記住上次看的那一個。"""
+        """分頁分組：外面一排 7 個不會超出寬度；點「行情」展開小分頁、記住上次看的那一個。"""
         pg = self.open(phone=False)
         pg.evaluate("__app.selectDistrict('東區')"); pg.wait_for_timeout(200)
         tabs = pg.eval_on_selector_all("#tabs [role=tab]", "els => els.map(e => e.dataset.tab || e.dataset.group)")
-        self.assertEqual(tabs[:6], ["overview", "calc", "market", "value", "watch", "more"])
+        self.assertEqual(tabs[:7], ["overview", "calc", "market", "value", "projects", "watch", "more"])
         self.assertTrue(pg.evaluate("document.querySelector('#subtabs').hidden"))
         self.assertLessEqual(pg.evaluate("(t => t.scrollWidth - t.clientWidth)(document.querySelector('#tabs'))"), 0)
         pg.click("#tabs button[data-group='market']")

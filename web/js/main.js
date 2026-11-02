@@ -692,9 +692,9 @@ const TABS = [["overview", "概況"], ["calc", "試算"], ["fit", "選區"], ["r
 // 外面一排：常用的分頁＋兩個分組；「點選」「周邊」只在有東西時出現
 const TAB_GROUPS = {
   market: { label: "行情", tabs: ["roads", "bldg", "tx"] },
-  more: { label: "更多", tabs: ["fit", "rank", "commute", "cmp", "projects", "land"] },
+  more: { label: "更多", tabs: ["land", "fit", "rank", "commute", "cmp"] },
 };
-const PRIMARY = ["overview", "calc", "market", "value", "watch", "more", "detail", "poi"];
+const PRIMARY = ["overview", "calc", "market", "value", "projects", "watch", "more", "detail", "poi"];
 const groupOf = k => Object.keys(TAB_GROUPS).find(g => TAB_GROUPS[g].tabs.includes(k)) || null;
 export function openTab(k) { S.tab = TAB_GROUPS[k] ? (S.groupLast[k] || TAB_GROUPS[k].tabs[0]) : k; renderPanel(); }
 export function renderPanel() {
@@ -780,6 +780,8 @@ function applyShared(params) {
   if (tab && SHARE_TABS.includes(tab)) S.tab = tab;
   if (d && D.dmap && D.dmap[d] && !params.get("q")) { refreshBars(); selectDistrict(d); }     // 房型、單價／總價變了：柱子也要重畫
   else refreshAll();
+  // 連結指定了分頁：手機上把面板拉出一半，打開就看得到那一頁，不然只看到地圖
+  if (tab && tab !== "overview" && SHARE_TABS.includes(tab)) sheet("half");
 }
 function trendSVG(series, every = 3) {
   const pts = series.map((p, i) => ({ ...p, i })), vals = pts.filter(p => p.v != null).map(p => p.v);
@@ -1359,7 +1361,7 @@ export function sheet(state) {
   el.classList.toggle("full", state === "full");
   S.sheet = state;
   const appH = $("#app").clientHeight, peek = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sheet-peek")) || 168;
-  view.setInset({ bottom: state === "peek" ? peek : appH * 0.55, top: 96 });
+  view.setInset({ bottom: state === "peek" ? peek : appH * 0.55, top: 54 });   // 上方只剩一排房型、單價按鈕
   // 抽屜只拉出一半時，面板下半截在螢幕外：清單底部留白，最後幾列才捲得上來
   $("#tab-body").style.paddingBottom = state === "half" ? `${Math.round(el.clientHeight * 0.45) + 16}px` : "";
   placeAttrib();
@@ -1403,7 +1405,7 @@ function bindSheetDrag() {
 
 // ------------------------------------------------------------------ 事件
 function bindUI() {
-  $("#seg-cat").innerHTML = L.CATS.map(([k, t]) => `<button role="radio" data-cat="${k}" aria-checked="${S.cat === k}">${t.replace("大樓／華廈", "大樓")}</button>`).join("");
+  $("#seg-cat").innerHTML = L.CATS.map(([k, t]) => `<button role="radio" data-cat="${k}" aria-checked="${S.cat === k}">${t.replace("大樓／華廈", "大樓").replace("全部合併", "全部")}</button>`).join("");
   $("#seg-metric").innerHTML = [["u", "單價"], ["t", "總價"]].map(([k, t]) => `<button role="radio" data-metric="${k}" aria-checked="${S.metric === k}">${t}</button>`).join("");
   $("#chips").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
@@ -1945,6 +1947,7 @@ export async function main() {
   if (window.innerWidth < 900 || S.settings.legendCollapsed) lg.classList.add("collapsed");
   lg.addEventListener("click", () => { lg.classList.toggle("collapsed"); S.settings.legendCollapsed = lg.classList.contains("collapsed"); saveStore(); renderLegend(); updateReserved(); });
   bindUI(); bindSheetDrag();
+  if (window.innerWidth < 600) $("#q").placeholder = "地址、社區或地標";   // 手機搜尋框窄，長提示會被切掉
   sheet("peek");
   if (tw) {
     const shared = ["d", "tab", "cat", "m", "cmp", "q"].some(k => params.has(k));

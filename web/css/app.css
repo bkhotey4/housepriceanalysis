@@ -174,7 +174,7 @@ input, select, textarea { font: inherit; color: inherit; }
   #sheet.half { transform: translateY(45%); }
   #sheet.full { transform: translateY(0); }
   #sheet.dragging { transition: none; }
-  #map-tools { top: 104px; }
+  #map-tools { top: 122px; }   /* 指北針畫在按鈕上方（右上角），按鈕往下排才不會蓋住它 */
   #map-tools button { width: 38px; height: 38px; }
 }
 @media (min-width: 900px) {
@@ -198,7 +198,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .up { color: var(--up); } .down { color: var(--down); }
 #tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); padding: 0 8px; flex: none; scrollbar-width: none; }
 #tabs::-webkit-scrollbar { display: none; }
-#tabs button { border: 0; background: none; padding: 9px 10px 7px; white-space: nowrap; border-bottom: 3px solid transparent; color: var(--muted); }
+#tabs button { border: 0; background: none; padding: 9px 9px 7px; white-space: nowrap; border-bottom: 3px solid transparent; color: var(--muted); }
 #tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
 #tab-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px calc(16px + var(--safe-b)); }
 
@@ -242,7 +242,7 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
 
 #legend.collapsed > :not(.lg-head) { display: none; }
 #legend .lg-head { font-weight: 600; }
-@media (max-width: 899px) { #legend { top: 96px; } }
+@media (max-width: 899px) { #legend { top: 54px; } }
 #tab-body a { color: var(--accent-2); }
 .links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 10px; }
 .links .btn { text-decoration: none; color: var(--accent-2); }
@@ -491,8 +491,10 @@ svg.agebar { width: 100%; height: auto; margin: 2px 0 4px; }
 @media (max-width: 899px) {
   #map-tools button { width: 44px; height: 44px; }
   #map-tools button[data-act="rotl"], #map-tools button[data-act="rotr"], #map-tools button[data-act="share"] { display: none; }   /* 兩指可以旋轉；分享在 ☰ 選單 */
-  #tabs button { min-height: 44px; padding: 12px 12px 9px; }
+  #tabs button { min-height: 44px; padding: 12px 8px 9px; }   /* 七個分頁在手機上一排放得下，「更多」不會被擠到畫面外 */
   .seg button { min-height: 36px; }
+  #chips { flex-wrap: nowrap; max-width: calc(100% - 16px); }   /* 房型、單價／總價排成一排，少擋一點地圖 */
+  #chips .seg button { padding: 5px 8px; }
   .btn, .head-btns button { min-height: 40px; }
   .btn.small { min-height: 36px; }
   .row input, .row select, .loan-f input, .valform input, .valform select { min-height: 40px; }
