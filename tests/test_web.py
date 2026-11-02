@@ -438,6 +438,18 @@ class WebAppTest(unittest.TestCase):
         # 沒指定分頁：面板維持收起
         pg2 = self.open(phone=True)
         self.assertEqual(pg2.evaluate("__app.S.sheet"), "peek")
+        # 浮水印：手機上寫在左下資料來源的第二行（截圖仍會帶著），不另外在地圖上佔一行
+        wm = pg2.evaluate("import('./js/view3d.js').then(m => m.WATERMARK)")
+        self.assertIn(wm, pg2.inner_text("#attrib"))
+        # 區名後面的 *：第一次看到時提示一次，之後不再跳
+        if pg2.evaluate("__app.view.bars.some(b => (b.label || '').endsWith('*'))"):
+            self.assertIn("成交件數少", pg2.inner_text("#toast"))
+            self.assertTrue(pg2.evaluate("__app.S.settings.starTip"))
+        # 地標名稱：手機縣市總覽不顯示，放大後才出現
+        lm_labels = "__app.view.hits.filter(h => h.kind === 'landmark' && h.depth === -2000).length"
+        self.assertEqual(pg2.evaluate(lm_labels), 0)
+        pg2.evaluate("__app.view.zoom = 16; __app.view.request()"); pg2.wait_for_timeout(300)
+        self.assertGreater(pg2.evaluate(lm_labels), 0)
 
     def test_tab_groups(self):
         """分頁分組：外面一排 7 個不會超出寬度；點「行情」展開小分頁、記住上次看的那一個。"""

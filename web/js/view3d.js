@@ -497,8 +497,9 @@ export class View3D {
         c.drawImage(sp.cv, Math.round(sx + sp.dx), Math.round(sy + sp.dy), sp.w, sp.h);
         const box = [sx + sp.box[0], sy + sp.box[1], sx + sp.box[2], sy + sp.box[3]];
         this.hits.push({ kind: hk, id: o.id, x0: box[0] - 2, y0: box[1] - 2, x1: box[2] + 2, y1: box[3] + 2, depth: it.depth + 500 });
-        // 名稱：第一級地標在縣市總覽就顯示，其他放大後才顯示（標籤會自動避開重疊）
-        const showAt = (hk === "project" ? 22 : (o.rank || 3) === 1 ? 6 : (o.rank || 3) === 2 ? 18 : 26) + (this.W < 600 && (o.rank || 3) > 1 ? 8 : 0);
+        // 名稱：第一級地標在縣市總覽就顯示，其他放大後才顯示（標籤會自動避開重疊）。
+        // 手機畫面小，縣市總覽（zoom 約 11）只留區名和價格，地標名稱放大一兩次後才出現
+        const small = this.W < 600, showAt = hk === "project" ? 22 + (small ? 8 : 0) : (o.rank || 3) === 1 ? (small ? 14 : 6) : ((o.rank || 3) === 2 ? 18 : 26) + (small ? 8 : 0);
         if (sel || (!fast && z >= showAt))
           labels.push({ prio: sel ? 2 : -1, n: 30 - (o.rank || 3), kind: hk, id: o.id, text: o.label, x: (box[0] + box[2]) / 2, y: box[1] - 2, small: true });
       } else if (it.kind === 4) {
@@ -555,9 +556,10 @@ export class View3D {
     }
   }
   _drawWatermark() {
-    // 版權浮水印：畫在地圖畫布上，截圖也會帶著
-    const c = this.ctx, small = this.W < 600, x = this.W - 10 - this.inset.right, y = this.H - this.inset.bottom - (small ? 44 : 8);   // 手機上左下的資料來源標示有兩行，浮水印排在它上面
-    c.font = `600 ${small ? 10 : 12}px system-ui, sans-serif`; c.textAlign = "right"; c.textBaseline = "bottom";
+    // 版權浮水印：畫在地圖畫布上，截圖也會帶著。手機上改寫在左下的資料來源標示裡（main.js placeAttrib），少佔一行地圖
+    if (this.W < 600) return;
+    const c = this.ctx, x = this.W - 10 - this.inset.right, y = this.H - this.inset.bottom - 8;
+    c.font = "600 12px system-ui, sans-serif"; c.textAlign = "right"; c.textBaseline = "bottom";
     c.lineWidth = 3; c.strokeStyle = "rgba(255,255,255,0.75)"; c.strokeText(WATERMARK, x, y);
     c.fillStyle = "rgba(20,60,56,0.62)"; c.fillText(WATERMARK, x, y);
   }

@@ -1,7 +1,7 @@
 // 購屋深度分析（網頁版）：所有資料都是靜態檔案，計算全部在使用者的裝置上完成。
 // 有 data/tw/index.json 時是「全台版」：首頁是 22 縣市，點縣市才下載該縣市的資料；沒有就是原本的台南版。
 import * as L from "./logic.js";
-import { View3D, mix } from "./view3d.js";
+import { View3D, mix, WATERMARK } from "./view3d.js";
 import { buildReport } from "./report.js";
 import { fitScores, fitWeights, tabFit } from "./fit.js";
 import { CMP_MAX, cmpAdd, cmpCode, cmpDefaultPair, cmpList, cmpPickAdd, cmpRetry, tabCmp } from "./compare.js";
@@ -427,6 +427,13 @@ function refreshBars() {
   D.barRange = { lo, hi, span, matched: active ? vals.filter(([d]) => budgetOK(d.name) && workOK(d.name)).length : null };
   renderLegend();
   view.request();
+  if (S.ready) starTip();
+}
+// 第一次看到區名後面的 *：提示一次是什麼意思（之後圖例裡也查得到）
+function starTip() {
+  if (S.settings.starTip || !(view.bars || []).some(b => (b.label || "").endsWith("*"))) return;
+  S.settings.starTip = true; saveStore();
+  toast("區名後面有 *：成交件數少，價格只供參考", 7000);
 }
 function renderLegend() {
   const el = $("#legend"), unit = S.metric === "u" ? "萬/坪" : "萬";
@@ -448,7 +455,7 @@ function renderLegend() {
   } else {
     rows = [0, 0.5, 1].map(k => [ramp(SEQ, k), (S.metric === "u" ? (lo + span * k).toFixed(0) : L.fmtNum(lo + span * k)) + " " + unit]);
   }
-  rows.push([NO_DATA, "樣本少／無資料"]);
+  rows.push([NO_DATA, "樣本少／無資料（區名後有 *）"]);
   let html = `<div class="lg-head">圖例 ${el.classList.contains("collapsed") ? "▸" : "▾"}</div>` +
     (D.barRange.tm ? `<div class="tm-badge">⏳ ${esc(D.barRange.tm.replace("Q", " 年第 "))} 季</div>` : "") +
     `<div><b>${S.settings.color === "yield" ? "毛租金報酬率（年化）" : S.metric === "u" ? "中位單價" : "中位總價"}</b>${S.settings.color === "trend" ? "｜顏色：近半年漲跌" : S.settings.color === "heat" ? "｜顏色：市場冷熱" : S.settings.color === "fit" ? "｜顏色：符合我的條件（選區）" : S.settings.color === "pop" ? "｜顏色：近 5 年人口增減" : ""}</div>` +
@@ -1377,7 +1384,8 @@ function placeAttrib() {
   const a = $("#attrib"), wide = window.innerWidth >= 900;
   const bottom = wide ? 4 : (S.sheet === "peek" || !S.sheet ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sheet-peek")) || 168) + 4 : $("#app").clientHeight * 0.55 + 4);
   a.style.bottom = bottom + "px";
-  a.textContent = "影像、行政區界：內政部國土測繪中心｜道路：© OpenStreetMap 貢獻者";
+  // 手機：資料來源縮成一行，浮水印（網站名稱與網址）接在第二行；寬螢幕的浮水印畫在地圖右下角
+  a.textContent = wide ? "影像、行政區界：內政部國土測繪中心｜道路：© OpenStreetMap 貢獻者" : "影像、界線：國土測繪中心｜道路：© OpenStreetMap 貢獻者\n" + WATERMARK;
   requestAnimationFrame(updateReserved);
 }
 function bindSheetDrag() {
@@ -1962,6 +1970,7 @@ export async function main() {
   applyShared(params);
   S.ready = true; syncUrl();
   const boot = $("#boot"); if (boot) boot.hidden = true;
+  starTip();
   if (params.get("q")) { $("#q").value = params.get("q"); const t0 = Date.now(), wait = () => (D.tw || D.txs) ? search(params.get("q")) : (D.txErr || Date.now() - t0 > 60000) ? null : setTimeout(wait, 200); wait(); }
   getJSON("data/status.json").then(st => { D.status = st; if (!st.ok) $("#btn-menu").classList.add("has-err"); }).catch(() => {});
   if ("serviceWorker" in navigator && location.protocol === "https:") {
