@@ -1,5 +1,5 @@
 {
- "as_of": "2026-11-01",
+ "as_of": "2026-11-02",
  "note": "建商、開發商取得土地（購地、合建、都更、標售得標、地上權）的公開紀錄。每週雲端排程從公開資訊觀測站重大訊息、各縣市標售公告與新聞整理；每筆都附來源。",
  "items": [
   {
@@ -655,6 +655,168 @@
      "title": "115年第3次市地重劃區抵費地暨第4次標售區段徵收剩餘可建築用地聯合標售順利完成開標（臺南市政府地政局）",
      "url": "https://land.tainan.gov.tw/News_Content.aspx?n=29646&sms=22480&s=8840262",
      "date": "2026-10-06"
+    }
+   ]
+  },
+  {
+   "developer": "潤隆建設（興富發集團）",
+   "county": "B",
+   "district": "西屯區",
+   "location": "水湳經貿園區文商段 39、40 地號",
+   "date": "2026-05",
+   "deal": "購地",
+   "status": "預售中",
+   "area_ping": 1204.61,
+   "amount_wan": 371062.75,
+   "plan": "原為合建預售案基地，向 3 位地主買回土地改為自建出售（「取得營建用地建屋出售」）；每坪約 308 萬元",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "潤隆砸37億 擴大土地布局（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260601700212-430606",
+     "date": "2026-06-01"
+    },
+    {
+     "title": "潤隆擬取得台中西屯文商段39及40地號土地 總價37.1億（中時旺得富）",
+     "url": "https://wantrich.chinatimes.com/news/20260528900549-420101",
+     "date": "2026-05-28"
+    },
+    {
+     "title": "建商台中獵地 選地重於搶地（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260831700155-430602",
+     "date": "2026-08-31"
+    }
+   ]
+  },
+  {
+   "developer": "坤悅開發",
+   "county": "B",
+   "district": "西屯區",
+   "location": "七期惠民段 78 地號",
+   "date": "2026-04-22",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 374.11,
+   "amount_wan": 112981.22,
+   "plan": "取得營建用地建屋出售；現況為接待中心（租約至 2027 年底），擬與相鄰 76 地號整合開發；每坪約 302 萬元",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "坤悅取得台中市西屯區惠民段78地號土地 總價11.3億（經濟日報）",
+     "url": "https://money.udn.com/money/story/5621/9458523",
+     "date": "2026-04-22"
+    },
+    {
+     "title": "坤悅上半年EPS 3.2元 再加碼逾10.5億卡位七期（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260805701987-430201",
+     "date": "2026-08-05"
+    }
+   ]
+  },
+  {
+   "developer": "坤悅開發",
+   "county": "B",
+   "district": "西屯區",
+   "location": "七期惠民段 76 地號",
+   "date": "2026-08-05",
+   "deal": "購地",
+   "status": "規劃中",
+   "area_ping": 348.25,
+   "amount_wan": 105171.5,
+   "plan": "向關係人（董事長之父）購入，與 78 地號整合約 722 坪、擬適用危老獎勵，興建住宅出售；每坪約 302 萬元",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "公告－坤悅董事會決議向關係人取得台中市西屯區惠民段土地（公開資訊觀測站重大訊息，Yahoo 股市轉載）",
+     "url": "https://tw.stock.yahoo.com/news/%E5%85%AC%E5%91%8A-%E5%9D%A4%E6%82%85%E8%91%A3%E4%BA%8B%E6%9C%83%E6%B1%BA%E8%AD%B0%E5%90%91%E9%97%9C%E4%BF%82%E4%BA%BA%E5%8F%96%E5%BE%97%E5%8F%B0%E4%B8%AD%E5%B8%82%E8%A5%BF%E5%B1%AF%E5%8D%80%E6%83%A0%E6%B0%91%E6%AE%B5%E5%9C%9F%E5%9C%B0-063325474.html",
+     "date": "2026-08-05"
+    },
+    {
+     "title": "坤悅上半年EPS 3.2元 再加碼逾10.5億卡位七期（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260805701987-430201",
+     "date": "2026-08-05"
+    }
+   ]
+  },
+  {
+   "developer": "櫻花建設",
+   "county": "B",
+   "district": "烏日區",
+   "location": "烏日高鐵特區新站南段 13 地號等 3 筆（台中國際展覽館西南側）",
+   "date": "2026-03-17",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 815.42,
+   "amount_wan": 79300,
+   "plan": "商一土地，住宅推案（經濟日報稱預計推出「櫻花心綻」，總銷約 16 億元、113 戶）；每坪約 97.3 萬元",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "交屋潮引爆獲利！台中營建股三強爭霸 櫻花建、坤悅2026續拚高峰（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260317701974-430503",
+     "date": "2026-03-17"
+    },
+    {
+     "title": "櫻花建7.93億購入烏日高鐵特區土地（經濟日報）",
+     "url": "https://udn.com/news/story/7241/9388807",
+     "date": "2026-03-18"
+    }
+   ]
+  },
+  {
+   "developer": "達麗建設",
+   "county": "B",
+   "district": "西屯區",
+   "location": "水湳經貿園區文商段 50 地號",
+   "date": "2026-07-31",
+   "deal": "合建",
+   "status": "規劃中",
+   "area_ping": 475.12,
+   "amount_wan": 177000,
+   "plan": "與銓緯投資簽訂合建契約，興建房屋及車位出售或出租；建方分配約 48%～52%，預計投入約 17.7 億元",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "公告－達麗簽訂合建契約書（公開資訊觀測站重大訊息，Yahoo 股市轉載）",
+     "url": "https://tw.stock.yahoo.com/news/%E5%85%AC%E5%91%8A-%E9%81%94%E9%BA%97%E7%B0%BD%E8%A8%82%E5%90%88%E5%BB%BA%E5%A5%91%E7%B4%84%E6%9B%B8-063245399.html",
+     "date": "2026-07-31"
+    }
+   ]
+  },
+  {
+   "developer": "富華建設（富華新集團）",
+   "county": "B",
+   "district": "西屯區",
+   "location": "水湳經貿園區文商段 15 地號",
+   "date": "2026-08-11",
+   "deal": "合建",
+   "status": "規劃中",
+   "area_ping": 1936.8,
+   "amount_wan": 271896,
+   "plan": "富華新（地主，100% 母公司）與子公司富華建設（建方）簽訂合建分售契約，合建比地主 58%／建方 42%，建方預計投入 27.19 億元、地主 34.19 億元；媒體稱規劃全齡住宅與養生飯店宅",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "公告－富華新董事會決議與關係人簽訂台中市西屯文商段15地號1筆合建分售（公開資訊觀測站重大訊息，Yahoo 股市轉載）",
+     "url": "https://tw.stock.yahoo.com/news/%E5%85%AC%E5%91%8A-%E5%AF%8C%E8%8F%AF%E6%96%B0%E8%91%A3%E4%BA%8B%E6%9C%83%E6%B1%BA%E8%AD%B0%E8%88%87%E9%97%9C%E4%BF%82%E4%BA%BA%E7%B0%BD%E8%A8%82%E5%8F%B0%E4%B8%AD%E5%B8%82%E8%A5%BF%E5%B1%AF%E6%96%87%E5%95%86%E6%AE%B515%E5%9C%B0%E8%99%9F1%E7%AD%86%E5%90%88%E5%BB%BA%E5%88%86%E5%94%AE-101451596.html",
+     "date": "2026-08-11"
+    },
+    {
+     "title": "水湳經貿園區建商布局（自由時報地產天下）",
+     "url": "https://estate.ltn.com.tw/article/29199",
+     "date": "2026-10-31"
     }
    ]
   }
