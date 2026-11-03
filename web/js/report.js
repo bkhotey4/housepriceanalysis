@@ -26,7 +26,7 @@ function trendSvg(series, width = 640, height = 180) {
 // ctx: { book, txs, intel, district, cat, q, point:[lat,lng], agent:{name,phone,client,note}, work:{name,lat,lng}, mode, poi, meta }
 export function buildReport(ctx) {
   const { book, txs, intel, district, cat, q, point, work, poi, intelYear } = ctx, agent = ctx.agent || {};
-  const today = new Date(), ymd = today.toISOString().slice(0, 10), year = today.getFullYear();
+  const today = new Date(), ymd = L.localYmd(today), year = today.getFullYear();
   const bu = book.best(district, cat, "u"), bt = book.best(district, cat, "t"), tr = book.trend(district, cat, "u");
   const title = q && q.road ? `${district} ${L.describe(q)}` : district;
   const p = [];
@@ -40,7 +40,7 @@ export function buildReport(ctx) {
   p.push("<section class='kpis'>" +
     kpi(`${district} 中位單價`, num(bu.value, 1), "萬/坪", `${win} ${bu.n} 件${bu.low ? "，樣本少" : ""}`) +
     kpi("中位總價", num(bt.value), "萬", win) +
-    kpi("近半年起伏", tr == null ? "—" : `${tr >= 0 ? "+" : ""}${tr.toFixed(1)}%`, "", tr == null ? "樣本不足" : "後 3 個月對前 3 個月") +
+    kpi("近一季起伏", tr == null ? "—" : `${tr >= 0 ? "+" : ""}${tr.toFixed(1)}%`, "", tr == null ? "樣本不足" : "後 3 個月對前 3 個月") +
     kpi("預售比中古大樓", gap == null ? "—" : `${gap >= 0 ? "+" : ""}${gap.toFixed(0)}%`, "", "單價差距") + "</section>");
   if (cat === "house" || cat === "all") p.push("<p class='muted'>透天厝的單價含土地，跟大樓單價不能直接比，看透天請以總價為主。</p>");
 
@@ -80,7 +80,7 @@ export function buildReport(ctx) {
   } else p.push(`<p class='muted'>${NEAR_KM} 公里內沒有收錄的重大建設。</p>`);
   if (work && lat != null) {
     const km = L.distKm(lat, lng, work.lat, work.lng), mode = L.MODES[ctx.mode] || L.MODES.car;
-    p.push(`<h2>到上班地點</h2><p>${e(work.name)}：${mode[0]}約 ${ctx.roadMins != null ? `${ctx.roadMins} 分鐘（依實際道路，離峰；尖峰可能多 3～5 成）`
+    p.push(`<h2>到上班地點</h2><p>${e(work.name)}：${mode[0]}約 ${ctx.roadMins != null ? `${ctx.roadMins} 分鐘（依實際道路${(L.ROUTE_ADJ[ctx.mode] || L.ROUTE_ADJ.car)[0] > 1 ? "，已含尖峰車流" : ""}）`
       : `${L.commuteMin(km, ctx.mode)} 分鐘（直線 ${km.toFixed(1)} 公里，估計；尖峰可能多 3～5 成）`}</p>`);
   }
   if (poi && poi.res) {

@@ -141,7 +141,7 @@ export function tabCmp() {
     ["中位單價（萬/坪）", c => { const b = c.book.best(c.name, cat, "u"); return b.value == null ? "—" : b.value.toFixed(1) + (b.low ? "*" : ""); }],
     ["中位總價（萬）", c => L.fmtNum(c.book.best(c.name, cat, "t").value)],
     ["成交件數", c => L.fmtNum(c.book.best(c.name, cat, "u").n)],
-    ["近半年漲跌", c => L.trendText(c.book.trend(c.name, cat, S.metric))],
+    ["近一季漲跌", c => L.trendText(c.book.trend(c.name, cat, S.metric))],
     ["預售比中古大樓", c => { const g = c.book.presaleGap(c.name); return g == null ? "—" : `${g >= 0 ? "高" : "低"} ${Math.abs(g).toFixed(0)}%`; }],
     [w ? `到${w.name}（${modeName()}）` : "通勤（先設定上班地點）", c => w ? `約 ${minsTo(c.d.lat, c.d.lng, w)} 分` : "—"],
     ["月租中位（整層住家）", c => { const r = L.rentCell(c.rent, c.name, "apt"); return r ? `${L.fmtNum(r.rent)}${r.n < L.RENT_MIN_N ? "*" : ""}` : "—"; }],

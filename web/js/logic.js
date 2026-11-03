@@ -141,6 +141,13 @@ export function decodeCancel(raw) {
   for (const [d, proj, n] of raw.cancel || []) m.set(raw.dists[d] + "|" + proj, n);
   return m;
 }
+// 一筆成交的識別碼（看屋清單、追蹤建案記「看過哪些」用）：實價登錄會晚報，比日期會漏掉晚登錄的舊日期成交
+export function txKey(x) {
+  const s = `${x.date}|${x.addr}|${x.tw}|${x.ping}|${x.fl}`;
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return (h >>> 0).toString(36);
+}
 export function inCat(x, cat) {
   if (cat === "presale") return x.presale;
   if (x.presale) return false;
@@ -842,10 +849,12 @@ export function mortgage(priceWan, downPct, ratePct, years, grace = 0) {
 export const YOUTH_LOAN = { rate: 1.775, years: 40, grace: 5, cap: 1000 };
 // 政策期限：原方案 2023-08-01 ～ 2026-07-31（政府利息補貼也只到這天）。過了期限畫面會提醒「以原方案條件試算」，
 // 預算反推也不再把新青安算進去；續辦方案確認後改 data/loan.json 的 youth（含 until）即可。
-export const YOUTH_POLICY = { name: "新青安", until: "2026-07-31", checked: "2026-10-14", source: "財政部、內政部國土管理署公告" };
-export const youthExpired = (today = new Date()) => today.toISOString().slice(0, 10) > YOUTH_POLICY.until;
+export const YOUTH_POLICY = { name: "新青安", until: "2029-07-31", checked: "2026-11-02", source: "財政部、內政部國土管理署公告" };
+// 用台灣當地日期（toISOString 是 UTC，半夜到早上 8 點會差一天）
+export const localYmd = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export const youthExpired = (today = new Date()) => localYmd(today) > YOUTH_POLICY.until;
 // 一般房貸的參考條件（房貸試算的預設、超過新青安上限的部分）：本息平均攤還、沒有寬限期
-export const NORMAL_LOAN = { rate: 2.2, years: 30 };
+export const NORMAL_LOAN = { rate: 2.7, years: 30 };
 // 套用 data/loan.json：原地改上面三組物件（其他模組 import 的是同一個物件），數字不合理的欄位維持預設
 export function setLoanTerms(d) {
   if (!d || typeof d !== "object") return;
@@ -901,7 +910,7 @@ export function estimate(txs, q) {
     for (const x of txs) {
       if (x.dist !== q.dist || !inCat(x, q.cat) || !(x.u > 0)) continue;
       const ago = now - ymIndex(x.ym);
-      if (ago < 0 || ago > months) continue;
+      if (ago < 0 || ago >= months) continue;
       if (q.ping && x.ping && Math.abs(Math.log(x.ping / q.ping)) > Math.log(1 + pTol)) continue;
       const age = x.built ? Math.max(0, +x.date.slice(0, 4) - x.built) : null;
       if (q.age != null && !q.presale && age != null && Math.abs(age - q.age) > aTol) continue;
@@ -976,24 +985,31 @@ export function purchaseCosts(priceWan, downPct, opt = {}) {
 // 之後每個月，買方付房貸＋持有成本、租方付房租；誰付得少，差額就拿去投資（年報酬 inv%）。
 // N 年後：買方資產＝房子市值（扣賣屋成本）－剩餘房貸＋投資；租方資產＝投資。
 export const RVB_DEFAULT = { years: 20, g: 1.5, rg: 1, inv: 4, hold: 0.5, sell: 3 };
+// 有 cap（萬）時：cap 以內用 rate／loanYears／grace（新青安），超過的部分用 restRate／restYears、沒有寬限期（和房貸試算一樣）
 export function rentVsBuy(p) {
   const o = { ...RVB_DEFAULT, ...p };
   const price = o.price * 10000, cash0 = (o.cash ?? o.price * o.down / 100) * 10000;
   const loan = Math.max(0, o.price * (1 - o.down / 100)) * 10000;
-  const n = Math.round(o.loanYears * 12), r = o.rate / 100 / 12, g = Math.min(Math.round((o.grace || 0) * 12), Math.max(0, n - 12));
   if (!(price > 0) || !(o.rent > 0) || !(o.years > 0)) return null;
-  const pay = m => m <= 0 ? 0 : r > 0 ? loan * r / (1 - Math.pow(1 + r, -m)) : loan / m;
-  const monthly = pay(n - g), mInv = Math.pow(1 + o.inv / 100, 1 / 12) - 1;
+  const leg = (amt, rate, yrs, grace) => {
+    const n = Math.round(yrs * 12), r = rate / 100 / 12, g = Math.min(Math.round((grace || 0) * 12), Math.max(0, n - 12)), k = n - g;
+    return { bal: amt, n, r, g, monthly: k <= 0 ? 0 : r > 0 ? amt * r / (1 - Math.pow(1 + r, -k)) : amt / k };
+  };
+  const capped = o.cap > 0 && loan > o.cap * 10000;
+  const legs = capped ? [leg(o.cap * 10000, o.rate, o.loanYears, o.grace), leg(loan - o.cap * 10000, o.restRate, o.restYears, 0)]
+    : [leg(loan, o.rate, o.loanYears, o.grace)];
+  const monthly = legs.reduce((a, l) => a + l.monthly, 0), mInv = Math.pow(1 + o.inv / 100, 1 / 12) - 1;
   let bal = loan, buyInv = 0, rentInv = cash0, rent = o.rent, home = price;
   const years = [];
   let breakeven = null;
   for (let m = 1; m <= o.years * 12; m++) {
     let mort = 0;
-    if (bal > 0 && m <= n) {
-      const interest = bal * r;
-      mort = m <= g ? interest : monthly;
-      bal = Math.max(0, bal - (mort - interest));
+    for (const l of legs) {
+      if (!(l.bal > 0) || m > l.n) continue;
+      const interest = l.bal * l.r, pay = m <= l.g ? interest : l.monthly;
+      mort += pay; l.bal = Math.max(0, l.bal - (pay - interest));
     }
+    bal = legs.reduce((a, l) => a + l.bal, 0);
     const buyOut = mort + home * o.hold / 100 / 12;
     buyInv *= 1 + mInv; rentInv *= 1 + mInv;
     if (buyOut > rent) rentInv += buyOut - rent; else buyInv += rent - buyOut;
@@ -1138,8 +1154,11 @@ export function duelCompare(a, b, cat = "all") {
   const buA = ok(a.book.best(a.name, cat, "u")), buB = ok(b.book.best(b.name, cat, "u"));
   const btA = ok(a.book.best(a.name, cat, "t")), btB = ok(b.book.best(b.name, cat, "t"));
   const trA = a.book.trend(a.name, cat, "u"), trB = b.book.trend(b.name, cat, "u");
-  const rcA = rentCell(a.rent, a.name), rcB = rentCell(b.rent, b.name);
-  const yldA = grossYield(rcA?.unit, buA.value), yldB = grossYield(rcB?.unit, buB.value);
+  // 租金投報：和「租金行情」一樣用整層住家（透天比透天、其他比大樓公寓），套房雅房每坪租金高、不能混進來；件數太少不比
+  const rcat = cat === "house" ? "house" : "apt";
+  const yld = x => { const rc = rentCell(x.rent, x.name, rcat), su = ok(x.book.best(x.name, rcat, "u"));
+    return rc && rc.n >= RENT_MIN_N ? grossYield(rc.unit, su.value) : null; };
+  const yldA = yld(a), yldB = yld(b);
   const gapA = a.book.presaleGap ? a.book.presaleGap(a.name) : null;
   const gapB = b.book.presaleGap ? b.book.presaleGap(b.name) : null;
 
@@ -1159,7 +1178,7 @@ export function duelCompare(a, b, cat = "all") {
       note: "總價低者勝（自備款門檻低）"
     },
     {
-      key: "trend", label: "近半年漲跌", unit: "%",
+      key: "trend", label: "近一季漲跌", unit: "%",
       valA: trA != null ? +trA.toFixed(1) : null,
       valB: trB != null ? +trB.toFixed(1) : null,
       win: trA != null && trB != null ? (trA > trB ? "A" : trA < trB ? "B" : "T") : null,
@@ -1239,6 +1258,7 @@ const GENERIC_ALIAS_KEYS = new Set(["好市多", "costco", "新光三越", "新�
 export function aliasMatch(al, query, itemCounty, ctx) {
   return al.keys.some(k => {
     const nk = normTw(k).toLowerCase(), q = normTw(query).toLowerCase();
+    if (q.length < 2) return false;
     return (q.includes(nk) || nk.includes(q)) && (!GENERIC_ALIAS_KEYS.has(k) || !ctx || (itemCounty || "D") === ctx);
   });
 }
@@ -1635,7 +1655,7 @@ export function quickSuggest(rawText, data, options = {}) {
     }
     if (score > 0) {
       const b = pr.build;
-      const sub = b ? (b.done ? `預計 ${b.done} 完工 · 重大建設` : "建設進行中") : "都市規劃";
+      const sub = b ? (b.phase === "完工" ? `${b.done ? b.done + " " : ""}已完工 · 重大建設` : b.done ? `預計 ${b.done} 完工 · 重大建設` : "建設進行中") : "都市規劃";
       results.push({
         type: "project",
         title: pr.name,
@@ -1803,10 +1823,12 @@ export function boughtYear(o, today = new Date()) {
 export const sellIsOld = o => { const y = boughtYear(o); return y != null && y < 2016; };
 export function sellHouse(o) {
   const n = v => (v === "" || v == null || isNaN(+v)) ? null : +v;
-  const sell = n(o.sell), buy = n(o.buy), years = n(o.years);
+  const sell = n(o.sell), buy = n(o.buy);
   if (!(sell > 0)) return null;
   const agent = sell * (n(o.agent) ?? 4) / 100, fees = n(o.fees) ?? 1.5, loan = n(o.loan) ?? 0, landTax = n(o.landTax) ?? 0;
   const bought = boughtYear(o), old = bought != null && bought < 2016;
+  // 只填了買進年份、沒填持有年數：用今年減買進年份（稅率看持有期間，寧可算到；精確到月請填持有年數）
+  const years = n(o.years) ?? (bought != null ? Math.max(0, new Date().getFullYear() - bought) : null);
   let tax = 0, gain = null, taxable = null, rate = null, rule;
   if (old) {
     const hv = n(o.oldHouseVal) ?? sell * 0.1, hvGuess = n(o.oldHouseVal) == null;
@@ -1916,7 +1938,7 @@ export const FIT_CRITERIA = [
   { key: "budget", label: "在預算內", hint: "中位總價在預算以內（要先在 ☰ 篩選填預算）" },
   { key: "commute", label: "通勤近", hint: "到上班地點的時間（要先在「通勤」設上班地點）" },
   { key: "value", label: "單價相對低", hint: "中位單價在這些區裡比較低" },
-  { key: "stable", label: "價格穩、不追高", hint: "近半年漲跌小、近幾年漲幅不過大" },
+  { key: "stable", label: "價格穩、不追高", hint: "近一季漲跌小、近幾年漲幅不過大" },
   { key: "growth", label: "人口與建設", hint: "人口增加、附近有影響度高的重大建設" },
   { key: "yield", label: "租金報酬", hint: "毛租金報酬率較高" },
   { key: "liquid", label: "成交活絡", hint: "成交件數多，行情好比、也比較好轉手" },

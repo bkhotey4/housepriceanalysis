@@ -201,6 +201,8 @@ export async function selectSuggestion(item) {
 }
 
 // ------------------------------------------------------------------ 地址搜尋
+// 輸入看起來像地址：有路、街、大道或門牌號碼
+const looksAddr = t => /[路街]|大道|\d+\s*號/.test(t);
 export async function search(text) {
   text = (text || "").trim();
   if (!text) return;
@@ -217,12 +219,16 @@ export async function search(text) {
     // 全台版：先判斷縣市；地址開頭有縣市就切過去，沒有就在目前的縣市找，首頁時再用鄉鎮名稱猜縣市
     let [c, rest] = L.splitCounty(text);
     if (!c && isNation()) {
-      const lm = D.landmarks.find(l => text.length >= 2 && (l.name.includes(text) || text.includes(l.name)));
-      if (lm) { pick(["landmark", lm.id]); return "landmark"; }
-      const sc = (D.schools || []).find(s => text.length >= 2 && (s.name.includes(text) || text.includes(s.name)));
-      if (sc) { pick(["school", sc.id]); return "school"; }
-      const pr = D.intel.find(it => it.build && text.length >= 2 && it.name.includes(text));
-      if (pr) { pick(["project", pr.id]); return "project"; }
+      // 只打鄉鎮名（「善化」「永康」）是要看那一區，不是同名的車站或地標；看起來像地址的也不要被地標搶走
+      const nt = L.normTw(text), isTown = D.tw.counties.some(x => (x.town_names || []).some(t => { const n = L.normTw(t); return n === nt || n.replace(/[區鄉鎮市]$/, "") === nt; }));
+      if (!isTown && !looksAddr(text)) {
+        const lm = D.landmarks.find(l => text.length >= 2 && (l.name.includes(text) || text.includes(l.name)));
+        if (lm) { pick(["landmark", lm.id]); return "landmark"; }
+        const sc = (D.schools || []).find(s => text.length >= 2 && (s.name.includes(text) || text.includes(s.name)));
+        if (sc) { pick(["school", sc.id]); return "school"; }
+        const pr = D.intel.find(it => it.build && nt.length >= 2 && L.normTw(it.name).includes(nt));
+        if (pr) { pick(["project", pr.id]); return "project"; }
+      }
       const hits = D.tw.counties.filter(x => (x.town_names || []).some(t => text.startsWith(t) || L.normTw(text).startsWith(L.normTw(t))));
       if (hits.length === 1) c = hits[0];
       else {
@@ -246,14 +252,24 @@ export async function search(text) {
     }
   }
 
+  // 只打區名（「善化」「善化區」）：直接到那一區，不要被「善化火車站」這類地標搶走
+  {
+    const names = D.districts.map(d => d.name), nt = L.normTw(text);
+    const only = names.find(n => L.normTw(n) === nt || L.normTw(n).replace(/[區鄉鎮市]$/, "") === nt);
+    if (only) { selectDistrict(only); toast(`已移到${only}`); sheet("peek"); return "district"; }
+  }
   // 先以完整關鍵字尋找地標與學區（避免被 parseAddress 拆掉縣市名或路段名導致誤判為其他同名地點）
-  const normT = L.normTw(text);
-  let lmHit = D.landmarks.find(l => normT.length >= 2 && (L.normTw(l.name) === normT || L.normTw(l.name).startsWith(normT) || normT.startsWith(L.normTw(l.name))));
-  if (!lmHit && normT.length >= 2) {
-    lmHit = D.landmarks.find(l => L.normTw(l.name).includes(normT) || normT.includes(L.normTw(l.name)));
+  // 看起來像地址（有路、街、門牌）時只認完整的地標名稱：「中華東路一段101號」不是台北101、「崇明路」不是崇明國中
+  const normT = L.normTw(text), addr = looksAddr(text);
+  const here = l => !D.county || (l.county || "D") === D.county.code;        // 同名地標先找目前縣市的
+  const lmFind = f => D.landmarks.find(l => here(l) && f(l)) || D.landmarks.find(f);
+  let lmHit = normT.length >= 2 ? (addr ? lmFind(l => L.normTw(l.name) === normT)
+    : lmFind(l => L.normTw(l.name) === normT || L.normTw(l.name).startsWith(normT) || normT.startsWith(L.normTw(l.name)))) : null;
+  if (!lmHit && !addr && normT.length >= 2) {
+    lmHit = lmFind(l => L.normTw(l.name).includes(normT) || normT.includes(L.normTw(l.name)));
   }
   const ctx = aliasCtx();
-  if (!lmHit) {
+  if (!lmHit && !addr) {
     for (const al of L.SEARCH_ALIASES) {
       const hit = D.landmarks.find(l => l.name.includes(al.target) || (l.note && l.note.includes(al.target)));
       if (hit && L.aliasMatch(al, normT, hit.county, ctx)) { lmHit = hit; break; }
@@ -272,8 +288,8 @@ export async function search(text) {
   }
 
   // 學區完整名稱比對
-  let scHit = (D.schools || []).find(sc => normT.length >= 2 && (L.normTw(sc.name).includes(normT) || normT.includes(L.normTw(sc.name))));
-  if (!scHit) {
+  let scHit = (D.schools || []).find(sc => normT.length >= 2 && (addr ? L.normTw(sc.name) === normT : (L.normTw(sc.name).includes(normT) || normT.includes(L.normTw(sc.name)))));
+  if (!scHit && !addr) {
     for (const al of L.SEARCH_ALIASES) {
       const hit = (D.schools || []).find(x => x.name.includes(al.target));
       if (hit && L.aliasMatch(al, normT, hit.county, ctx)) { scHit = hit; break; }
@@ -292,7 +308,7 @@ export async function search(text) {
   }
 
   // 重大建設完整名稱比對
-  const prHit = D.intel.find(it => it.build && normT.length >= 2 && it.name.includes(normT));
+  const prHit = addr ? null : D.intel.find(it => it.build && normT.length >= 2 && L.normTw(it.name).includes(normT));
   if (prHit) {
     pick(["project", prHit.id]);
     toast(`已定位建設：${prHit.name}`);

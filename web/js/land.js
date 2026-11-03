@@ -13,7 +13,7 @@ export function loadLand(code) {
   fetch(`data/tw/${code}/land.json`).then(r => r.ok ? r.json() : null).then(lb => {
     LAND_CACHE.set(code, lb);
     if (D.county && D.county.code === code) { D.land = lb; if (S.tab === "land") renderPanel(); }
-  }).catch(() => {});
+  }).catch(() => LAND_CACHE.delete(code));          // 網路斷掉：下次進來再試，不要一直顯示「還沒產生」
 }
 
 // 篩選：預設只看住宅區、商業區（蓋房子最相關）；可以切換成含工業區或全部

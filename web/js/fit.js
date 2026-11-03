@@ -49,8 +49,8 @@ function reasons(r, weights, budget, all) {
   }
   const lt = r.cl ? `近 ${r.cl.years} 年 ${sgn(r.cl.pct)}` : "";
   if (r.c5 != null && r.c5 > 40) cons.push(`近 ${r.cl.years} 年單價已漲 ${r.cl.pct.toFixed(0)}%，追高風險較大`);
-  else if (on("stable") && p("stable") >= 0.66) pros.push(`價格平穩（${[r.tr6 != null ? `近半年 ${sgn(r.tr6)}` : "", lt].filter(Boolean).join("、") || "近期沒有大漲大跌"}）`);
-  else if (on("stable") && r.tr6 != null && Math.abs(r.tr6) >= 8) cons.push(`近半年價格波動大（${sgn(r.tr6)}）`);
+  else if (on("stable") && p("stable") >= 0.66) pros.push(`價格平穩（${[r.tr6 != null ? `近一季 ${sgn(r.tr6)}` : "", lt].filter(Boolean).join("、") || "近期沒有大漲大跌"}）`);
+  else if (on("stable") && r.tr6 != null && Math.abs(r.tr6) >= 8) cons.push(`近一季價格波動大（${sgn(r.tr6)}）`);
   if (on("growth")) {
     if (r.pop != null && r.pop >= 2) pros.push(`近 ${r.popSpan} 年人口 ${sgn(r.pop)}`);
     else if (r.pop != null && r.pop <= -2) cons.push(`近 ${r.popSpan} 年人口 ${sgn(r.pop)}`);

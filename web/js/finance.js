@@ -141,7 +141,8 @@ export function rvbResult(name, median) {
   if (!price) return `<p class="muted">輸入總價就能比較。</p>`;
   if (!rent) return `<p class="muted">這一區沒有足夠的租金資料，請自己填同樣房子的月租。</p>`;
   const c = L.purchaseCosts(price, +st.down, costState());
-  const res = L.rentVsBuy({ price, down: +st.down, rate: +st.rate, loanYears: +st.years, grace: +st.grace, rent, cash: c.total,
+  const cap = st.youth ? { cap: L.YOUTH_LOAN.cap, restRate: LOAN_DEFAULT.rate, restYears: LOAN_DEFAULT.years } : {};
+  const res = L.rentVsBuy({ price, down: +st.down, rate: +st.rate, loanYears: +st.years, grace: +st.grace, rent, cash: c.total, ...cap,
     years: +rv.years, g: +rv.g, rg: +rv.rg, inv: +rv.inv, hold: +rv.hold, sell: +rv.sell });
   if (!res) return `<p class="muted">條件不完整。</p>`;
   const e = res.end, diff = e.buy - e.rent, yuan = v => Math.round(v).toLocaleString("zh-TW");

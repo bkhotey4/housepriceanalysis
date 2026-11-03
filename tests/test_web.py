@@ -451,6 +451,43 @@ class WebAppTest(unittest.TestCase):
         pg2.evaluate("__app.view.zoom = 16; __app.view.request()"); pg2.wait_for_timeout(300)
         self.assertGreater(pg2.evaluate(lm_labels), 0)
 
+    def test_search_address_not_landmark(self):
+        """地址裡剛好有地標、學校的字（101、崇明）不能被當成地標；只打區名就到那一區。"""
+        pg = self.open(phone=True)
+        self.assertEqual(pg.evaluate("__app.search('善化')"), "district")
+        self.assertEqual(pg.evaluate("__app.S.current"), "善化區")
+        self.assertEqual(pg.evaluate("__app.search('安平')"), "district")
+        self.assertNotEqual(pg.evaluate("__app.search('東區中華東路一段101號')"), "landmark")
+        self.assertNotIn(pg.evaluate("__app.search('東區崇明路')"), ("landmark", "school"))
+        self.assertEqual(pg.evaluate("__app.search('赤崁樓')"), "landmark")      # 地標本身還是找得到
+
+    def test_watch_late_registration(self):
+        """看屋清單：實價登錄晚報、日期比上次看過還早的成交，也要算新成交。"""
+        pg = self.open(phone=True)
+        n = pg.evaluate("""() => { const { S, D, L } = __app;
+            const rows = D.txs.filter(x => x.dist === '善化區' && L.inCat(x, 'house'));
+            const latest = rows.reduce((m, x) => x.date > m ? x.date : m, '');
+            const late = rows.find(x => x.date < latest);
+            S.watch = [{ id: 'w', name: '甲', district: '善化區', type: '透天厝', seen: latest,
+                         seenKeys: rows.filter(x => x !== late).map(L.txKey) }];
+            __app.selectDistrict('善化區');
+            return import('./js/watch.js').then(m => { m.checkWatchNews(); return S.watchNews.w.length; }); }""")
+        self.assertEqual(n, 1)
+
+    def test_calc_fixes(self):
+        """試算：買房還是租房的房貸和房貸試算一致（新青安上限以上用一般房貸）；只填買進年份也算稅；雙區 PK 租金用整層住家。"""
+        pg = self.open(phone=True)
+        r = pg.evaluate("""() => { const L = __app.L;
+            const capped = L.mortgageCapped(2000, 20, 1.775, 40, 0, 1000, 2.7, 30);
+            const rvb = L.rentVsBuy({ price: 2000, down: 20, rate: 1.775, loanYears: 40, grace: 0, rent: 20000, years: 10,
+                                      cap: 1000, restRate: 2.7, restYears: 30 });
+            const y = new Date().getFullYear();
+            const sell = L.sellHouse({ sell: 2000, buy: 1500, bought: y - 3, self: false });
+            return { capped: Math.round(capped.monthly), rvb: Math.round(rvb.monthly), rate: sell.rate }; }""")
+        self.assertEqual(r["capped"], r["rvb"])
+        self.assertEqual(r["rate"], 35)                     # 持有 3 年：35%（以前沒填持有年數就算 0 元）
+        self.assertFalse(pg.evaluate("__app.L.youthExpired(new Date('2026-11-04T00:00:00'))"))
+
     def test_boot_defers_intel(self):
         """開場不等全台建設情資：情資晚到後仍會補畫建設、建設分頁有內容；網址的縣市代碼不存在時退回全台畫面。"""
         pg = self.open(phone=True, query="?c=D")
@@ -593,7 +630,7 @@ class WebAppTest(unittest.TestCase):
         pg.evaluate(f"__app.selectDistrict({tx['dist']!r}); __app.S.bldg = 'P|' + {tx['proj']!r}; __app.openTab('bldg')"); pg.wait_for_timeout(300)
         pg.click("button[data-act='follow']"); pg.wait_for_timeout(200)
         self.assertIn("追蹤中", pg.inner_text("button[data-act='follow']"))
-        pg.evaluate("__app.S.settings.follow[0].seen = '2000-01-01'; __app.openTab('watch')"); pg.wait_for_timeout(200)
+        pg.evaluate("__app.S.settings.follow[0].seen = '2000-01-01'; delete __app.S.settings.follow[0].seenKeys; __app.openTab('watch')")   # 舊版只記日期的資料; pg.wait_for_timeout(200)
         self.assertIn("新登錄", pg.inner_text("#tab-body"))
         self.assertRegex(pg.inner_text("#tab-watch"), r"\d")
         pg.click("button[data-act='follow-seen']"); pg.wait_for_timeout(200)

@@ -10,6 +10,7 @@ export const TYPE_CAT = { "透天厝": "house", "店面／透店": "house", "大
 function compareWatch(it) {
   const cat = TYPE_CAT[it.type];
   if (!cat || !D.dmap[it.district]) return null;
+  if (D.tw && watchCode(it) !== (cmpCode() || "D")) return null;     // 別的縣市也有「東區」：不要拿這個縣市的行情比
   const bt = D.book.best(it.district, cat, "t"), bu = D.book.best(it.district, cat, "u");
   const unit = it.price && it.ping ? it.price / it.ping : null;
   return { cat, bt, bu, unit, vsT: it.price && bt.value ? (it.price - bt.value) / bt.value * 100 : null, vsU: unit && bu.value ? (unit - bu.value) / bu.value * 100 : null };
@@ -24,6 +25,14 @@ function watchNearby(it) {
   if (it.address) { const a = L.parseAddress(it.district + it.address.replace(it.district, ""), D.districts.map(d => d.name)); road = a && a.road; }
   return D.txs.filter(x => x.dist === it.district && L.inCat(x, cat) && (!road || x.road === road));
 }
+// 還沒看過的成交：記的是看過的每一筆（seenKeys），晚登錄、日期比上次還早的新成交也算得到；
+// 舊版只記了日期（seen），第一次遇到時把那天以前的都當成看過
+function unseen(rows, o) {
+  if (!o.seenKeys) { if (!o.seen) return []; o.seenKeys = rows.filter(x => x.date <= o.seen).map(L.txKey); }
+  const set = new Set(o.seenKeys);
+  return rows.filter(x => !set.has(L.txKey(x)));
+}
+export function markSeen(it) { it.seenKeys = watchNearby(it).map(L.txKey); it.seen = D.txs.reduce((m, x) => x.date > m ? x.date : m, it.seen || ""); }
 // 「看屋」分頁上的紅點：看屋清單附近還沒看過的新成交筆數
 // ---- 追蹤建案（預售屋）：記下建案、上次看過的日期與解約筆數；之後有新登錄或解約變多時在「看屋」提醒
 const followKey = f => `${f.code}|${f.dist}|${f.proj}`;
@@ -33,17 +42,17 @@ export function toggleFollow(dist, proj) {
   const code = cmpCode() || "D", list = followList();
   if (isFollowing(dist, proj)) { S.settings.follow = list.filter(f => !(f.code === code && f.dist === dist && f.proj === proj)); saveStore(); toast(`已取消追蹤「${proj}」`); return; }
   const st = followStats({ code, dist, proj });
-  list.push({ code, dist, proj, county: D.county ? D.county.short : L.CITY, seen: st ? st.last : "", seenCancel: st ? st.cancel : 0 });
+  list.push({ code, dist, proj, county: D.county ? D.county.short : L.CITY, seen: st ? st.last : "", seenKeys: st ? st.keys : [], seenCancel: st ? st.cancel : 0 });
   S.settings.follow = list; saveStore(); toast(`已追蹤「${proj}」：之後有新登錄或解約，「看屋」分頁會提醒`);
 }
 // 目前縣市的資料裡，這個建案的統計（不在目前縣市就回傳 null）
 function followStats(f) {
   if (!D.txs || f.code !== (cmpCode() || "D")) return null;
   const rows = D.txs.filter(x => x.presale && x.dist === f.dist && x.proj === f.proj);
-  if (!rows.length) return { n: 0, last: f.seen || "", cancel: (D.cancel && D.cancel.get(f.dist + "|" + f.proj)) || 0, fresh: [], u: null };
+  if (!rows.length) return { n: 0, last: f.seen || "", cancel: (D.cancel && D.cancel.get(f.dist + "|" + f.proj)) || 0, fresh: [], u: null, keys: [] };
   const last = rows.reduce((m, x) => x.date > m ? x.date : m, "");
   return { n: rows.length, last, cancel: (D.cancel && D.cancel.get(f.dist + "|" + f.proj)) || 0,
-    fresh: rows.filter(x => f.seen && x.date > f.seen), u: L.median(rows.map(x => x.u)) };
+    fresh: unseen(rows, f), u: L.median(rows.map(x => x.u)), keys: rows.map(L.txKey) };
 }
 function followNewCount() {
   return followList().reduce((a, f) => { const st = followStats(f); return a + (st ? st.fresh.length + Math.max(0, st.cancel - (f.seenCancel || 0)) : 0); }, 0);
@@ -65,7 +74,7 @@ export function followSection() {
   return h + `<p class="muted">點一列看那個建案的每一筆成交、各樓層單價與每季走勢。新消息依實價登錄的更新，大約每 10 天一次。</p>`;
 }
 export function followSeen() {
-  S.settings.follow = followList().map(f => { const st = followStats(f); return st ? { ...f, seen: st.last || f.seen, seenCancel: st.cancel } : f; });
+  S.settings.follow = followList().map(f => { const st = followStats(f); return st ? { ...f, seen: st.last || f.seen, seenKeys: st.keys, seenCancel: st.cancel } : f; });
   saveStore();
 }
 export function followOpen(key) {
@@ -84,8 +93,9 @@ export function checkWatchNews() {
   for (const it of S.watch) {
     if (D.tw && watchCode(it) !== code) continue;
     if (!D.dmap[it.district]) continue;
-    if (!it.seen) { it.seen = latest; changed = true; S.watchNews[it.id] = []; continue; }   // 第一次：從現在開始算
-    const news = watchNearby(it).filter(x => x.date > it.seen).sort((a, b) => b.date.localeCompare(a.date));
+    if (!it.seen && !it.seenKeys) { it.seen = latest; it.seenKeys = watchNearby(it).map(L.txKey); changed = true; S.watchNews[it.id] = []; continue; }   // 第一次：從現在開始算
+    if (!it.seenKeys) changed = true;
+    const news = unseen(watchNearby(it), it).sort((a, b) => b.date.localeCompare(a.date));
     S.watchNews[it.id] = news;
     if (news.length) { total += news.length; names.push(it.name); }
   }
