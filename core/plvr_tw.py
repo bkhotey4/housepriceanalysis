@@ -26,6 +26,16 @@ KINDS = ("a", "b")                     # a=不動產買賣、b=預售屋
 FILE_KINDS = ("a", "b", "c")           # 下載時另外帶 c=租賃（租金行情）
 DONE = "_done_v2"                      # v2 起含租賃檔；只有舊標記的資料夾會重抓一次
 CODES = [c["code"].lower() for c in COUNTIES]
+# 離島（澎湖、金門、連江）偶爾整季沒有檔案；其他縣市少了就是沒抓好，不能當作這一季完成
+ISLANDS = {"x", "w", "z"}
+# 要保留幾季：土地「近兩年」、租金「比去年」要 24 個月以上（每季檔約涵蓋 3 個月的登錄，交易日期還會再早一點）
+SEASONS = 9
+
+
+def _missing(name):
+    """這一期資料夾裡還沒有買賣檔（a）的縣市代碼。"""
+    d = _dir(name)
+    return [c for c in CODES if not os.path.exists(os.path.join(d, "%s_lvr_land_a.csv" % c))]
 
 
 def _say(progress, msg):
@@ -104,9 +114,12 @@ def _season(name, progress, insecure):
         return True
     got = _per_county("season_" + name, lambda code, kind: "%s/DownloadSeason?season=%s&fileName=%s_lvr_land_%s.csv" % (
         BASE_URL, name, code, kind), progress, insecure)
-    if got >= len(CODES) - 2:          # 離島偶爾整季沒有檔案
+    miss = _missing("season_" + name)
+    if got and set(miss) <= ISLANDS:   # 離島偶爾整季沒有檔案；本島縣市少了就下次再補
         _mark_done("season_" + name, "per-county %d" % got)
         return True
+    if got:
+        print("[提醒] 季檔 %s 有縣市沒抓到（%s），這次先不用這一季，下次更新再補" % (name, "、".join(miss)), flush=True)
     if not _old_done("season_" + name):  # 舊版下載過（只有 _done）的保留，下次再補抓租賃檔；全新的半套才刪掉
         shutil.rmtree(_dir("season_" + name), ignore_errors=True)
     return False
@@ -116,7 +129,7 @@ def _old_done(name):
     return os.path.exists(os.path.join(_dir(name), "_done"))
 
 
-def update(progress=None, seasons_wanted=5, insecure=False, today=None):
+def update(progress=None, seasons_wanted=SEASONS, insecure=False, today=None):
     """下載（或補齊）全台資料。回傳資料夾清單。"""
     today = today or datetime.date.today()
     os.makedirs(CACHE, exist_ok=True)
@@ -126,6 +139,7 @@ def update(progress=None, seasons_wanted=5, insecure=False, today=None):
         if is_done("season_" + name) or _season(name, progress, insecure) or _old_done("season_" + name):
             found.append((roc, q))         # 這次下載失敗但舊版資料還在，也照樣用（不會因為一次忙線就刪掉舊季檔）
         elif found:
+            print("[提醒] 季檔 %s 這次下載不到，網站資料會少這一季（下次更新再試）" % name, flush=True)
             continue                       # 中間有一季抓不到：跳過，繼續找更舊的，湊滿 seasons_wanted 季
         if len(found) >= seasons_wanted:
             break
@@ -167,7 +181,7 @@ def update(progress=None, seasons_wanted=5, insecure=False, today=None):
     if got < len(CODES):
         got = max(got, _per_county("cur_new", lambda code, kind: "%s/Download?fileName=%s_lvr_land_%s.csv" % (BASE_URL, code, kind),
                                    progress, insecure))
-    if got >= len(CODES) - 2 or (got and not is_done("cur") and not _old_done("cur")):
+    if (got and set(_missing("cur_new")) <= ISLANDS) or (got and not is_done("cur") and not _old_done("cur")):
         shutil.rmtree(_dir("cur"), ignore_errors=True)
         os.replace(_dir("cur_new"), _dir("cur"))
         _mark_done("cur", today.isoformat())

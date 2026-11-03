@@ -8,6 +8,7 @@
 不檢查內容是否屬實——內容的正確性要靠每一筆所附的來源連結。
 """
 import math
+import os
 import re
 
 from .taiwan import BY_CODE
@@ -347,4 +348,58 @@ def check_all():
             out.append("%s：讀取失敗（%s）" % (name, e))
             continue
         out.extend(fn(d))
+    return out
+
+
+def check_tw_output(tw_dir, prev_report=None, today=None):
+    """全台網頁資料（tools/export_tw.py 產生）的合理性檢查：回傳提醒文字的 list（不擋部署，但會寫進更新紀錄並開 Issue）。
+
+    - 實價登錄資料日期太舊（下載可能一直失敗）、「資料到齊」月份落後太多
+    - 和上一次更新相比：有資料的縣市變少、某縣市成交筆數掉超過 15%
+    - 有資料的縣市少了租金、土地檔"""
+    import datetime
+    import json
+    import re
+    today = today or datetime.date.today()
+    out = []
+    try:
+        with open(os.path.join(tw_dir, "index.json"), encoding="utf-8") as f:
+            idx = json.load(f)
+    except (OSError, ValueError):
+        return ["全台網頁資料的 index.json 讀不到"]
+    try:
+        age = (today - datetime.date.fromisoformat(str(idx.get("as_of", ""))[:10])).days
+        if age > 20:
+            out.append("實價登錄資料日期是 %s，已經 %d 天沒有新資料（內政部大約每 10 天發布一次，下載可能一直失敗）" % (idx["as_of"], age))
+    except ValueError:
+        out.append("全台網頁資料沒有資料日期（as_of）")
+    ct = idx.get("complete_through") or ""
+    if re.match(r"^\d{4}-\d{2}$", ct):
+        lag = (today.year - int(ct[:4])) * 12 + today.month - int(ct[5:])
+        if lag > 4:
+            out.append("房價統計到 %s，比現在落後 %d 個月（正常約 2～3 個月）" % (ct, lag))
+    counts = {c["code"]: c.get("tx_count", 0) for c in idx.get("counties", []) if c.get("has_data")}
+    for c in idx.get("counties", []):
+        if not c.get("has_data"):
+            continue
+        for f in ("rent.json", "land.json"):
+            if not os.path.exists(os.path.join(tw_dir, c["code"], f)):
+                out.append("%s 沒有 %s" % (c.get("short", c["code"]), f))
+    prev = None
+    if prev_report and os.path.exists(prev_report):
+        with open(prev_report, encoding="utf-8") as f:
+            m = re.search(r"^- 資料：(\{.*\})\s*$", f.read(), re.M)
+        if m:
+            try:
+                prev = json.loads(m.group(1))
+            except ValueError:
+                prev = None
+    if prev:
+        if prev.get("counties_with_data") and len(counts) < prev["counties_with_data"]:
+            out.append("有資料的縣市從 %d 個變成 %d 個" % (prev["counties_with_data"], len(counts)))
+        names = {c["code"]: c.get("short", c["code"]) for c in idx.get("counties", [])}
+        for code, n0 in (prev.get("counts") or {}).items():
+            n1 = counts.get(code, 0)
+            if n0 >= 200 and n1 < n0 * 0.85:
+                out.append("%s 的成交筆數從 %d 掉到 %d（少了 %.0f%%）" % (names.get(code, code), n0, n1, (1 - n1 / n0) * 100))
     return out

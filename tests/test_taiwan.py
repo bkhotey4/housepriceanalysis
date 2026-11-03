@@ -172,6 +172,20 @@ class NationalDownloadTest(unittest.TestCase):
         self.assertEqual(sorted(n for n in plvr_tw.folders() if n.startswith("season_")), before)
         self.assertTrue(plvr_tw.load_county("D"))
 
+    def test_per_county_season_needs_main_island(self):
+        """全國 zip 抓不到、改逐縣市下載時：只有離島可以缺；本島縣市（例如臺北市）缺了，這一季不能當作完成。"""
+        a = _read("fixture_d_lvr_land_a.csv")
+
+        def per_county(url, **kw):
+            if "type=zip" in url:
+                raise plvr.DownloadError("zip 忙線")
+            if "DownloadSeason" in url and "115S2" in url:
+                return b"" if "fileName=A_" in url else a
+            return b"<html></html>"
+        plvr.fetch = per_county
+        self.assertFalse(plvr_tw._season("115S2", lambda m: None, False))
+        self.assertFalse(plvr_tw.is_done("season_115S2"))
+
     def test_old_cache_still_readable_and_refetched(self):
         """舊版下載的資料夾（只有 _done、沒有租賃檔）照樣讀得到；更新時會重抓一次補上租賃檔。"""
         plvr_tw.update(seasons_wanted=2, today=datetime.date(2026, 10, 2), progress=lambda m: None)

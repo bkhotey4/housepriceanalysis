@@ -277,6 +277,32 @@ class PlvrTest(unittest.TestCase):
                 prices.save_book, prices.save_transactions = orig_sb, orig_st
 
 
+class TwOutputCheckTest(unittest.TestCase):
+    """全台網頁資料的合理性檢查：資料太舊、縣市變少、筆數突然掉很多都要提醒。"""
+    def test_reminders(self):
+        import json
+        d = tempfile.mkdtemp()
+        idx = {"as_of": "2026-10-01", "complete_through": "2026-08", "counties": [
+            {"code": "A", "short": "臺北市", "has_data": True, "tx_count": 500},
+            {"code": "D", "short": "臺南市", "has_data": True, "tx_count": 1000}]}
+        with open(os.path.join(d, "index.json"), "w", encoding="utf-8") as f:
+            json.dump(idx, f)
+        for code in ("A", "D"):
+            os.makedirs(os.path.join(d, code))
+            for name in ("rent.json", "land.json"):
+                open(os.path.join(d, code, name), "w").close()
+        prev = os.path.join(d, "latest.md")
+        with open(prev, "w", encoding="utf-8") as f:
+            f.write('- 資料：%s\n' % json.dumps({"counties_with_data": 3, "counts": {"A": 520, "D": 1500}}, ensure_ascii=False))
+        msgs = datacheck.check_tw_output(d, prev, today=datetime.date(2026, 11, 4))
+        text = "\n".join(msgs)
+        self.assertIn("已經 34 天沒有新資料", text)
+        self.assertIn("從 3 個變成 2 個", text)
+        self.assertIn("臺南市 的成交筆數從 1500 掉到 1000", text)
+        self.assertNotIn("臺北市 的成交筆數", text)                 # 少 4% 不算
+        self.assertEqual(datacheck.check_tw_output(d, None, today=datetime.date(2026, 10, 5)), [])
+
+
 class BasemapTileMathTest(unittest.TestCase):
     def test_tile_range_and_bounds(self):
         self.assertEqual(basemap.tile_range(13), (6827, 6841, 3547, 3561))     # 15 x 15 = 225 張

@@ -26,7 +26,8 @@ if __name__ == "__main__":
     intel, mrt = geo.load_json("intel.json"), geo.load_json("mrt.json")
     import datetime
     loan = geo.load_json("loan.json")
-    for label, d in (("情資", intel), ("捷運", mrt), ("房貸利率", {"as_of": loan.get("checked", "")})):
+    extra = [("建商購地", geo.load_json("landbank.json")), ("即將開幕的店", geo.load_json("openings.json"))]
+    for label, d in [("情資", intel), ("捷運", mrt), ("房貸利率", {"as_of": loan.get("checked", "")})] + extra:
         try:
             age = (datetime.date.today() - datetime.date.fromisoformat(d["as_of"][:10])).days
         except (KeyError, ValueError):
@@ -34,6 +35,9 @@ if __name__ == "__main__":
             continue
         if age > (45 if label == "房貸利率" else 21):
             print("[提醒] %s的查證日是 %s，已經 %d 天沒更新（每週更新情資的排程可能沒有執行）" % (label, d["as_of"], age))
+    until = (loan.get("youth") or {}).get("until", "")
+    if until and until < datetime.date.today().isoformat():
+        print("[提醒] 房貸利率檔的新青安申請期限 %s 已經過了，請確認是否續辦（每週情資排程會查）" % until)
     print("情資 %d 筆（查證日 %s）、捷運 %d 條路線、鐵路計畫 %d 項（查證日 %s）" % (
         len(intel["items"]), intel["as_of"], len(mrt["lines"]), len(mrt.get("rail_projects", [])), mrt["as_of"]))
     # CI 用：--require-tw N 時，確認全台網頁資料真的產生了，而且至少 N 個縣市有資料（不然寧可不要部署）
@@ -51,4 +55,6 @@ if __name__ == "__main__":
             print("[問題] 全台網頁資料只有 %d 個縣市有資料（至少要 %d 個）" % (n, need))
             sys.exit(1)
         print("全台網頁資料：%d 個縣市有資料" % n)
+        for msg in datacheck.check_tw_output(os.path.join(ROOT, "web", "data", "tw"), os.path.join(ROOT, "logs", "ci", "latest.md")):
+            print("[提醒] " + msg)
     print("資料格式正確")

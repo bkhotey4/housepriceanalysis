@@ -141,7 +141,7 @@ def main():
         try:
             plvr_tw.update()
         except Exception as e:                      # 下載失敗：用上次留下的快取照樣產生，不要讓網站掉成只剩台南
-            print("下載全台實價登錄失敗：%s；改用已下載的資料。" % e, flush=True)
+            print("[提醒] 下載全台實價登錄失敗：%s；這次網站沿用上次下載的資料。" % e, flush=True)
             if not plvr_tw.folders():
                 raise SystemExit("沒有任何已下載的全台資料可用。")
     towns = load_towns()
@@ -174,7 +174,9 @@ def main():
         if raw:
             _dump("%s/book.json" % c["code"], raw)
             books[c["code"]] = raw
-            size, n = export_tx(c["code"], txs, names, cancels)
+            # 逐筆成交只放近 15 個月（季檔留比較多季是給土地、租金的兩年統計用，不要讓手機多下載）
+            since = prices.ym_add(raw["complete_through"], -14)
+            size, n = export_tx(c["code"], [x for x in txs if x["ym"] >= since], names, cancels)
             entry["tx_count"] = n
             entry["complete_through"] = raw["complete_through"]
             print("%s：%d 筆、%d 區（%.1f MB）" % (c["short"], n, len(names), size / 1e6), flush=True)
@@ -194,7 +196,8 @@ def main():
             if not args.legacy_tainan:
                 # 沒有任何土地成交（例如連江縣）也寫一份空的，網頁才會顯示「沒有成交」而不是「還沒產生」
                 lands = plvr_tw.load_county_land(c["code"])
-                latest = min(max(x["ym"] for x in lands), today.strftime("%Y-%m")) if lands else raw["complete_through"]
+                # 統計到資料「到齊」的月份（跟房價一樣），最近一兩個月還在陸續登錄、筆數偏少
+                latest = raw["complete_through"]
                 lb = land.build_land_book(lands, names, latest, c["short"])
                 _dump("%s/land.json" % c["code"], lb)
                 entry["land_n"] = len(lb["rows"])

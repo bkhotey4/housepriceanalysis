@@ -43,7 +43,8 @@ def data_summary():
             "tx_count": idx.get("tx_count"), "counties_with_data": sum(1 for c in cs if c.get("has_data")),
             "road_districts": sum(len(c.get("roads", [])) for c in cs),
             "town_districts": sum(c.get("towns", 0) for c in cs),
-            "missing": [c["short"] for c in cs if not c.get("has_data")]}
+            "missing": [c["short"] for c in cs if not c.get("has_data")],
+            "counts": {c["code"]: c.get("tx_count", 0) for c in cs if c.get("has_data")}}       # 下次比對筆數有沒有突然變少
 
 
 def gh(*args, input_text=None):
@@ -81,20 +82,34 @@ def main():
     now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
     failed = [s for s in steps if not s["ok"]]
     data = data_summary()
+    # 各步驟輸出裡的「[提醒]」：沒有失敗、但資料可能不對或太舊（例如下載失敗改用舊資料、筆數突然變少）
+    warnings = []
+    for s in steps:
+        try:
+            with open(os.path.join(LOG, "raw", s["id"] + ".log"), encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("[提醒]") and line not in warnings:
+                        warnings.append(line)
+        except OSError:
+            pass
     status = {"time": now.strftime("%Y-%m-%d %H:%M"), "event": event, "run_url": run_url(),
               "commit": (os.environ.get("GITHUB_SHA") or "")[:7], "ok": not failed,
-              "failed": [s["title"] for s in failed], "steps": steps, "data": data}
+              "failed": [s["title"] for s in failed], "warnings": warnings, "steps": steps, "data": data}
     os.makedirs(os.path.join(ROOT, "web", "data"), exist_ok=True)
     with open(os.path.join(ROOT, "web", "data", "status.json"), "w", encoding="utf-8") as f:
         json.dump(status, f, ensure_ascii=False, indent=1)
 
     md = ["# 資料更新紀錄 %s" % status["time"], "",
           "- 觸發：%s　commit：%s" % (event, status["commit"]),
-          "- 結果：%s" % ("全部成功" if not failed else "失敗 %d 步：%s" % (len(failed), "、".join(s["title"] for s in failed))),
+          "- 結果：%s%s" % ("全部成功" if not failed else "失敗 %d 步：%s" % (len(failed), "、".join(s["title"] for s in failed)),
+                            "（有 %d 則提醒）" % len(warnings) if warnings else ""),
           "- 執行紀錄：%s" % (status["run_url"] or "（本機執行）"),
           "- 資料：%s" % json.dumps(data, ensure_ascii=False), "",
           "| 步驟 | 結果 | 秒 |", "|---|---|---|"]
     md += ["| %s | %s | %d |" % (s["title"], "成功" if s["ok"] else "**失敗（%d）**" % s["code"], s["seconds"]) for s in steps]
+    if warnings:
+        md += ["", "## 提醒", ""] + ["- " + w for w in warnings]
     for s in failed:
         md += ["", "## %s 的最後 %d 行輸出" % (s["title"], TAIL), "", "```", tail(os.path.join(LOG, "raw", s["id"] + ".log")), "```"]
     text = "\n".join(md) + "\n"
@@ -109,6 +124,8 @@ def main():
     print(text)
     if failed:
         report_issue("自動回報：資料更新有步驟失敗（%s）" % now.strftime("%Y-%m-%d"), text[:60000])
+    elif warnings:
+        report_issue("自動回報：資料更新有提醒（%s）" % now.strftime("%Y-%m-%d"), text[:60000])
     if any(s["required"] for s in failed):
         sys.exit(1)
 

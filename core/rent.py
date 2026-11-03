@@ -161,6 +161,14 @@ def _rooms_key(x):
     return str(min(4, max(1, x["rooms"]))) if x["rooms"] else None
 
 
+def _months(a, b):
+    out, m = [], a
+    while m <= b:
+        out.append(m)
+        m = ym_add(m, 1)
+    return out
+
+
 def build_rent_book(items, names, end_ym, total):
     """各區近一年租金統計。
 
@@ -172,6 +180,14 @@ def build_rent_book(items, names, end_ym, total):
     by = {}
     for x in items:
         by.setdefault(x["dist"], []).append(x)
+    # 「比前一年」只在前一年每個月都有資料時才算：下載的季數不夠（或少了一季）時，前一年只有幾個月，
+    # 拿整年比幾個月會有季節偏差，寧可不顯示
+    per = {}
+    for x in items:
+        per[x["ym"]] = per.get(x["ym"], 0) + 1
+    cur_counts = sorted(per.get(m, 0) for m in _months(a, b))
+    floor = cur_counts[len(cur_counts) // 2] * 0.5 if cur_counts else 0
+    prev_ok = sum(1 for m in _months(pa, pb) if per.get(m, 0) >= floor) >= 11
     data = {}
     for d in [total] + list(names):
         rows = items if d == total else by.get(d, [])
@@ -190,7 +206,7 @@ def build_rent_book(items, names, end_ym, total):
         cell["rooms"] = {k: _stat(v) for k, v in sorted(rooms.items())}
         home_c = [x for x in cur if x["cat"] != "room"]
         home_p = [x for x in prev if x["cat"] != "room"]
-        if len(home_c) >= 20 and len(home_p) >= 20:
+        if prev_ok and len(home_c) >= 20 and len(home_p) >= 20:
             m0, m1 = median([x["unit"] for x in home_p]), median([x["unit"] for x in home_c])
             cell["chg"] = _r((m1 / m0 - 1) * 100, 1) if m0 else None
         data[d] = cell
