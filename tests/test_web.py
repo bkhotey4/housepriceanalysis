@@ -60,7 +60,7 @@ class WebAppTest(unittest.TestCase):
         cls.pw.stop()
         cls.httpd.shutdown()
 
-    def open(self, phone=True, query="?tw=0"):
+    def open(self, phone=True, query="?tw=0", ready="window.__app && window.__app.D.txs"):
         kw = dict(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True) if phone \
             else dict(viewport={"width": 1366, "height": 820})
         ctx = self.browser.new_context(**kw)
@@ -71,7 +71,7 @@ class WebAppTest(unittest.TestCase):
         errors = []
         pg.on("pageerror", lambda e: errors.append(str(e)))
         pg.goto(self.url + query)
-        pg.wait_for_function("window.__app && window.__app.D.txs", timeout=30000)
+        pg.wait_for_function(ready, timeout=30000)
         pg.wait_for_timeout(300)
         self.addCleanup(ctx.close)
         self.addCleanup(lambda: self.assertEqual(errors, []))
@@ -450,6 +450,20 @@ class WebAppTest(unittest.TestCase):
         self.assertEqual(pg2.evaluate(lm_labels), 0)
         pg2.evaluate("__app.view.zoom = 16; __app.view.request()"); pg2.wait_for_timeout(300)
         self.assertGreater(pg2.evaluate(lm_labels), 0)
+
+    def test_boot_defers_intel(self):
+        """開場不等全台建設情資：情資晚到後仍會補畫建設、建設分頁有內容；網址的縣市代碼不存在時退回全台畫面。"""
+        pg = self.open(phone=True, query="?c=D")
+        pg.wait_for_function("__app.D.intelReady", timeout=30000)
+        self.assertEqual(pg.evaluate("__app.D.county && __app.D.county.code"), "D")
+        self.assertGreater(pg.evaluate("__app.D.intel.length"), 0)
+        self.assertGreater(pg.evaluate("__app.view.models.filter(m => m.hit === 'project').length"), 0)
+        pg.click("#tabs button[data-tab='projects']")
+        self.assertNotIn("載入中", pg.inner_text("#tab-body"))
+        bad = self.open(phone=True, query="?c=Y", ready="window.__app && __app.S.ready")
+        self.assertIsNone(bad.evaluate("__app.D.county"))
+        self.assertNotEqual(bad.inner_text("#d-name"), "載入中…")
+        self.assertEqual(bad.evaluate("__app.S.settings.lastCounty"), "")
 
     def test_tab_groups(self):
         """分頁分組：外面一排 7 個不會超出寬度；點「行情」展開小分頁、記住上次看的那一個。"""

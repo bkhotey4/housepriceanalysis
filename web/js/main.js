@@ -57,9 +57,9 @@ const FLOOD_URL = "https://dmap.ncdr.nat.gov.tw/1109/map/?group-layer=" + encode
 export const allLines = () => (D.mrt ? D.mrt.lines : []).concat(D.transit || []);
 // 啟動時先把彼此不相依的資料一起開始下載（之前是一批等一批）；之後的 getJSON 拿到的是同一個請求
 const PREFETCH = new Map();
-function prefetch(path, ms) {
+function prefetch(path, ms, priority) {
   if (PREFETCH.has(path)) return;
-  const p = fetchJSON(path, ms);
+  const p = fetchJSON(path, ms, priority);
   p.catch(() => {});                          // 沒人用到（例如猜錯縣市）時不要變成未處理的錯誤
   PREFETCH.set(path, p);
 }
@@ -68,9 +68,11 @@ function getJSON(path, ms = 20000) {
   if (p) { PREFETCH.delete(path); return p; }
   return fetchJSON(path, ms);
 }
-async function fetchJSON(path, ms = 20000) {
+async function fetchJSON(path, ms = 20000, priority) {
   let r;
-  try { r = await fetch(path, AbortSignal.timeout ? { signal: AbortSignal.timeout(ms) } : {}); }
+  const opt = AbortSignal.timeout ? { signal: AbortSignal.timeout(ms) } : {};
+  if (priority) opt.priority = priority;
+  try { r = await fetch(path, opt); }
   catch (e) { const err = new Error(path + (e && e.name === "TimeoutError" ? " 逾時" : " 連不上")); err.network = true; throw err; }
   if (!r.ok) { const err = new Error(path + " " + r.status); err.status = r.status; throw err; }
   return r.json();
@@ -1790,11 +1792,11 @@ function resetSelection() {
   if (S.poi) { S.poi = null; refreshPois(); }
   if (["roads", "bldg", "tx", "detail", "poi"].includes(S.tab)) S.tab = "overview";
 }
-function enterNation(fly = true) {
+function enterNation(fly = true, draw = true) {
   D.county = null;
   L.setCity(D.tw.nation || "全台", "全台");
   enterSeq++;
-  D.book = D.twBook; D.rent = D.twRent; D.pop = D.twPop; D.txs = null; D.txPromise = Promise.resolve(); loadLong(""); loadLand("");
+  D.book = D.twBook; D.rent = D.twRent; D.pop = D.twPop; D.txs = null; D.txPromise = Promise.resolve(); if (draw) { loadLong(""); loadLand(""); }
   D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   D.districts = D.tw.counties.map(c => ({ name: c.short, lat: c.lat, lng: c.lng, zone: c.region, code: c.code }));
   D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
@@ -1805,7 +1807,7 @@ function enterNation(fly = true) {
   S.settings.lastCounty = ""; saveStore();
   view.select(null);
   if (fly) view.flyHome();
-  refreshAll();
+  if (draw) refreshAll();
 }
 let enterSeq = 0;           // 每次換縣市（含回全台）加一；載入完成時不是最新的那次就丟掉
 // 各縣市的統計與行政區（比較功能會同時用到好幾個縣市，讀過的留著）
@@ -1868,27 +1870,29 @@ export async function main() {
   {
     const linked = ["d", "tab", "cat", "m", "cmp", "q"].some(k => params.has(k));
     const guess = (params.get("c") || (linked ? "" : S.settings.lastCounty) || "").toUpperCase();
-    for (const n of ["intel", "mrt", "landmarks", "models", "workplaces", "schools"]) prefetch(`data/${n}.json`);
+    for (const n of ["mrt", "landmarks", "models", "workplaces", "schools"]) prefetch(`data/${n}.json`);
+    prefetch("data/intel.json", 60000, "low");
     if (params.get("tw") !== "0") {
       for (const f of ["index", "book", "rent", "pop"]) prefetch(`data/tw/${f}.json`);
       if (/^[A-Z]$/.test(guess) && !params.get("q")) {          // 會直接進入的縣市：它的統計和逐筆成交也先開始下載
         for (const f of ["book", "districts", "rent", "pop"]) prefetch(`data/tw/${guess}/${f}.json`);
-        prefetch(`data/tw/${guess}/tx.json`, 60000);
+        prefetch(`data/tw/${guess}/tx.json`, 60000, "low");      // 最大的檔，讓開場畫面要用的先下載
       }
     }
   }
   let twErr = null;
   const tw = params.get("tw") === "0" ? null : await getJSON("data/tw/index.json").catch(e => { if (e.network || (e.status && e.status !== 404)) twErr = e; return null; });    // ?tw=0：強制台南版（測試用）
-  const shared = ["intel", "mrt", "landmarks", "models", "workplaces", "schools", "loan", "landbank", "openings"];
+  // 建設情資（全台，約 200KB）不擋開場畫面：地圖和行情先出來，情資到了再補畫建設的 3D 圖案
+  const intelP = getJSON("data/intel.json", 60000).catch(e => { logError("載入 intel", e, true); return { items: [] }; });
+  const shared = ["mrt", "landmarks", "models", "workplaces", "schools", "loan", "landbank", "openings"];
   // 這幾份輔助資料任何一份載不到都不要讓整個網站停住：用空的資料繼續
-  const empty = { intel: { items: [] }, mrt: { lines: [] }, landmarks: [], models: null, workplaces: { places: [] }, schools: [], loan: null, landbank: { items: [] }, openings: { items: [] } };
-  const [intel, mrt, landmarks, models, workplaces, schools, loan, landbank, openings] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`).catch(e => { logError("載入 " + n, e, true); return empty[n]; })));
+  const empty = { mrt: { lines: [] }, landmarks: [], models: null, workplaces: { places: [] }, schools: [], loan: null, landbank: { items: [] }, openings: { items: [] } };
+  const [mrt, landmarks, models, workplaces, schools, loan, landbank, openings] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`).catch(e => { logError("載入 " + n, e, true); return empty[n]; })));
   L.setLoanTerms(loan);      // 房貸利率、新青安條件（data/loan.json）
   D.landbank = landbank || { items: [] };     // 建商購地紀錄
   D.openings = openings || { items: [] };     // 即將開幕的店
   if (twErr) setTimeout(() => toast("全台資料載入失敗（網路不穩？），先顯示臺南市；重新整理可以再試一次。", 8000), 500);
-  Object.assign(D, { intel: intel.items || [], mrt, landmarks: landmarks || [], workplaces, schools: schools || [], roadCatalog: [],
-    intelAsOf: intel.as_of || "", intelYear: +(intel.as_of || "").slice(0, 4) || null });
+  Object.assign(D, { intel: [], mrt, landmarks: landmarks || [], workplaces, schools: schools || [], roadCatalog: [] });
   if (tw) {
     L.setOrigin(...TW_ORIGIN);
     D.tw = tw;
@@ -1960,8 +1964,9 @@ export async function main() {
   if (tw) {
     const shared = ["d", "tab", "cat", "m", "cmp", "q"].some(k => params.has(k));
     const want = (params.get("c") || (shared ? "" : S.settings.lastCounty) || "").toUpperCase();
-    enterNation(false); view.reset();
-    if (want && !params.get("q")) { bootMsg("正在載入縣市資料…"); await enterCounty(want, false); }
+    const direct = want && !params.get("q");
+    enterNation(false, !direct); view.reset();       // 直接進縣市時不用先畫一次全台（手機上要多花一秒多）
+    if (direct) { bootMsg("正在載入縣市資料…"); if (!await enterCounty(want, false) && !D.county) { loadLong(""); loadLand(""); refreshAll(); } }
   } else {
     refreshAll();
     // 逐筆成交比較大（壓縮後約 0.6MB），畫面先出來再載入
@@ -1971,7 +1976,12 @@ export async function main() {
   S.ready = true; syncUrl();
   const boot = $("#boot"); if (boot) boot.hidden = true;
   starTip();
-  if (params.get("q")) { $("#q").value = params.get("q"); const t0 = Date.now(), wait = () => (D.tw || D.txs) ? search(params.get("q")) : (D.txErr || Date.now() - t0 > 60000) ? null : setTimeout(wait, 200); wait(); }
+  intelP.then(intel => {
+    Object.assign(D, { intel: intel.items || [], intelAsOf: intel.as_of || "", intelYear: +(intel.as_of || "").slice(0, 4) || null, intelReady: true });
+    refreshModels();
+    if (["overview", "projects", "fit", "cmp"].includes(S.tab)) renderPanel();
+  });
+  if (params.get("q")) { $("#q").value = params.get("q"); const t0 = Date.now(), wait = () => (D.tw || D.txs) && D.intelReady ? search(params.get("q")) : (D.txErr || Date.now() - t0 > 60000) ? null : setTimeout(wait, 200); wait(); }
   getJSON("data/status.json").then(st => { D.status = st; if (!st.ok) $("#btn-menu").classList.add("has-err"); }).catch(() => {});
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     // 程式檔先用快取開（離線也能用、開得快），新版本在背景下載；下載好就提示使用者重新整理，而不是默默等到下次開
