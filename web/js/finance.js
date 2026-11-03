@@ -51,6 +51,20 @@ export function loanResult(median) {
       `<tr><td>總利息（萬）</td><td class="r">${L.fmtNum(Math.round(a.totalInterest))}</td><td class="r">${L.fmtNum(Math.round(b.totalInterest))}</td></tr></tbody></table>` +
       `<p class="muted">新青安${diff > 0 ? `年限較長、加上寬限期，總利息反而多約 ${L.fmtNum(diff)} 萬` : `總利息少約 ${L.fmtNum(-diff)} 萬`}；寬限期結束後月付會明顯變高，要先確認那時繳得起。</p>`;
   }
+  return h + loanRuleNotes(st, price);
+}
+// 房價超過新青安上限、名下已有房子（央行信用管制）的提醒；數字來自 data/loan.json，沒有查證到就不顯示
+function loanRuleNotes(st, price) {
+  let h = "";
+  const cap = L.youthPriceCap(D.county ? D.county.code : "D");
+  if (st.youth && cap && price > cap)
+    h += `<p class="note">總價 ${L.fmtNum(price)} 萬超過${youthLabel()}的房價上限（這個縣市 ${L.fmtNum(cap)} 萬），可能不能申請，請改用一般房貸試算。</p>`;
+  const cr = L.LOAN_RULES.credit;
+  if (cr) {
+    const pct = v => v % 10 === 0 ? `${v / 10} 成` : `${v}%`;
+    h += `<p class="muted">名下已經有房子再買：央行選擇性信用管制規定第二戶最多貸 ${pct(cr.second_ltv)}${cr.second_grace === false ? "、沒有寬限期" : ""}` +
+      `${cr.third_ltv != null ? `；第三戶以上最多 ${pct(cr.third_ltv)}` : ""}${cr.checked ? `（${esc(cr.checked)} 查證）` : ""}。${cr.note ? esc(cr.note) : ""}</p>`;
+  }
   return h;
 }
 export function loanSection(median) {

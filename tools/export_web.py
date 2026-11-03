@@ -108,6 +108,7 @@ def export_static():
     _dump("models.json", models)
     _dump("districts.json", geo.load_districts())
     _dump("workplaces.json", geo.load_json("workplaces.json")["places"])
+    _dump("schools.json", geo.load_json("schools.json")["items"])
     _dump("loan.json", geo.load_json("loan.json"))
     _dump("landbank.json", geo.load_json("landbank.json"))
     _dump("openings.json", geo.load_json("openings.json"))

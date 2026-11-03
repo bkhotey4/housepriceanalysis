@@ -94,6 +94,8 @@ def check_intel(d, min_items=40):
             out.append("%s：district「%s」不是台南的行政區" % (where, it["district"]))
         if not isinstance(it.get("status"), str) or not it["status"].strip():
             out.append("%s：缺少 status" % where)
+        if it.get("checked") is not None and not _DATE.match(str(it["checked"])):
+            out.append("%s：checked（這一項的查證日）應為 YYYY-MM-DD" % where)
         lat, lng = it.get("lat"), it.get("lng")
         if (lat is None) != (lng is None):
             out.append("%s：lat、lng 必須同時有值或同時為 null" % where)
@@ -235,6 +237,67 @@ def check_loan(d):
     y = d.get("youth") or {}
     if isinstance(y, dict) and not _DATE.match(str(y.get("until") or "")):
         out.append("loan.json：youth.until（申請期限）應為 YYYY-MM-DD")
+    # 選填：新青安房價上限 {縣市代碼或 default: 萬}、央行信用管制 {second_ltv, second_grace, third_ltv, checked, source, note}
+    pc = y.get("price_cap") if isinstance(y, dict) else None
+    if pc is not None:
+        if not isinstance(pc, dict) or not all((k == "default" or k in _COUNTY_KM or len(k) == 1) and _is_num(v) and 100 <= v <= 100000 for k, v in pc.items()):
+            out.append("loan.json：youth.price_cap 應為 {縣市代碼或 default: 100～100000 的萬元}")
+    cr = d.get("credit")
+    if cr is not None:
+        if not isinstance(cr, dict) or not (_is_num(cr.get("second_ltv")) and 0 <= cr["second_ltv"] <= 100):
+            out.append("loan.json：credit.second_ltv（第二戶最高貸款成數 %）應為 0～100")
+        elif cr.get("third_ltv") is not None and not (_is_num(cr["third_ltv"]) and 0 <= cr["third_ltv"] <= 100):
+            out.append("loan.json：credit.third_ltv 應為 0～100")
+        elif not _DATE.match(str(cr.get("checked") or "")):
+            out.append("loan.json：credit.checked（查證日）應為 YYYY-MM-DD")
+    return out
+
+
+def check_schools(d):
+    """data/schools.json：明星學區（地圖上的 🎓）。"""
+    out = []
+    if not isinstance(d, dict) or not isinstance(d.get("items"), list):
+        return ["schools.json：應為 {as_of, items: [...]}"]
+    ids = set()
+    for i, s in enumerate(d["items"]):
+        tag = "schools.json 第 %d 筆（%s）" % (i + 1, s.get("name", "?") if isinstance(s, dict) else "?")
+        if not isinstance(s, dict):
+            out.append(tag + "：應為物件")
+            continue
+        for k in ("id", "name", "type", "county", "district", "status"):
+            if not s.get(k):
+                out.append(tag + "：缺少 %s" % k)
+        if s.get("id") in ids:
+            out.append(tag + "：id 重複")
+        ids.add(s.get("id"))
+        if not (_is_num(s.get("lat")) and _is_num(s.get("lng")) and 21.5 < s["lat"] < 26.5 and 118 < s["lng"] < 122.5):
+            out.append(tag + "：座標不在台灣")
+        if s.get("checked") and not _DATE.match(str(s["checked"])):
+            out.append(tag + "：checked 應為 YYYY-MM-DD")
+        for src in s.get("sources") or []:
+            if not (isinstance(src, dict) and str(src.get("url", "")).startswith("http")):
+                out.append(tag + "：sources 每筆要有 url")
+    return out
+
+
+def check_workplaces(d):
+    """data/workplaces.json：上班地點選單（科學園區、工業區、大型醫院等）。"""
+    out = []
+    if not isinstance(d, dict) or not isinstance(d.get("places"), list):
+        return ["workplaces.json：應為 {places: [...]}"]
+    names = set()
+    for i, p in enumerate(d["places"]):
+        tag = "workplaces.json 第 %d 筆（%s）" % (i + 1, p.get("name", "?") if isinstance(p, dict) else "?")
+        if not isinstance(p, dict) or not p.get("name"):
+            out.append(tag + "：缺少 name")
+            continue
+        if (p["name"], p.get("county")) in names:
+            out.append(tag + "：名稱重複")
+        names.add((p["name"], p.get("county")))
+        if not (_is_num(p.get("lat")) and _is_num(p.get("lng")) and 21.5 < p["lat"] < 26.5 and 118 < p["lng"] < 122.5):
+            out.append(tag + "：座標不在台灣")
+    if d.get("as_of") and not _DATE.match(str(d["as_of"])):
+        out.append("workplaces.json：as_of 應為 YYYY-MM-DD")
     return out
 
 
@@ -341,7 +404,7 @@ def check_all():
     """檢查目前 data/ 裡的情資、捷運、房貸參考條件，回傳問題清單。"""
     out = []
     for name, fn in (("intel.json", check_intel), ("mrt.json", check_mrt), ("loan.json", check_loan), ("landbank.json", check_landbank),
-                     ("openings.json", check_openings)):
+                     ("openings.json", check_openings), ("schools.json", check_schools), ("workplaces.json", check_workplaces)):
         try:
             d = geo.load_json(name)
         except (OSError, ValueError) as e:

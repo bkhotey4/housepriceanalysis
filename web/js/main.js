@@ -1275,7 +1275,8 @@ function tabDetail() {
       `<p>${esc(s.note)}</p>` +
       `<p><a href="#" data-goto="${esc(s.district)}">查看 ${esc(s.district)} 房價行情</a> <span class="muted">${b.value != null ? "（中位單價 " + b.value.toFixed(1) + " 萬/坪）" : ""}</span></p>` +
       `<p><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/${encodeURIComponent(s.name)}">在 Google 地圖查看</a></p>` +
-      `<p class="muted">學區劃分與入學管制以各縣市教育局最新公告為準。</p>`;
+      (s.sources && s.sources[0] ? `<p class="muted">來源：<a href="${esc(s.sources[0].url)}" target="_blank" rel="noopener">${esc(String(s.sources[0].title).slice(0, 30))}</a></p>` : "") +
+      `<p class="muted">${s.checked ? `${esc(s.checked)} 查證。` : "額滿與否每學年會變，這筆還沒有逐校查證日期。"}學區劃分與入學管制以各縣市教育局最新公告為準。</p>`;
   }
   if (kind === "project" || kind === "marker") { const it = intelById(id); return it ? writeIntel(it) : ""; }
   if (kind === "station") {

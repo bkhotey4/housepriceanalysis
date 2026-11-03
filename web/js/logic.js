@@ -867,6 +867,16 @@ export function setLoanTerms(d) {
   if (date(y.until)) YOUTH_POLICY.until = y.until;
   if (date(d.checked)) YOUTH_POLICY.checked = d.checked;
   if (typeof d.source === "string" && d.source) YOUTH_POLICY.source = d.source;
+  const pc = y.price_cap;
+  if (pc && typeof pc === "object") LOAN_RULES.priceCap = Object.fromEntries(Object.entries(pc).filter(([, v]) => ok(v, 100, 100000)));
+  const cr = d.credit;
+  if (cr && typeof cr === "object" && ok(cr.second_ltv, 0, 100)) LOAN_RULES.credit = cr;
+}
+// 每週情資排程查證、可能沒有的欄位：新青安房價上限（縣市代碼 → 萬，default 為其他縣市）、央行選擇性信用管制
+export const LOAN_RULES = { priceCap: null, credit: null };
+export function youthPriceCap(code) {
+  const pc = LOAN_RULES.priceCap;
+  return pc ? (pc[code] ?? pc.default ?? null) : null;
 }
 // 有額度上限的優惠貸款：上限內用優惠條件，超過的部分當成另一筆一般房貸（restRate、restYears，不設寬限期）
 export function mortgageCapped(priceWan, downPct, ratePct, years, grace, capWan, restRate, restYears) {
