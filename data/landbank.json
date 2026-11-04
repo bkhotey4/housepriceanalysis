@@ -1,5 +1,5 @@
 {
- "as_of": "2026-11-02",
+ "as_of": "2026-11-04",
  "note": "建商、開發商取得土地（購地、合建、都更、標售得標、地上權）的公開紀錄。每週雲端排程從公開資訊觀測站重大訊息、各縣市標售公告與新聞整理；每筆都附來源。",
  "items": [
   {
@@ -817,6 +817,300 @@
      "title": "水湳經貿園區建商布局（自由時報地產天下）",
      "url": "https://estate.ltn.com.tw/article/29199",
      "date": "2026-10-31"
+    }
+   ]
+  },
+  {
+   "developer": "富邦集團＋京城建設集團",
+   "county": "E",
+   "district": "鼓山區",
+   "location": "農 16 特區明誠路三間店面（全聯、旺來興及相連丁丁藥局店面）",
+   "date": "2026-02",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 1508.03,
+   "amount_wan": 464600,
+   "plan": "「商四」用地，規劃興建超高樓住宅；富邦持股 70%、京城 30%，每坪約 308 萬元，賣方郡都集團",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "富邦攜手京城 高雄重金買地（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260210700075-430606",
+     "date": "2026-02-10"
+    }
+   ]
+  },
+  {
+   "developer": "冠德建設",
+   "county": "E",
+   "district": "三民區",
+   "location": "高雄車站站前地區（車站專用區四、五及商四）公辦都更",
+   "date": "2025-12-17",
+   "deal": "都更",
+   "status": "規劃中",
+   "area_ping": null,
+   "amount_wan": null,
+   "plan": "規劃 3 棟共 2.9 萬坪的住商辦複合式大樓，與車站一體化設計；總投資逾 95 億元（非購地價）；預計 2027 年核定都更事業計畫、2034 年完工啟用",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "高雄車站專四五公辦都更 冠德挹注95億開發（中央社／聯合新聞網）",
+     "url": "https://udn.com/news/story/7327/9209163",
+     "date": "2025-12-17"
+    }
+   ]
+  },
+  {
+   "developer": "日勝生活科技",
+   "county": "E",
+   "district": "左營區",
+   "location": "捷運 R17 世運站 A5 街廓（公辦都更）",
+   "date": "2026-04-29",
+   "deal": "都更",
+   "status": "規劃中",
+   "area_ping": 4200,
+   "amount_wan": null,
+   "plan": "第二種商業區；三棟建築量體：21 層產業辦公大樓、18 層企業住宅（618 戶企業安家住宅）及低樓層商業設施，立體空橋連接 R17 站；預估總投資逾 88.5 億元（非購地價）；預計 2026-11 動工、2030 年底完工",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "日勝生投資88.5億元參與高雄捷運公辦都更29日簽約（經濟日報）",
+     "url": "https://money.udn.com/money/story/5612/9472082",
+     "date": "2026-04-29"
+    }
+   ]
+  },
+  {
+   "developer": "台灣人壽",
+   "county": "E",
+   "district": "鳥松區",
+   "location": "山水段運動休閒專用區（澄清湖棒球場園區）公辦都更",
+   "date": "2026-10-18",
+   "deal": "都更",
+   "status": "規劃中",
+   "area_ping": 8682,
+   "amount_wan": null,
+   "plan": "共 6 棟建築：3 棟飯店、1 棟都更與健身中心複合設施、2 棟住宅大樓；總投資約 180 億元（非購地價）；預計 2028 年完成都更事業及權利變換計畫核定並動工、2034 年完工；面積約 2.87 公頃換算",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "澄清湖棒球場180億都更啟動 升級帶動運動休閒商機（中時）",
+     "url": "https://www.chinatimes.com/realtimenews/20261021004327-260405",
+     "date": "2026-10-21"
+    }
+   ]
+  },
+  {
+   "developer": "聯上實業＋美力營造（聯上集團）",
+   "county": "E",
+   "district": "苓雅區",
+   "location": "輔仁路與中正一路口（捷運橘線 O9 苓雅運動園區站 A 基地聯合開發）",
+   "date": "2026-10-30",
+   "deal": "其他",
+   "status": "已開工",
+   "area_ping": 1571,
+   "amount_wan": null,
+   "plan": "2 棟地上 23 至 24 層複合式大樓，規劃 2 至 4 房住宅，1 樓保留約 100 坪親子館及 100 坪公共托育；總樓地板約 2.3 萬坪；聯上集團投資 65 億元（非購地價）；2026-10-30 動土、預計 2031 年完工",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "高雄65億捷運聯開案動土！3基地接力 住宅商辦飯店都來了（自由時報地產天下）",
+     "url": "https://estate.ltn.com.tw/article/29180",
+     "date": "2026-10-30"
+    }
+   ]
+  },
+  {
+   "developer": "百立建設（得標代表為自然人，兩篇原文表述不一）",
+   "county": "E",
+   "district": "楠梓區",
+   "location": "高雄大學區段徵收區住四建地，臨 60 米高雄大學路及 25 米大學南路",
+   "date": "2026-03-25",
+   "deal": "標售得標",
+   "status": "取得土地",
+   "area_ping": 1081.53,
+   "amount_wan": 95339,
+   "plan": "住四建地（原文未載開發規劃）；底價 7.94 億元、溢價約 20%、每坪約 88.15 萬元；高雄市地政局第 1 季標售",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "高雄土地標售 再現全壘打（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260326700179-430104",
+     "date": "2026-03-26"
+    },
+    {
+     "title": "睽違多時 高雄地政局土地標售揮出全壘打（中時）",
+     "url": "https://www.chinatimes.com/realtimenews/20260325002476-260410",
+     "date": "2026-03-25"
+    },
+    {
+     "title": "高雄標售開發區土地 5筆建地總底價逾15億元（聯合報，標的公告）",
+     "url": "https://udn.com/news/story/7327/9368856",
+     "date": "2026-03-09"
+    }
+   ]
+  },
+  {
+   "developer": "南京建設（京城建設集團旗下）",
+   "county": "E",
+   "district": "三民區",
+   "location": "河堤段（第 99 期重劃區，臨 17 米敦煌路）住五建地",
+   "date": "2026-03-25",
+   "deal": "標售得標",
+   "status": "取得土地",
+   "area_ping": 194.81,
+   "amount_wan": 26500,
+   "plan": "住五建地（原文未載開發規劃）；底價每坪 135.87 萬元、僅高出底價 1,000 元；高雄市地政局第 1 季標售",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "高雄土地標售 再現全壘打（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260326700179-430104",
+     "date": "2026-03-26"
+    },
+    {
+     "title": "高雄標售開發區土地 5筆建地總底價逾15億元（聯合報，標的公告）",
+     "url": "https://udn.com/news/story/7327/9368856",
+     "date": "2026-03-09"
+    }
+   ]
+  },
+  {
+   "developer": "壹山營造工程",
+   "county": "E",
+   "district": "仁武區",
+   "location": "八德北路旁住三土地（重劃區期別兩來源不一：工商時報寫第 96 期、標售公告寫第 100 期）",
+   "date": "2026-03-25",
+   "deal": "標售得標",
+   "status": "取得土地",
+   "area_ping": 730.34,
+   "amount_wan": 34700,
+   "plan": "住三土地（原文未載開發規劃）；溢價 3.74%、每坪 47.50 萬元；高雄市地政局第 1 季標售",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "高雄土地標售 再現全壘打（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260326700179-430104",
+     "date": "2026-03-26"
+    },
+    {
+     "title": "高雄標售開發區土地 5筆建地總底價逾15億元（聯合報，標的公告）",
+     "url": "https://udn.com/news/story/7327/9368856",
+     "date": "2026-03-09"
+    }
+   ]
+  },
+  {
+   "developer": "昇和建設",
+   "county": "E",
+   "district": "三民區",
+   "location": "高雄車站周邊民主橫路、七賢二路 8 巷（整合 8 棟老屋與周邊土地共 20 筆）",
+   "date": "2026-06",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 323,
+   "amount_wan": 38000,
+   "plan": "商五基地（原文未說明具體用途）；自 2023 年起陸續整合、累計約 3.8 億元，其中 2026-06 兩筆相鄰商五土地約 6,310 萬元成交",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "高雄車站掀獵老屋潮 建商砸逾10億拚基地（旺得富）",
+     "url": "https://wantrich.chinatimes.com/news/20260915900350-420501",
+     "date": "2026-09-15"
+    }
+   ]
+  },
+  {
+   "developer": "明基建設",
+   "county": "E",
+   "district": "鼓山區",
+   "location": "龍華段一小段 2 筆土地（裕興路、裕興路 129 巷）",
+   "date": "2025-12",
+   "deal": "購地",
+   "status": "取得土地",
+   "area_ping": 179.36,
+   "amount_wan": 12980,
+   "plan": "透天電梯豪墅，總價約 5,000～6,000 萬元，先建後售；平均約 72.4 萬元／坪，另整合旁側 16.9 坪畸零地",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "建商1.3億整合鼓山地 每坪喊百萬16坪畸零地結局曝（ETtoday 房產雲）",
+     "url": "https://house.ettoday.net/news/3189480",
+     "date": "2026-06-25"
+    }
+   ]
+  },
+  {
+   "developer": "國城建設",
+   "county": "I",
+   "district": "東區",
+   "location": "建國二村、復興新村地區市地重劃抵費地第 3 標（民族路、啟明路交界，4 筆土地）",
+   "date": "2026-04-02",
+   "deal": "標售得標",
+   "status": "取得土地",
+   "area_ping": 1002,
+   "amount_wan": 65140,
+   "plan": "商業區（容積率 350%），初步規劃興建住宅大樓，總銷至少 30 億元；底價約 4.5 億元、溢價約 44.8%、每坪約 65 萬元；公司稱希望 2026 年取得建照、2027 年開發",
+   "lat": null,
+   "lng": null,
+   "confidence": "高",
+   "sources": [
+    {
+     "title": "嘉義都更好才剛完銷 國城再砸6.51億搶蛋黃區千坪地 總銷上看30億（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260417701003-430606",
+     "date": "2026-04-17"
+    },
+    {
+     "title": "嘉市精華商業區重劃7筆抵費地全標脫 總價近14億（中央社）",
+     "url": "https://www.cna.com.tw/news/aloc/202604020182.aspx",
+     "date": "2026-04-02"
+    },
+    {
+     "title": "嘉市建國二村抵費地3標全數順利標脫 標脫率100% 總價近14億（聯合報）",
+     "url": "https://udn.com/news/story/7326/9418740",
+     "date": "2026-04-02"
+    }
+   ]
+  },
+  {
+   "developer": "達麗建設",
+   "county": "T",
+   "district": "屏東市",
+   "location": "屏東火車站東側站區街廓（公辦都更，台鐵公司土地為主）",
+   "date": "2026-01",
+   "deal": "都更",
+   "status": "規劃中",
+   "area_ping": null,
+   "amount_wan": null,
+   "plan": "地上 20 層住商大樓，1 至 3 樓商場由達麗經營 20 年；總投資約 70～80 億元（非購地價）；預計 5 年半內完工",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "達麗建設攜手屏東縣政府 拚5年半打造屏東最高樓（Yahoo 新聞轉載）",
+     "url": "https://tw.news.yahoo.com/%E9%81%94%E9%BA%97%E5%BB%BA%E8%A8%AD%E6%94%9C%E6%89%8B%E5%B1%8F%E6%9D%B1%E7%B8%A3%E6%94%BF%E5%BA%9C-%E6%8B%9A5%E5%B9%B4%E5%8D%8A%E6%89%93%E9%80%A0%E5%B1%8F%E6%9D%B1%E6%9C%80%E9%AB%98%E6%A8%93-081400485.html",
+     "date": "2026-01-02"
     }
    ]
   }

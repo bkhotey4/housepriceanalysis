@@ -1,5 +1,5 @@
 {
- "as_of": "2026-11-02",
+ "as_of": "2026-11-04",
  "note": "即將開幕的連鎖店與大型商場：每週雲端排程從新聞、品牌公告、徵才資訊與建照開放資料整理。只是公開線索，開幕時間常延後或取消。",
  "items": [
   {
@@ -588,6 +588,423 @@
      "date": "2026-08-28"
     }
    ]
+  },
+  {
+   "name": "好市多 高雄店（亞灣新店）",
+   "brand": "好市多",
+   "category": "超市量販",
+   "county": "E",
+   "district": "前鎮區",
+   "location": "前鎮區智科路 35 號（亞洲新灣區 80 期重劃區，原中華五路店搬遷）",
+   "stage": "已開幕",
+   "expected": "2026-07-03",
+   "updated": "2026-11-04",
+   "lat": 22.603,
+   "lng": 120.309,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "全台最大Costco要來了！好市多南高雄亞灣店開幕時間 官方終於揭曉（自由財經）",
+     "url": "https://ec.ltn.com.tw/article/breakingnews/5434245",
+     "date": "2026-05-12"
+    },
+    {
+     "title": "好市多高雄店新址、開幕時間揭曉！台灣Costco創始店「這天」熄燈（今周刊）",
+     "url": "https://www.businesstoday.com.tw/article/category/183030/post/202606140003/",
+     "date": "2026-07-03"
+    }
+   ],
+   "note": "占地約 1.4 萬坪、4 層樓建物，汽車位 1,010 席；原中華五路店 2026-07-02 結束營業（媒體轉述）"
+  },
+  {
+   "name": "三井 LaLaport 高雄",
+   "brand": "三井不動產 LaLaport",
+   "category": "百貨商場",
+   "county": "E",
+   "district": "鳳山區",
+   "location": "鳳山國泰重劃區，國泰路二段與自由路口，緊鄰捷運橘線鳳山西站",
+   "stage": "施工中",
+   "expected": "",
+   "updated": "2026-11-04",
+   "lat": 22.616,
+   "lng": 120.342,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "LaLaport高雄招牌掛上了！占地6.2萬坪、270個品牌 開幕時間出爐（NOWnews）",
+     "url": "https://www.nownews.com/news/6838736",
+     "date": "2026-05-21"
+    },
+    {
+     "title": "高雄全新大型百貨來了！6.2萬坪270品牌 影城規劃、開幕時間速看（NOWnews）",
+     "url": "https://www.nownews.com/news/6861136",
+     "date": "2026-08-01"
+    },
+    {
+     "title": "LaLaport高雄何時開幕？試營運時間、進駐品牌餐廳與捷運交通一覽（TVBS）",
+     "url": "https://news.tvbs.com.tw/life/4018969",
+     "date": "2026-09-08"
+    },
+    {
+     "title": "台灣有11間新百貨公司來了！全台最大6.2萬坪、誠品3000坪，2027開幕時間地址一次看（風傳媒）",
+     "url": "https://www.storm.mg/lifestyle/11178071",
+     "date": "2026-11-03"
+    }
+   ],
+   "note": "地上 7 層、地下 2 層，總樓地板約 6.2 萬坪、約 270 個品牌；風傳媒 2026-11-03 寫最快 2026 年底試營運、最慢 2027 年第 1 季正式開幕（聯合報 2026-09-14 為 2027 年春天），使用執照審查中"
+  },
+  {
+   "name": "ARTE MUSEUM 高雄（LaLaport 高雄館內）",
+   "brand": "ARTE MUSEUM",
+   "category": "影城娛樂",
+   "county": "E",
+   "district": "鳳山區",
+   "location": "三井 LaLaport 高雄館內",
+   "stage": "已確認",
+   "expected": "",
+   "updated": "2026-11-04",
+   "lat": 22.616,
+   "lng": 120.342,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "LaLaport高雄招牌掛上了！占地6.2萬坪、270個品牌 開幕時間出爐（NOWnews）",
+     "url": "https://www.nownews.com/news/6838736",
+     "date": "2026-05-21"
+    },
+    {
+     "title": "LaLaport高雄何時開幕？試營運時間、進駐品牌餐廳與捷運交通一覽（TVBS）",
+     "url": "https://news.tvbs.com.tw/life/4018969",
+     "date": "2026-09-08"
+    }
+   ],
+   "note": "三井確認的台灣首間常設展館，隨 LaLaport 高雄開幕，日期未公布"
+  },
+  {
+   "name": "漢來海港 Premium LaLaport 高雄店",
+   "brand": "漢來美食",
+   "category": "餐飲",
+   "county": "E",
+   "district": "鳳山區",
+   "location": "三井 LaLaport 高雄",
+   "stage": "已確認",
+   "expected": "2027-03",
+   "updated": "2026-11-04",
+   "lat": 22.616,
+   "lng": 120.342,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "《觀光股》展店助營運穩步成長 漢來美食登逾37月高價（旺得富）",
+     "url": "https://wantrich.chinatimes.com/news/20260720900240-420101",
+     "date": "2026-07-20"
+    },
+    {
+     "title": "《觀光股》漢來美食高速展店 今明2年營運拚雙位數成長（旺得富）",
+     "url": "https://wantrich.chinatimes.com/news/20260910900483-420101",
+     "date": "2026-09-10"
+    }
+   ],
+   "note": "升級版「漢來海港 Premium」，財經媒體引上市公司說法 2027 年 3 月開出"
+  },
+  {
+   "name": "義享樂漾廣場（義享天地 B 館）",
+   "brand": "義享天地",
+   "category": "百貨商場",
+   "county": "E",
+   "district": "鼓山區",
+   "location": "龍德新路 226 號（風傳媒）／新順路 1 號（美麗佳人），捷運紅線凹子底站旁",
+   "stage": "已確認",
+   "expected": "",
+   "updated": "2026-11-04",
+   "lat": 22.661,
+   "lng": 120.303,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "台灣有11間新百貨公司來了！全台最大6.2萬坪、誠品3000坪，2027開幕時間地址一次看（風傳媒）",
+     "url": "https://www.storm.mg/lifestyle/11178071",
+     "date": "2026-11-03"
+    },
+    {
+     "title": "2大型影城將進駐北高雄 鄰近商圈、方便逛街看電影（自由時報）",
+     "url": "https://news.ltn.com.tw/amp/news/life/breakingnews/5351629",
+     "date": "2026-02-25"
+    },
+    {
+     "title": "高雄義享天地B館10/13媒體報導重點總整理（購物中心情報站）",
+     "url": "https://sc2100.com/2026/10/14/e-young-plaza/",
+     "date": "2026-10-14"
+    }
+   ],
+   "note": "地上 28 層、地下 6 層：B1～10 樓購物中心、11～14 樓影城、15～28 樓商辦；2026-10-13 業者宣布延至 2027 年開幕（原預計 2026 年底）"
+  },
+  {
+   "name": "秀泰影城 高雄義享店",
+   "brand": "秀泰影城",
+   "category": "影城娛樂",
+   "county": "E",
+   "district": "鼓山區",
+   "location": "義享樂漾廣場（義享天地 B 館）11～14 樓",
+   "stage": "已確認",
+   "expected": "",
+   "updated": "2026-11-04",
+   "lat": 22.661,
+   "lng": 120.303,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "台灣有11間新百貨公司來了！全台最大6.2萬坪、誠品3000坪，2027開幕時間地址一次看（風傳媒）",
+     "url": "https://www.storm.mg/lifestyle/11178071",
+     "date": "2026-11-03"
+    },
+    {
+     "title": "高雄義享天地B館10/13媒體報導重點總整理（購物中心情報站）",
+     "url": "https://sc2100.com/2026/10/14/e-young-plaza/",
+     "date": "2026-10-14"
+    }
+   ],
+   "note": "約 4,500 坪、16 廳約 2,000 席，最大廳銀幕寬 30 公尺；業者以 2027 年暑假為目標"
+  },
+  {
+   "name": "環球購物中心 高雄車站店",
+   "brand": "環球購物中心 Global Mall",
+   "category": "百貨商場",
+   "county": "E",
+   "district": "三民區",
+   "location": "高雄車站上方商業大樓",
+   "stage": "已確認",
+   "expected": "",
+   "updated": "2026-11-04",
+   "lat": 22.639,
+   "lng": 120.302,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "台灣有11間新百貨公司來了！全台最大6.2萬坪、誠品3000坪，2027開幕時間地址一次看（風傳媒）",
+     "url": "https://www.storm.mg/lifestyle/11178071",
+     "date": "2026-11-03"
+    }
+   ],
+   "note": "商業大樓地上 10 層，營業面積約 1.6 萬坪、150～160 個品牌；風傳媒 2026-11-03 寫 2028 年第 1 季開幕"
+  },
+  {
+   "name": "東南米樂 PLAZA",
+   "brand": "東南米樂（東南水泥）",
+   "category": "百貨商場",
+   "county": "E",
+   "district": "苓雅區",
+   "location": "海邊路 5 號一帶，緊鄰好市多高雄亞灣店、輕軌 C6 經貿園區站",
+   "stage": "施工中",
+   "expected": "",
+   "updated": "2026-11-04",
+   "lat": 22.603,
+   "lng": 120.308,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "台灣有11間新百貨公司來了！全台最大6.2萬坪、誠品3000坪，2027開幕時間地址一次看（風傳媒）",
+     "url": "https://www.storm.mg/lifestyle/11178071",
+     "date": "2026-11-03"
+    },
+    {
+     "title": "高雄東南米樂PLAZA目前進度(2026.10.12)（購物中心情報站）",
+     "url": "https://sc2100.com/2026/10/13/tonnan-plaza-2/",
+     "date": "2026-10-13"
+    }
+   ],
+   "note": "約 4,000 坪、12 棟兩層建築、24 個店舖；2026-10 外觀完成、內裝進行中；風傳媒寫 2027 年開幕"
+  },
+  {
+   "name": "高醫十全新診區",
+   "brand": "高雄醫學大學附設中和紀念醫院",
+   "category": "醫療",
+   "county": "E",
+   "district": "三民區",
+   "location": "高醫院區（十全新診區）",
+   "stage": "已開幕",
+   "expected": "2026-10-11",
+   "updated": "2026-11-04",
+   "lat": 22.648,
+   "lng": 120.311,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "高醫十全新診區正式啟用 打造優質醫療新場域（蕃新聞）",
+     "url": "https://n.yam.com/Article/20261012147335",
+     "date": "2026-10-12"
+    }
+   ],
+   "note": "2026-10-11 啟用；整合血液透析、中醫、復健、牙科等，工程近 7 億元，為舊院區 S、W 棟拆除重建過渡期間使用"
+  },
+  {
+   "name": "常粵 高雄富民店（漢來美食新粵菜品牌）",
+   "brand": "漢來美食",
+   "category": "餐飲",
+   "county": "E",
+   "district": "左營區",
+   "location": "高雄巨蛋商圈，原「溜溜酸菜魚」富民店原址",
+   "stage": "已開幕",
+   "expected": "2026-05-15",
+   "updated": "2026-11-04",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "漢來美食全新品牌「常粵」5／15登場 進駐巨蛋商圈日常餐飲市場（旺得富）",
+     "url": "https://wantrich.chinatimes.com/news/20260514900651-420101",
+     "date": "2026-05-14"
+    },
+    {
+     "title": "看準日常外食需求 高雄餐飲業者紛開新店搶攻市場（中央社）",
+     "url": "https://www.cna.com.tw/news/ahel/202605283003.aspx",
+     "date": "2026-05-28"
+    }
+   ],
+   "note": "漢來美食粵菜新品牌首店；來源未給完整門牌"
+  },
+  {
+   "name": "韓屋村 高雄義享店（全台首店）",
+   "brand": "韓屋村",
+   "category": "餐飲",
+   "county": "E",
+   "district": "鼓山區",
+   "location": "義享時尚廣場 7 樓",
+   "stage": "已開幕",
+   "expected": "2026-05-28",
+   "updated": "2026-11-04",
+   "lat": 22.661,
+   "lng": 120.303,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "看準日常外食需求 高雄餐飲業者紛開新店搶攻市場（中央社）",
+     "url": "https://www.cna.com.tw/news/ahel/202605283003.aspx",
+     "date": "2026-05-28"
+    }
+   ],
+   "note": "中央社 2026-05-28：全台首店，試營運至 6 月 30 日"
+  },
+  {
+   "name": "華泰名品城 嘉義店",
+   "brand": "華泰名品城 GLORIA OUTLETS",
+   "category": "百貨商場",
+   "county": "Q",
+   "district": "太保市",
+   "location": "高鐵嘉義站特定區產業專用區（距高鐵嘉義站不到 200 公尺）",
+   "stage": "施工中",
+   "expected": "",
+   "updated": "2026-11-04",
+   "lat": 23.459,
+   "lng": 120.323,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "中南部百貨大戰！嘉義華泰動工、高雄 LaLaport 年底見 地圖亮點曝光（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260108701237-431401",
+     "date": "2026-01-08"
+    }
+   ],
+   "note": "2026-01-08 動土；第一期約 3.3 萬平方公尺、逾 200 間店鋪，業者預計 2028 年第 4 季開幕，全案 2032 年完成"
+  },
+  {
+   "name": "嘉義戴斯精選酒店（Days Inn by Wyndham）",
+   "brand": "戴斯精選 Days Inn（溫德姆）",
+   "category": "其他",
+   "county": "Q",
+   "district": "太保市",
+   "location": "太保市北港路，毗鄰高鐵嘉義站（前身佳仕堡商務飯店）",
+   "stage": "已開幕",
+   "expected": "2026-07",
+   "updated": "2026-11-04",
+   "lat": 23.462,
+   "lng": 120.325,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "「戴斯精選酒店」首度登台 嘉義首店揭幕（三立，鏡週刊轉載）",
+     "url": "https://www.mirrormedia.mg/external/setn_1872289",
+     "date": "2026-07-14"
+    },
+    {
+     "title": "溫德姆酒店集團深化全台布局 三家戴斯精選酒店2026年登場（蕃新聞）",
+     "url": "https://n.yam.com/Article/20260109865228",
+     "date": "2026-01-09"
+    }
+   ],
+   "note": "100 間客房；原定 2026 年第 1 季開幕，三立 2026-07-14 報導揭幕（未寫確切日）"
+  },
+  {
+   "name": "義竹基督教醫院",
+   "brand": "戴德森醫療財團法人（嘉義基督教醫院體系）",
+   "category": "醫療",
+   "county": "Q",
+   "district": "義竹鄉",
+   "location": "嘉義縣義竹鄉（來源未給路名）",
+   "stage": "施工中",
+   "expected": "",
+   "updated": "2026-11-04",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "15億元打造嘉義海線醫療新據點 義竹基督教醫院動土（聯合報）",
+     "url": "https://udn.com/news/story/7326/9826326",
+     "date": "2026-10-20"
+    }
+   ],
+   "note": "2026-10-20 動土，投資 15 億元，地下 1 層、地上 5 層、20 床，附設 45 床住宿式長照機構；預計 2030 年完工營運"
+  },
+  {
+   "name": "三地新天地（原美力米麗購物中心）",
+   "brand": "三地集團／品川國際開發",
+   "category": "百貨商場",
+   "county": "T",
+   "district": "屏東市",
+   "location": "屏東市民族路、仁愛路口（舊酒廠停車場基地，屏東觀光夜市旁）",
+   "stage": "施工中",
+   "expected": "",
+   "updated": "2026-11-04",
+   "lat": 22.671,
+   "lng": 120.489,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "期待！屏東第3家百貨公司「三地新天地」本月取得使用執照（自由時報）",
+     "url": "https://news.ltn.com.tw/news/life/breakingnews/5541404",
+     "date": "2026-08-16"
+    },
+    {
+     "title": "屏東第三家百貨終掛招 公部門曝開幕卡一關（ETtoday）",
+     "url": "https://house.ettoday.net/news/3222538",
+     "date": "2026-08-20"
+    }
+   ],
+   "note": "縣府 BOT+OT 案，2022-05 動土、投資近 14 億元、地上 6 層地下 2 層、約 130 櫃位；2026-08-14 取得使用執照，業者研議納入旅館用途，開幕日未定（原預計 2026-07 試營運）"
+  },
+  {
+   "name": "墾丁嘉佩樂 Capella Kenting",
+   "brand": "Capella Hotels and Resorts",
+   "category": "其他",
+   "county": "T",
+   "district": "恆春鎮",
+   "location": "恆春半島西海岸（來源未給路名）",
+   "stage": "施工中",
+   "expected": "",
+   "updated": "2026-11-04",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "全台首間世界級奢華度假村！墾丁嘉佩樂這時開幕，65間Villa獨享海景溫泉（食尚玩家）",
+     "url": "https://supertaste.tvbs.com.tw/travel/350442",
+     "date": "未載明"
+    }
+   ],
+   "note": "65 間獨棟 Villa、基地逾 33,000 坪；來源寫 2028 年開幕，動土日未載明"
   }
  ]
 }
