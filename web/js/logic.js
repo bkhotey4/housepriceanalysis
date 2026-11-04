@@ -160,10 +160,10 @@ function groupStats(rows) {
            low: rows.length < 3 };
 }
 // 某區某房型各路段的件數與中位價（預售屋以建案分組）
-export function roadPrices(txs, district, cat, sinceYm) {
+export function roadPrices(txs, district, cat, sinceYm, untilYm = "9999") {
   const groups = new Map();
   for (const x of txs) {
-    if (x.dist !== district || x.ym < sinceYm || !inCat(x, cat)) continue;
+    if (x.dist !== district || x.ym < sinceYm || x.ym > untilYm || !inCat(x, cat)) continue;
     const key = cat === "presale" ? (x.proj || "未命名建案") : x.road;
     if (!key || key === "其他") continue;
     if (!groups.has(key)) groups.set(key, []);
@@ -174,12 +174,12 @@ export function roadPrices(txs, district, cat, sinceYm) {
   out.sort((a, b) => b.n - a.n || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   return out;
 }
-export function searchRoads(txs, kw, cat, sinceYm, limit = 200) {
+export function searchRoads(txs, kw, cat, sinceYm, limit = 200, untilYm = "9999") {
   kw = kw.trim();
   if (!kw) return [];
   const groups = new Map();
   for (const x of txs) {
-    if (x.ym < sinceYm || !inCat(x, cat) || !x.road.includes(kw)) continue;
+    if (x.ym < sinceYm || x.ym > untilYm || !inCat(x, cat) || !x.road.includes(kw)) continue;
     const key = x.dist + "|" + x.road;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(x);
@@ -447,7 +447,7 @@ export function bldgKey(x) {
   if (!x.road || x.road === "其他" || x.num == null) return null;
   return ["A", x.road, x.lane ?? "", x.alley ?? "", x.num].join("|");
 }
-export function buildings(txs, district, cat, sinceYm) {
+export function buildings(txs, district, cat, sinceYm, untilYm = "9999") {
   const g = new Map();
   for (const x of txs) {
     if (x.dist !== district || !inCat(x, cat)) continue;
@@ -459,7 +459,7 @@ export function buildings(txs, district, cat, sinceYm) {
   const out = [];
   for (const [key, rows] of g) {
     if (rows.length < 2) continue;
-    const x0 = rows[0], recent = rows.filter(x => x.ym >= sinceYm);
+    const x0 = rows[0], recent = rows.filter(x => x.ym >= sinceYm && x.ym <= untilYm);
     const types = new Map();
     for (const x of rows) types.set(x.btype, (types.get(x.btype) || 0) + 1);
     const built = rows.map(x => x.built).filter(Boolean);
@@ -831,8 +831,13 @@ export function reduceRoads(raw) {
 
 // ------------------------------------------------------------------ 房貸試算（本息平均攤還，可設寬限期）
 // priceWan 總價（萬）、downPct 自備款比例（%）、ratePct 年利率（%）、years 貸款年限、grace 寬限期（年，只繳利息）
-export function mortgage(priceWan, downPct, ratePct, years, grace = 0) {
+export function mortgage(priceWan, downPct, ratePct, years, grace = 0, steps = null) {
   const loan = Math.max(0, priceWan * (1 - downPct / 100)) * 10000;
+  if (steps && steps.length && loan > 0 && years > 0) {
+    const s = steppedLoan(loan, ratePct, years, grace, steps);
+    return { loan: loan / 10000, down: priceWan * downPct / 100, graceMonthly: s.graceMonthly, firstMonthly: s.firstMonthly, monthly: s.monthly,
+      totalInterest: s.interest / 10000, income: s.monthly * 3 };
+  }
   const n = Math.round(years * 12), g = Math.min(Math.round(grace * 12), Math.max(0, n - 12));
   const r = ratePct / 100 / 12;
   if (!(loan > 0) || !(n > 0)) return null;
@@ -843,13 +848,36 @@ export function mortgage(priceWan, downPct, ratePct, years, grace = 0) {
     income: monthly * 3 };     // 一般建議月付不超過月收入的三分之一
 }
 
+// 利率分段變動的貸款（新青安）：steps＝[{from_year, rate}]，每次變動就用剩餘本金、剩餘月數重算月付。
+// amt 元；回傳每月的繳款 pays、月利率 rates、寬限期第一個月、攤還第一個月、最後一段的月付與總利息（元）
+export function steppedLoan(amt, ratePct, years, grace, steps) {
+  const n = Math.round(years * 12), g = Math.min(Math.round(grace * 12), Math.max(0, n - 12));
+  const pays = [], rates = [];
+  let bal = amt, interest = 0, pay = 0, last = null;
+  for (let m = 0; m < n; m++) {
+    const yr = Math.floor(m / 12) + 1;
+    const pct = (steps || []).reduce((v, s) => yr >= s.from_year ? s.rate : v, ratePct), r = pct / 100 / 12;
+    const due = bal * r;
+    if (m < g) pay = due;
+    else if (pct !== last || m === g) { const k = n - m; pay = r > 0 ? bal * r / (1 - Math.pow(1 + r, -k)) : bal / k; }
+    last = pct; interest += due; bal -= pay - due;
+    pays.push(pay); rates.push(r);
+  }
+  return { pays, rates, graceMonthly: g ? pays[0] : 0, firstMonthly: pays[g], monthly: pays[n - 1], interest };
+}
+// 新青安的調升表：使用者改了起始利率時，整張表跟著平移（機動利率，升降息時各段一起動）
+export function youthSteps(rate = YOUTH_LOAN.rate) {
+  const d = rate - YOUTH_LOAN.rate;
+  return YOUTH_LOAN.steps.map(s => ({ from_year: s.from_year, rate: s.rate + d }));
+}
 // 青年安心成家購屋優惠貸款（新青安）：貸款上限 1,000 萬、最長 40 年、寬限期最長 5 年。
 // 利率是公股銀行一段式機動利率（政府補貼後）的參考值，會隨央行升降息調整，實際以承辦銀行公告為準。
 // 這裡的數字只是預設值：實際用的是 data/loan.json（每週情資更新時查證），啟動時由 setLoanTerms 覆寫。
-export const YOUTH_LOAN = { rate: 1.775, years: 40, grace: 5, cap: 1000 };
+export const YOUTH_LOAN = { rate: 1.775, years: 40, grace: 5, cap: 1000,
+  steps: [{ from_year: 4, rate: 1.9 }, { from_year: 5, rate: 2.025 }, { from_year: 6, rate: 2.15 }, { from_year: 7, rate: 2.275 }] };
 // 政策期限：原方案 2023-08-01 ～ 2026-07-31（政府利息補貼也只到這天）。過了期限畫面會提醒「以原方案條件試算」，
 // 預算反推也不再把新青安算進去；續辦方案確認後改 data/loan.json 的 youth（含 until）即可。
-export const YOUTH_POLICY = { name: "新青安", until: "2029-07-31", checked: "2026-11-02", source: "財政部、內政部國土管理署公告" };
+export const YOUTH_POLICY = { name: "新青安", until: "2029-07-31", checked: "2026-11-02", source: "財政部、內政部國土管理署公告", note: "" };
 // 用台灣當地日期（toISOString 是 UTC，半夜到早上 8 點會差一天）
 export const localYmd = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export const youthExpired = (today = new Date()) => localYmd(today) > YOUTH_POLICY.until;
@@ -867,26 +895,36 @@ export function setLoanTerms(d) {
   if (date(y.until)) YOUTH_POLICY.until = y.until;
   if (date(d.checked)) YOUTH_POLICY.checked = d.checked;
   if (typeof d.source === "string" && d.source) YOUTH_POLICY.source = d.source;
+  if (typeof y.note === "string") YOUTH_POLICY.note = y.note;
+  if (Array.isArray(y.steps)) YOUTH_LOAN.steps = y.steps.filter(s => s && ok(s.from_year, 2, 50) && ok(s.rate, 0, 15)).sort((a, b) => a.from_year - b.from_year);
+  const t = d.tax;      // 稅費粗估用的假設值（每年查一次）
+  if (t && typeof t === "object") {
+    Object.assign(COST_RATIO, pick(t.cost_ratio, { house: [0.01, 1], land: [0.01, 1] }));
+    if (ok(t.old_std, 1, 100)) SELL_DEFAULT.oldStd = t.old_std;
+    if (ok(t.hold, 0, 10)) RVB_DEFAULT.hold = t.hold;
+    if (date(t.checked)) LOAN_RULES.taxChecked = t.checked;
+  }
   const pc = y.price_cap;
   if (pc && typeof pc === "object") LOAN_RULES.priceCap = Object.fromEntries(Object.entries(pc).filter(([, v]) => ok(v, 100, 100000)));
   const cr = d.credit;
   if (cr && typeof cr === "object" && ok(cr.second_ltv, 0, 100)) LOAN_RULES.credit = cr;
 }
 // 每週情資排程查證、可能沒有的欄位：新青安房價上限（縣市代碼 → 萬，default 為其他縣市）、央行選擇性信用管制
-export const LOAN_RULES = { priceCap: null, credit: null };
+export const LOAN_RULES = { priceCap: null, credit: null, taxChecked: null };
 export function youthPriceCap(code) {
   const pc = LOAN_RULES.priceCap;
   return pc ? (pc[code] ?? pc.default ?? null) : null;
 }
 // 有額度上限的優惠貸款：上限內用優惠條件，超過的部分當成另一筆一般房貸（restRate、restYears，不設寬限期）
-export function mortgageCapped(priceWan, downPct, ratePct, years, grace, capWan, restRate, restYears) {
+export function mortgageCapped(priceWan, downPct, ratePct, years, grace, capWan, restRate, restYears, steps = null) {
   const loanWan = Math.max(0, priceWan * (1 - downPct / 100));
-  const main = mortgage(Math.min(loanWan, capWan), 0, ratePct, years, grace);
+  const main = mortgage(Math.min(loanWan, capWan), 0, ratePct, years, grace, steps);
   if (!main) return null;
   const rest = loanWan > capWan ? mortgage(loanWan - capWan, 0, restRate, restYears, 0) : null;
   const extra = rest ? rest.monthly : 0;
   return { loan: loanWan, down: priceWan * downPct / 100, rest: rest ? rest.loan : 0,
     graceMonthly: main.graceMonthly ? main.graceMonthly + extra : 0, monthly: main.monthly + extra,
+    firstMonthly: main.firstMonthly != null ? main.firstMonthly + extra : undefined,
     totalInterest: main.totalInterest + (rest ? rest.totalInterest : 0), income: (main.monthly + extra) * 3 };
 }
 
@@ -1001,13 +1039,14 @@ export function rentVsBuy(p) {
   const price = o.price * 10000, cash0 = (o.cash ?? o.price * o.down / 100) * 10000;
   const loan = Math.max(0, o.price * (1 - o.down / 100)) * 10000;
   if (!(price > 0) || !(o.rent > 0) || !(o.years > 0)) return null;
-  const leg = (amt, rate, yrs, grace) => {
+  const leg = (amt, rate, yrs, grace, steps) => {
     const n = Math.round(yrs * 12), r = rate / 100 / 12, g = Math.min(Math.round((grace || 0) * 12), Math.max(0, n - 12)), k = n - g;
+    if (steps && steps.length) { const s = steppedLoan(amt, rate, yrs, grace || 0, steps); return { bal: amt, n, g, pays: s.pays, rates: s.rates, monthly: s.monthly }; }
     return { bal: amt, n, r, g, monthly: k <= 0 ? 0 : r > 0 ? amt * r / (1 - Math.pow(1 + r, -k)) : amt / k };
   };
   const capped = o.cap > 0 && loan > o.cap * 10000;
-  const legs = capped ? [leg(o.cap * 10000, o.rate, o.loanYears, o.grace), leg(loan - o.cap * 10000, o.restRate, o.restYears, 0)]
-    : [leg(loan, o.rate, o.loanYears, o.grace)];
+  const legs = capped ? [leg(o.cap * 10000, o.rate, o.loanYears, o.grace, o.steps), leg(loan - o.cap * 10000, o.restRate, o.restYears, 0)]
+    : [leg(loan, o.rate, o.loanYears, o.grace, o.steps)];
   const monthly = legs.reduce((a, l) => a + l.monthly, 0), mInv = Math.pow(1 + o.inv / 100, 1 / 12) - 1;
   let bal = loan, buyInv = 0, rentInv = cash0, rent = o.rent, home = price;
   const years = [];
@@ -1016,7 +1055,7 @@ export function rentVsBuy(p) {
     let mort = 0;
     for (const l of legs) {
       if (!(l.bal > 0) || m > l.n) continue;
-      const interest = l.bal * l.r, pay = m <= l.g ? interest : l.monthly;
+      const interest = l.bal * (l.rates ? l.rates[m - 1] : l.r), pay = l.pays ? l.pays[m - 1] : m <= l.g ? interest : l.monthly;
       mort += pay; l.bal = Math.max(0, l.bal - (pay - interest));
     }
     bal = legs.reduce((a, l) => a + l.bal, 0);
@@ -1087,10 +1126,10 @@ export function youthLoanCliff(priceWan, downPct = 20, incomeMonthly = 0, opt = 
   const youthWan = Math.min(loanTotalWan, youthMax);
   const normalWan = Math.max(0, loanTotalWan - youthMax);
 
-  const yMonths = YOUTH_LOAN.years * 12, yGrace = YOUTH_LOAN.grace * 12;
-  const yr = yRate / 100 / 12;
-  const yGraceMonthly = youthWan * 10000 * yr;
-  const yPostMonthly = youthWan * 10000 * yr / (1 - Math.pow(1 + yr, -(yMonths - yGrace)));
+  // 寬限期月付看第一個月；攤還月付看利率調升完之後（這才是要長期繳的數字）
+  const ySim = steppedLoan(youthWan * 10000, yRate, YOUTH_LOAN.years, YOUTH_LOAN.grace, youthSteps(yRate));
+  const yGraceMonthly = youthWan * 10000 * yRate / 100 / 12;
+  const yPostMonthly = ySim.monthly;
 
   const nMonths = (opt.normalYears ?? NORMAL_LOAN.years) * 12, nr = nRate / 100 / 12;
   const nMonthly = normalWan > 0 ? (nr > 0 ? normalWan * 10000 * nr / (1 - Math.pow(1 + nr, -nMonths)) : normalWan * 10000 / nMonths) : 0;
@@ -1135,9 +1174,9 @@ export function budgetFromIncome(incomeMonthly, cashWan, downPct = 20) {
 export function affordableBudget(incomeMonthly, downPct = 20, opt = {}) {
   if (!(incomeMonthly > 0)) return null;
   const safeMonthly = incomeMonthly / 3;
-  const yRate = (opt.youthRate ?? YOUTH_LOAN.rate) / 100 / 12;
+  const yPct = opt.youthRate ?? YOUTH_LOAN.rate;
   const nRate = (opt.normalRate ?? NORMAL_LOAN.rate) / 100 / 12;
-  const yFactor = yRate / (1 - Math.pow(1 + yRate, -(YOUTH_LOAN.years - YOUTH_LOAN.grace) * 12));   // 以寬限期結束後的月付計
+  const yFactor = steppedLoan(1, yPct, YOUTH_LOAN.years, YOUTH_LOAN.grace, youthSteps(yPct)).monthly;   // 以寬限期結束、利率調升後的月付計
   // 新青安過了申請期限（又還沒有續辦條件）就申請不到了：額度當 0，全部用一般房貸算
   const youthCap = opt.youthCap ?? (youthExpired() ? 0 : YOUTH_LOAN.cap);
   const youthMaxMonthly = youthCap * 10000 * yFactor;
@@ -1216,6 +1255,7 @@ export function duelCompare(a, b, cat = "all") {
     else if (r.win === "B") scoreB++;
   });
 
+  const comparable = rounds.filter(r => r.win).length;
   let verdict = "";
   if (scoreA > scoreB) {
     verdict = `${a.name} 在多項指標中以 ${scoreA}:${scoreB} 勝出，性價比與總體負擔具優勢！`;
@@ -1225,6 +1265,7 @@ export function duelCompare(a, b, cat = "all") {
     verdict = `兩區各擅勝場（${scoreA}:${scoreB} 平手），可依自住剛需或投資目標評估。`;
   }
 
+  if (comparable < rounds.length) verdict += `（${rounds.length} 項裡有 ${comparable} 項分得出高下，其餘資料不足或相同）`;
   return { rounds, scoreA, scoreB, verdict, nameA: a.name, nameB: b.name };
 }
 
@@ -1259,11 +1300,10 @@ export function buildRoadCatalog(txs) {
   })).sort((a, b) => b.n - a.n);
 }
 
-// 知名縮寫、大學、名校與地標別名對照表
+// 知名縮寫、大學、名校與地標別名對照表（內容在 data/aliases.json）
 // 各縣市都有的通用名稱（好市多、新光三越、市立醫院、文化中心、復興國中…）：只有目標地點就在目前縣市時才套用，
 // 不然台中的人打「好市多」會被帶到台南店。ctx：目前縣市代碼；全台總覽是 "*"；沒給（舊呼叫）＝一律套用
-const GENERIC_ALIAS_KEYS = new Set(["好市多", "costco", "新光三越", "新光", "新天地", "西門新天地", "三井", "三井outlet", "outlet", "mitsui",
-  "市立醫院", "市醫", "文化中心", "台積電", "復興", "成功國中", "陽明國中", "光武", "東興國中", "建興", "崇明", "金華", "敦化", "培英", "居仁", "七賢"]);
+const GENERIC_ALIAS_KEYS = new Set();
 // 查詢字串會先把「台」換成「臺」、轉小寫（normSearchQuery），別名關鍵字也要做一樣的轉換才比對得到（「台大」「台北101」）
 export function aliasMatch(al, query, itemCounty, ctx) {
   return al.keys.some(k => {
@@ -1272,66 +1312,12 @@ export function aliasMatch(al, query, itemCounty, ctx) {
     return (q.includes(nk) || nk.includes(q)) && (!GENERIC_ALIAS_KEYS.has(k) || !ctx || (itemCounty || "D") === ctx);
   });
 }
-export const SEARCH_ALIASES = [
-  { keys: ["成大", "成功大學"], target: "國立成功大學" },
-  { keys: ["台大", "台灣大學"], target: "國立臺灣大學" },
-  { keys: ["清大", "清華大學"], target: "國立清華大學" },
-  { keys: ["交大", "陽明交大"], target: "陽明交通大學" },
-  { keys: ["南科", "台積電"], target: "南科台積電廠區" },
-  { keys: ["南紡", "南紡夢時代", "南紡購物"], target: "南紡購物中心" },
-  { keys: ["新光三越", "新光", "西門新天地", "新天地"], target: "新光三越台南新天地" },
-  { keys: ["三井", "三井outlet", "outlet", "mitsui"], target: "MITSUI OUTLET PARK 台南" },
-  { keys: ["好市多", "costco"], target: "好市多台南店" },
-  { keys: ["成大醫院", "成醫"], target: "成大醫院" },
-  { keys: ["奇美醫院", "永康奇美"], target: "奇美醫院" },
-  { keys: ["市立醫院", "市醫"], target: "台南市立醫院" },
-  { keys: ["花園夜市"], target: "花園夜市" },
-  { keys: ["大東夜市"], target: "大東夜市" },
-  { keys: ["武聖夜市"], target: "武聖夜市" },
-  { keys: ["巴克禮", "巴克禮公園"], target: "巴克禮紀念公園" },
-  { keys: ["文化中心", "臺南文化中心"], target: "臺南文化中心" },
-  { keys: ["新市車站", "新市火車站"], target: "新市火車站" },
-  { keys: ["善化車站", "善化火車站"], target: "善化火車站" },
-  { keys: ["永康車站", "永康火車站"], target: "永康火車站" },
-  { keys: ["藍晒圖", "藍曬圖"], target: "藍晒圖文創園區" },
-  { keys: ["亞太棒球場", "亞太棒球村", "亞太國際棒球"], target: "亞太國際棒球訓練中心" },
-  { keys: ["台南棒球場", "市立棒球場", "統一獅主場"], target: "台南市立棒球場" },
-  { keys: ["迎曦湖", "南科管理局"], target: "南部科學園區管理局" },
-  { keys: ["赤崁", "赤嵌樓"], target: "赤崁樓" },
-  { keys: ["安平古堡", "熱蘭遮城"], target: "安平古堡" },
-  { keys: ["奇美", "奇美博物館"], target: "奇美博物館" },
-  { keys: ["101", "台北101"], target: "台北101" },
-  { keys: ["大巨蛋", "台北大巨蛋"], target: "臺北大巨蛋" },
-  { keys: ["小巨蛋", "台北小巨蛋"], target: "臺北小巨蛋" },
-  { keys: ["台南高鐵", "高鐵台南"], target: "高鐵台南站" },
-  { keys: ["台南車站", "台南火車站"], target: "臺南車站" },
-  { keys: ["台北車站", "台北火車站", "北車"], target: "台北車站" },
-  { keys: ["新竹高鐵", "高鐵新竹"], target: "高鐵新竹站" },
-  { keys: ["桃園高鐵", "高鐵桃園"], target: "高鐵桃園站" },
-  { keys: ["台中高鐵", "高鐵台中"], target: "高鐵台中站" },
-  { keys: ["南一中", "台南一中"], target: "臺南第一高級中學" },
-  { keys: ["後甲", "後甲國中"], target: "後甲國民中學" },
-  { keys: ["建興", "建興國中"], target: "建興國民中學" },
-  { keys: ["復興", "復興國中"], target: "復興國民中學" },
-  { keys: ["崇明", "崇明國中"], target: "崇明國民中學" },
-  { keys: ["南科實中", "南科國中"], target: "南科國際實驗高級中學" },
-  { keys: ["小新", "小新國小"], target: "小新國民小學" },
-  { keys: ["建中", "建國中學"], target: "中正國民中學" },
-  { keys: ["師大附中", "附中"], target: "臺灣師範大學附屬高級中學" },
-  { keys: ["金華", "金華國中"], target: "金華國民中學" },
-  { keys: ["敦化", "敦化國中"], target: "敦化國民中學" },
-  { keys: ["海山", "海山高中"], target: "海山高級中學" },
-  { keys: ["培英", "培英國中"], target: "培英國民中學" },
-  { keys: ["光武", "光武國中"], target: "光武國民中學" },
-  { keys: ["成功國中"], target: "成功國民中學" },
-  { keys: ["東興國中"], target: "東興國民中學" },
-  { keys: ["居仁", "居仁國中"], target: "居仁國民中學" },
-  { keys: ["惠文", "惠文高中"], target: "惠文高級中學" },
-  { keys: ["七賢", "七賢國中"], target: "七賢國民中學" },
-  { keys: ["陽明國中"], target: "陽明國民中學" },
-  { keys: ["平實", "平實營區"], target: "平實營區重劃區" },
-  { keys: ["捷運藍線", "藍線"], target: "捷運" }
-];
+export const SEARCH_ALIASES = [];     // data/aliases.json，開站時由 setAliases 填入
+export function setAliases(d) {
+  if (!d || !Array.isArray(d.items)) return;
+  SEARCH_ALIASES.length = 0; SEARCH_ALIASES.push(...d.items.filter(a => a && Array.isArray(a.keys) && a.target));
+  GENERIC_ALIAS_KEYS.clear(); for (const k of d.generic || []) GENERIC_ALIAS_KEYS.add(k);
+}
 
 export function landmarkMeta(lm) {
   const cat = lm.category || "";
@@ -1842,7 +1828,7 @@ export function sellHouse(o) {
   let tax = 0, gain = null, taxable = null, rate = null, rule;
   if (old) {
     const hv = n(o.oldHouseVal) ?? sell * 0.1, hvGuess = n(o.oldHouseVal) == null;
-    taxable = hv * (n(o.oldStd) ?? 40) / 100;
+    taxable = hv * (n(o.oldStd) ?? SELL_DEFAULT.oldStd) / 100;
     rate = n(o.oldRate) ?? 12;
     tax = taxable * rate / 100;
     rule = "舊制（2015 年底前取得）：房屋評定現值 × 所得標準，併入綜合所得稅" + (hvGuess ? "（房屋評定現值沒填，暫用售價 10% 粗估，請看房屋稅單）" : "") +

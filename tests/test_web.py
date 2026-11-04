@@ -488,6 +488,31 @@ class WebAppTest(unittest.TestCase):
         self.assertEqual(r["rate"], 35)                     # 持有 3 年：35%（以前沒填持有年數就算 0 元）
         self.assertFalse(pg.evaluate("__app.L.youthExpired(new Date('2026-11-04T00:00:00'))"))
 
+    def test_youth_steps(self):
+        """新青安利率調升：沒有調升表時和一般本息攤還完全一樣；有調升表時月付、總利息變高，預算反推變少。"""
+        pg = self.open(phone=True)
+        r = pg.evaluate("""() => { const L = __app.L;
+            const flat = L.mortgage(1000, 0, 1.775, 40, 5), same = L.steppedLoan(1000 * 10000, 1.775, 40, 5, []);
+            const up = L.mortgage(1000, 0, 1.775, 40, 5, L.youthSteps(1.775));
+            const nogr = L.mortgage(1000, 0, 1.775, 40, 0, L.youthSteps(1.775));
+            const keep = L.YOUTH_LOAN.steps, withSteps = L.affordableBudget(120000, 20).maxPriceWan;
+            L.YOUTH_LOAN.steps = []; const without = L.affordableBudget(120000, 20).maxPriceWan; L.YOUTH_LOAN.steps = keep;
+            return { flat: Math.round(flat.monthly), same: Math.round(same.monthly), flatI: Math.round(flat.totalInterest), sameI: Math.round(same.interest / 10000),
+                     upGrace: Math.round(up.graceMonthly), upMonthly: Math.round(up.monthly), upI: Math.round(up.totalInterest),
+                     first: Math.round(nogr.firstMonthly), last: Math.round(nogr.monthly), withSteps, without, n: keep.length,
+                     shifted: L.youthSteps(2)[3].rate, ratio: L.COST_RATIO.house, aliases: L.SEARCH_ALIASES.length }; }""")
+        self.assertEqual(r["flat"], r["same"])
+        self.assertEqual(r["flatI"], r["sameI"])
+        self.assertEqual(r["upGrace"], round(1000 * 10000 * 0.01775 / 12))
+        self.assertGreater(r["upMonthly"], r["flat"])
+        self.assertGreater(r["upI"], r["flatI"])
+        self.assertGreater(r["last"], r["first"])
+        self.assertLess(r["withSteps"], r["without"])
+        self.assertEqual(r["n"], 4)
+        self.assertAlmostEqual(r["shifted"], 2.5)            # 起始利率改成 2%：表跟著平移
+        self.assertEqual(r["ratio"], 0.1)
+        self.assertGreater(r["aliases"], 30)                 # 別名從 data/aliases.json 載入
+
     def test_boot_defers_intel(self):
         """開場不等全台建設情資：情資晚到後仍會補畫建設、建設分頁有內容；網址的縣市代碼不存在時退回全台畫面。"""
         pg = self.open(phone=True, query="?c=D")

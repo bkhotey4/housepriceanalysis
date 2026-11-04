@@ -149,7 +149,13 @@ class BookTest(unittest.TestCase):
         counts = {"2025-08": 542, "2025-09": 624, "2025-10": 730, "2025-11": 728, "2025-12": 740, "2026-01": 765,
                   "2026-02": 511, "2026-03": 828, "2026-04": 800, "2026-05": 895, "2026-06": 656, "2026-07": 494,
                   "2026-08": 116, "2026-09": 1}
-        self.assertEqual(prices.find_complete_through(counts), "2026-07")
+        self.assertEqual(prices.find_complete_through(counts), "2026-06")      # 7 月只有 494 件（平常 7 成不到）還在陸續登錄
+        small = {"2026-%02d" % m: 8 for m in range(1, 8)}
+        small["2026-07"] = 5
+        self.assertEqual(prices.find_complete_through(small), "2026-07")       # 小縣市一個月少幾件是常態
+        none = {"2025-%02d" % m: 1000 for m in range(1, 13)}
+        none.update({"2026-%02d" % (i + 1): n for i, n in enumerate((400, 300, 200, 100, 50, 20))})
+        self.assertEqual(prices.find_complete_through(none), "2026-01")        # 都不符合：不選最新月份
 
     def test_month_math(self):
         self.assertEqual(prices.ym_add("2026-01", -1), "2025-12")

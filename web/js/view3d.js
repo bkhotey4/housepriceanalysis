@@ -560,8 +560,9 @@ export class View3D {
     if (this.W < 600) return;
     const c = this.ctx, x = this.W - 10 - this.inset.right, y = this.H - this.inset.bottom - 8;
     c.font = "600 12px system-ui, sans-serif"; c.textAlign = "right"; c.textBaseline = "bottom";
-    c.lineWidth = 3; c.strokeStyle = "rgba(255,255,255,0.75)"; c.strokeText(WATERMARK, x, y);
-    c.fillStyle = "rgba(20,60,56,0.62)"; c.fillText(WATERMARK, x, y);
+    const text = WATERMARK + (this.stamp || "");
+    c.lineWidth = 3; c.strokeStyle = "rgba(255,255,255,0.75)"; c.strokeText(text, x, y);
+    c.fillStyle = "rgba(20,60,56,0.62)"; c.fillText(text, x, y);
   }
   _drawCompass() {
     const c = this.ctx, cx = this.W - 30 - this.inset.right, cy = this.inset.top + 30, r = 18;

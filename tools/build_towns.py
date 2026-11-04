@@ -72,6 +72,9 @@ def towns_of(raw):
     return sorted(best.values(), key=lambda x: (-x["lat"], x["lng"]))
 
 
+REFRESH = 3
+
+
 def tainan_towns():
     return [{"name": d["name"], "lat": d["lat"], "lng": d["lng"], "zone": d.get("zone", "")} for d in geo.load_districts()]
 
@@ -85,10 +88,18 @@ def main():
             out = json.load(f)
     except (OSError, ValueError):
         out = {"source": "© OpenStreetMap 貢獻者（Overpass API）", "towns": {}}
+    before = json.dumps(out["towns"], ensure_ascii=False, sort_keys=True)
+    today = datetime.date.today().isoformat()
     out["towns"]["D"] = tainan_towns()
+    fetched = out.setdefault("fetched", {})
+    for code in out["towns"]:
+        fetched.setdefault(code, today)
+    # 行政區很少變動：每次只重抓最舊、超過一年的幾個縣市，不會一次打爆伺服器
+    year_ago = (datetime.date.today() - datetime.timedelta(days=365)).isoformat()
+    stale = sorted((c for c in fetched if c != "D" and fetched[c] < year_ago), key=fetched.get)[:REFRESH]
     failed = []
     for c in COUNTIES:
-        if c["code"] == "D" or (out["towns"].get(c["code"]) and not args.force):
+        if c["code"] == "D" or (out["towns"].get(c["code"]) and not args.force and c["code"] not in stale):
             continue
         try:
             got = towns_of(ask(query(c["name"])))
@@ -98,13 +109,15 @@ def main():
             continue
         if got:
             out["towns"][c["code"]] = got
+            fetched[c["code"]] = today
             print("%s：%d 個鄉鎮市區" % (c["name"], len(got)), flush=True)
         else:
             failed.append(c["name"])
             print("%s：沒有抓到鄉鎮市區" % c["name"], flush=True)
         time.sleep(3)
     apply_fixes(out["towns"])
-    out["built"] = datetime.date.today().isoformat()
+    if json.dumps(out["towns"], ensure_ascii=False, sort_keys=True) != before or "built" not in out:
+        out["built"] = today         # 內容有變才改日期，不然每次都多一個沒意義的 commit
     os.makedirs(os.path.dirname(TOWNS_PATH), exist_ok=True)
     with open(TOWNS_PATH, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=0)

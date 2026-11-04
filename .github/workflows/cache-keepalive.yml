@@ -1,0 +1,19 @@
+# 下載快取保溫：GitHub 會清掉 7 天沒用過的快取，排程更新（每月 2/12/22）間隔超過 7 天。
+# 快取不見時要重抓 9 季全台實價登錄，內政部伺服器不穩時可能整次逾時，所以每 5 天讀一次快取。
+name: 下載快取保溫
+
+on:
+  schedule:
+    - cron: "41 2 */5 * *"
+  workflow_dispatch:
+
+jobs:
+  touch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/cache/plvr_tw
+          key: plvr-tw-keepalive
+          restore-keys: plvr-tw-

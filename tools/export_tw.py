@@ -16,6 +16,7 @@
 道路位置另由 tools/fetch_roads_tw.py 逐步下載到 web/data/tw/<代碼>/roads/。
 """
 import argparse
+import csv
 import datetime
 import json
 import math
@@ -74,6 +75,22 @@ def town_list(county, towns_osm, txs):
     for t in out:
         t["name"] = tx_name.get(norm(t["name"]), t["name"])
     return out
+
+
+def sale_diag(code):
+    """沒有成交資料的縣市（例如連江）印出原因：是季檔裡就沒有，還是都被篩掉（看第一欄標的統計）"""
+    rows, kinds = 0, {}
+    for name in plvr_tw.folders():
+        path = os.path.join(plvr_tw._dir(name), "%s_lvr_land_a.csv" % code.lower())
+        if not os.path.exists(path):
+            continue
+        with open(path, "rb") as f:
+            lines = f.read().decode("utf-8-sig", "replace").splitlines()[2:]
+        for r in csv.reader(lines):
+            if len(r) > 1:
+                rows += 1
+                kinds[r[1][:4]] = kinds.get(r[1][:4], 0) + 1
+    return "原始 %d 列，標的：%s" % (rows, json.dumps(kinds, ensure_ascii=False))
 
 
 def rent_diag(code, parsed):
@@ -157,6 +174,8 @@ def main():
             txs = plvr_tw.load_county(c["code"], cancels)
         entry = {k: c[k] for k in ("code", "name", "short", "region", "lat", "lng", "zoom")}
         entry["has_data"] = bool(txs)
+        if not txs and not args.legacy_tainan:
+            print("%s：沒有可用的成交（%s）" % (c["short"], sale_diag(c["code"])), flush=True)
         dl = town_list(c, towns.get(c["code"], []), txs) if (txs or towns.get(c["code"])) else []
         entry["towns"] = len(dl)
         entry["town_names"] = [t["name"] for t in dl]

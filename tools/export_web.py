@@ -110,6 +110,7 @@ def export_static():
     _dump("workplaces.json", geo.load_json("workplaces.json")["places"])
     _dump("schools.json", geo.load_json("schools.json")["items"])
     _dump("loan.json", geo.load_json("loan.json"))
+    _dump("aliases.json", geo.load_json("aliases.json"))
     _dump("landbank.json", geo.load_json("landbank.json"))
     _dump("openings.json", geo.load_json("openings.json"))
 
@@ -222,7 +223,9 @@ def main():
     else:
         keep = {"source": book.source, "describe": book.describe_source(), "as_of": book.as_of,
                 "complete_through": book.complete_through}
-    meta = {"built": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), **keep,
+    # 這次沒有重新產生房價（舊版台南備援）就保留原本的日期，不要讓舊資料看起來是今天整理的
+    built = old_meta.get("built") if book is None else None
+    meta = {"built": built or datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), **keep,
             "tx_count": n_tx, "road_districts": road_dists, "layers": layers or {},
             "roads_attribution": roads.ATTRIBUTION}
     _dump("meta.json", meta)

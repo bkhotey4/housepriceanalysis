@@ -7,6 +7,7 @@
 全台 368 區要分好幾次（GitHub Actions 每次自動續抓），沒抓到的區網頁上就只是沒有路段線條。
 """
 import argparse
+import datetime
 import json
 import os
 import shutil
@@ -24,6 +25,24 @@ OUT = os.path.join(ROOT, "web", "data", "tw")
 
 def out_path(code, town):
     return os.path.join(OUT, code, "roads", "%s.json" % town)
+
+
+def stale_towns(only, towns):
+    """超過一年沒更新的區，最舊的排前面（新路開通才看得到）；每次跑多少看時間預算"""
+    year_ago = (datetime.date.today() - datetime.timedelta(days=365)).isoformat()
+    old = []
+    for c in COUNTIES:
+        if c["code"] == "D" or (only and c["code"] not in only):      # 台南用自己整理的道路檔
+            continue
+        for t in towns.get(c["code"], []):
+            path = out_path(c["code"], t["name"])
+            if not os.path.exists(path):
+                continue
+            with open(path, encoding="utf-8") as f:
+                day = str(json.load(f).get("fetched") or "2026-10-01")[:10]      # 沒記日期的是 2026-10 抓的
+            if day < year_ago:
+                old.append((day, c, t["name"]))
+    return [(c, name) for day, c, name in sorted(old, key=lambda x: x[0])]
 
 
 def to_web(data):
@@ -66,6 +85,7 @@ def main():
     only = set((args.only or "").upper().split(",")) - {""}
     todo = [(c, t["name"]) for c in COUNTIES if (not only or c["code"] in only)
             for t in towns.get(c["code"], []) if not os.path.exists(out_path(c["code"], t["name"]))]
+    todo += stale_towns(only, towns)
     print("待下載 %d 區" % len(todo), flush=True)
     done = fail = 0
     for c, town in todo:

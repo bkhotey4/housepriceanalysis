@@ -1,6 +1,7 @@
 // 合理價估算（估價分頁）（從 main.js 拆出來；共用的狀態與小工具從 main.js 匯入）
 import * as L from "./logic.js";
 import { $, D, S, esc, isNation, needCounty, txLoading } from "./main.js";
+import { loanState } from "./finance.js";
 
 // ---- 合理價估算：找條件相近的實價登錄成交，算出合理價區間
 const VAL_TYPES = [["apt", "大樓／華廈／公寓"], ["house", "透天厝"], ["presale", "預售屋"]];
@@ -78,18 +79,18 @@ export function tabValue() {
   }
 
   const targetPrice = +v.price || e.tMid;
-  const incomeVal = parseFloat(S.settings.incomeMonthly) || 120000;
-  const cliff = L.youthLoanCliff(targetPrice, 20, incomeVal);
-  const budget = L.affordableBudget(incomeVal, 20);
+  const incomeVal = parseFloat(S.settings.incomeMonthly) || 0, down = +loanState().down || 20, gy = L.YOUTH_LOAN.grace;
+  const cliff = L.youthLoanCliff(targetPrice, down, incomeVal);
+  const budget = L.affordableBudget(incomeVal, down);
   if (cliff) {
     h += `<details class="more" open><summary>${L.youthExpired() ? "新青安原方案" : "新青安"} ${L.YOUTH_LOAN.years} 年房貸與家庭所得體檢（以 ${L.fmtNum(targetPrice)} 萬試算）</summary>` +
       `<div class="cliff-box">` +
-      `<div class="row" style="margin-bottom:6px"><span>家庭月收入（元）</span><input type="text" inputmode="numeric" data-set="incomeMonthly" value="${incomeVal}" placeholder="例 120000" style="max-width:140px"></div>` +
+      `<div class="row" style="margin-bottom:6px"><span>家庭月收入（元）</span><input type="text" inputmode="numeric" data-set="incomeMonthly" value="${incomeVal || ""}" placeholder="填了才算負擔比例" style="max-width:140px"></div>` +
       `<div class="cliff-row"><span>${L.youthExpired() ? "新青安原方案" : "新青安"}額度（${L.YOUTH_LOAN.rate}%，上限 ${L.fmtNum(L.YOUTH_LOAN.cap)} 萬）</span><b>${L.fmtNum(cliff.youthWan)} 萬</b></div>` +
       (cliff.normalWan > 0 ? `<div class="cliff-row"><span>超額一般房貸（${cliff.normalRate}%，${L.NORMAL_LOAN.years} 年、沒有寬限期）</span><b>${L.fmtNum(cliff.normalWan)} 萬</b></div>` : "") +
-      `<div class="cliff-row"><span>前 5 年寬限期月繳（只繳利息）</span><b style="color:#2ea36b">${L.fmtNum(cliff.period1)} 元/月</b></div>` +
-      `<div class="cliff-row"><span>第 6 年起本息攤還月繳（斷崖）</span><b class="up">${L.fmtNum(cliff.period2)} 元/月</b></div>` +
-      `<div class="cliff-row"><span>斷崖月增負擔</span><b class="up">+${L.fmtNum(cliff.cliffDiff)} 元/月（增幅 +${cliff.cliffPct}%）</b></div>` +
+      (gy ? `<div class="cliff-row"><span>前 ${gy} 年寬限期月繳（只繳利息，利率調升後會略增）</span><b style="color:#2ea36b">${L.fmtNum(cliff.period1)} 元/月</b></div>` : "") +
+      `<div class="cliff-row"><span>第 ${gy + 1} 年起本息攤還月繳（利率調升後）</span><b class="up">${L.fmtNum(cliff.period2)} 元/月</b></div>` +
+      (gy ? `<div class="cliff-row"><span>斷崖月增負擔</span><b class="up">+${L.fmtNum(cliff.cliffDiff)} 元/月（增幅 +${cliff.cliffPct}%）</b></div>` : "") +
       (cliff.incomeEval ? `
         <div style="margin-top:8px;padding-top:8px;border-top:1px solid #edf2f7">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
@@ -99,7 +100,7 @@ export function tabValue() {
             </span>
           </div>
           <div class="muted">
-            前 5 年房貸佔月薪 ${cliff.incomeEval.ratio1}%；第 6 年起房貸佔月薪 <b>${cliff.incomeEval.ratio2}%</b>。<br>
+            前 ${gy} 年房貸佔月薪 ${cliff.incomeEval.ratio1}%；第 ${gy + 1} 年起房貸佔月薪 <b>${cliff.incomeEval.ratio2}%</b>。<br>
             以月收入 1/3（${L.fmtNum(cliff.incomeEval.safeMonthly)} 元/月）安全支出為基準，建議購屋總價上限約 <b>${L.fmtNum(budget?.maxPriceWan)} 萬</b>。
           </div>
         </div>

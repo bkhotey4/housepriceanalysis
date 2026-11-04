@@ -32,12 +32,13 @@ METRICS = [("u", "單價（萬/坪）"), ("t", "總價（萬）")]
 MIN_N = 5         # 低於這個件數就標示「樣本少」
 TREND_MIN_N = 10  # 前後兩個 3 個月區間都至少要這麼多件，才計算漲跌
 
-_EXCL = re.compile("親友|員工|特殊關係|二親等|急買急賣|債權債務|瑕疵|持分|地上權|協議價購|向政府機關承購|公共設施保留地|毛胚")
+_EXCL = re.compile("親友|員工|特殊關係|二親等|急買急賣|債權債務|瑕疵|持分|地上權|協議價購|向政府機關承購|政府機關標|法拍|拍賣|合建分|地主|公共設施保留地|毛胚")
+_USE_EXCL = re.compile("^(商業用|辦公|工業用|廠房|倉庫)")      # 主要用途不是住家：店面、辦公室、廠房的單價和住宅不能比
 _TYPE_CAT = (("透天厝", "house"), ("住宅大樓", "apt"), ("華廈", "apt"), ("公寓", "walkup"), ("套房", "suite"))
 
 # CSV 欄位索引（33 欄，順序固定）
 C_DIST, C_TARGET, C_ADDR, C_DATE = 0, 1, 2, 7
-C_FLOORS, C_BTYPE, C_BUILT, C_AREA = 10, 11, 14, 15
+C_FLOORS, C_BTYPE, C_USE, C_BUILT, C_AREA = 10, 11, 12, 14, 15
 C_TOTAL, C_UNIT, C_NOTE, C_ID = 21, 22, 26, 27
 C_PIECES, C_LEVEL, C_PARK_TYPE, C_PARK_AREA, C_PARK_PRICE = 8, 9, 23, 24, 25
 # 格局、管理組織；一般買賣檔另有主建物／附屬建物／陽台面積與電梯（預售屋檔沒有這幾欄）
@@ -177,21 +178,22 @@ def reduce_row(r, presale=False, keep_cancelled=False):
     total, area = _num(r[C_TOTAL]), _num(r[C_AREA])
     if total <= 0 or area <= 0:
         return None
-    if _EXCL.search(r[C_NOTE]):
+    if _EXCL.search(r[C_NOTE]) or _USE_EXCL.search(r[C_USE].strip()):
         return None
     cancelled = bool(presale and r[C_CANCEL].strip())
     if cancelled and not keep_cancelled:
         return None                     # 已解約
+    pk, pka, pkp = parking_of(r)
     unit = _num(r[C_UNIT])
-    if unit <= 0:
-        unit = total / area
+    if unit <= 0:                       # 單價欄空白：自己算，和官方單價一樣要扣掉車位
+        rest = area - pka * PING_M2
+        unit = (total - pkp * 10000.0) / rest if rest > 0 and total > pkp * 10000.0 else total / area
     u = unit * PING_M2 / 10000.0
     tw = total / 10000.0
     if u < 3 or u > 200 or tw < 50:
         return None
     built = r[C_BUILT].strip()
-    built_year = int(built[:3]) + 1911 if len(built) == 7 and built.isdigit() else None
-    pk, pka, pkp = parking_of(r)
+    built_year = int(built[:3]) + 1911 if len(built) == 7 and built.isdigit() and int(built[:3]) > 0 else None
     ps, rp = common_area(r, presale)
     rooms = _num(r[C_ROOMS]) if len(r) > C_ROOMS else 0
     if len(r) > C_ELEVATOR and not presale:
@@ -290,7 +292,8 @@ def find_complete_through(counts, today_ym=None):
     """找出「資料大致到齊」的最後一個月。
 
     實價登錄有 1~2 個月的登記與申報時間差，最近的月份件數會偏少。
-    規則：由最新月份往回找，第一個件數 >= 前 6 個月件數中位數一半的月份。
+    規則：由最新月份往回找，第一個件數 >= 前 6 個月件數中位數 7 成的月份（件數少的縣市起伏大，放寬到 5 成）。
+    都不符合時用往回找的最後一個月，不要把最新、最不完整的月份當成到齊。
     """
     months = sorted(m for m, n in counts.items() if n > 0 and (today_ym is None or m <= today_ym))
     if not months:
@@ -301,9 +304,9 @@ def find_complete_through(counts, today_ym=None):
         m = months[-1 - back]
         prev = [counts.get(ym_add(m, -k), 0) for k in range(1, 7)]
         base = median([p for p in prev if p > 0])
-        if base == 0 or counts[m] >= 0.5 * base:
+        if base == 0 or counts[m] >= (0.7 if base >= 30 else 0.5) * base:
             return m
-    return months[-1]
+    return months[-min(6, len(months))]
 
 
 def _stat(rows):

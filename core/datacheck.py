@@ -242,6 +242,23 @@ def check_loan(d):
     if pc is not None:
         if not isinstance(pc, dict) or not all((k == "default" or k in _COUNTY_KM or len(k) == 1) and _is_num(v) and 100 <= v <= 100000 for k, v in pc.items()):
             out.append("loan.json：youth.price_cap 應為 {縣市代碼或 default: 100～100000 的萬元}")
+    # 選填：新青安利率調升表 [{from_year, rate}]、資格補充說明、稅費粗估假設
+    st = y.get("steps") if isinstance(y, dict) else None
+    if st is not None:
+        yrs = [s.get("from_year") for s in st] if isinstance(st, list) and all(isinstance(s, dict) for s in st) else None
+        if yrs is None or yrs != sorted(yrs) or not all(_is_num(s.get("from_year")) and 2 <= s["from_year"] <= 50 and _is_num(s.get("rate")) and 0 <= s["rate"] <= 15 for s in st):
+            out.append("loan.json：youth.steps 應為依年份排序的 [{from_year: 第幾年起, rate: 年利率%}]")
+    if isinstance(y, dict) and y.get("note") is not None and not isinstance(y["note"], str):
+        out.append("loan.json：youth.note 應為文字")
+    tx = d.get("tax")
+    if tx is not None:
+        cr0 = tx.get("cost_ratio") if isinstance(tx, dict) else None
+        if not isinstance(cr0, dict) or not all(_is_num(cr0.get(k)) and 0 < cr0[k] <= 1 for k in ("house", "land")):
+            out.append("loan.json：tax.cost_ratio 應有 house、land（0～1 的比例）")
+        elif not (_is_num(tx.get("old_std")) and 1 <= tx["old_std"] <= 100 and _is_num(tx.get("hold")) and 0 <= tx["hold"] <= 10):
+            out.append("loan.json：tax.old_std（%）應為 1～100、tax.hold（%）應為 0～10")
+        elif tx.get("checked") and not _DATE.match(str(tx["checked"])):
+            out.append("loan.json：tax.checked（查證日）應為 YYYY-MM-DD")
     cr = d.get("credit")
     if cr is not None:
         if not isinstance(cr, dict) or not (_is_num(cr.get("second_ltv")) and 0 <= cr["second_ltv"] <= 100):
@@ -400,11 +417,24 @@ def check_openings(d):
     return out
 
 
+def check_aliases(d):
+    """data/aliases.json：搜尋別名。"""
+    if not isinstance(d, dict) or not isinstance(d.get("items"), list):
+        return ["aliases.json：items 應為清單"]
+    out = []
+    for i, a in enumerate(d["items"]):
+        if not (isinstance(a, dict) and a.get("target") and isinstance(a.get("keys"), list) and a["keys"]):
+            out.append("aliases.json：第 %d 筆要有 keys（清單）與 target" % (i + 1))
+    if not isinstance(d.get("generic", []), list):
+        out.append("aliases.json：generic 應為清單")
+    return out
+
+
 def check_all():
     """檢查目前 data/ 裡的情資、捷運、房貸參考條件，回傳問題清單。"""
     out = []
     for name, fn in (("intel.json", check_intel), ("mrt.json", check_mrt), ("loan.json", check_loan), ("landbank.json", check_landbank),
-                     ("openings.json", check_openings), ("schools.json", check_schools), ("workplaces.json", check_workplaces)):
+                     ("openings.json", check_openings), ("schools.json", check_schools), ("workplaces.json", check_workplaces), ("aliases.json", check_aliases)):
         try:
             d = geo.load_json(name)
         except (OSError, ValueError) as e:

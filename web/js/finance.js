@@ -21,11 +21,16 @@ export function youthNote() {
   return L.youthExpired() ? `<p class="note">${p.name}原方案的申請期限已在 ${p.until} 截止（政府的利息補貼也只到這天）。續辦方案的額度、利率與資格，請以財政部與承辦銀行的最新公告為準；` +
     `這裡的「${p.name}」仍是用原方案的條件（利率 ${L.YOUTH_LOAN.rate}%、上限 ${L.fmtNum(L.YOUTH_LOAN.cap)} 萬、${L.YOUTH_LOAN.years} 年、寬限期 ${L.YOUTH_LOAN.grace} 年）試算，僅供比較。</p>` : "";
 }
+// 「前 3 年 1.775%，之後逐年調升到 2.275%」；每段數字來自 data/loan.json
+const youthStepText = () => {
+  const s = L.YOUTH_LOAN.steps;
+  return s.length ? `利率前 ${s[0].from_year - 1} 年 ${L.YOUTH_LOAN.rate}%，之後逐年調升，第 ${s[s.length - 1].from_year} 年起 ${s[s.length - 1].rate}%（試算已計入）；` : "";
+};
 export const youthLabel = () => L.youthExpired() ? `${L.YOUTH_POLICY.name}（原方案）` : L.YOUTH_POLICY.name;
 // 依目前的條件試算；選了「新青安」時，超過 1,000 萬的部分用一般房貸的利率與年限另外算
 function loanCalc(st, price) {
   if (!price) return null;
-  if (st.youth) return L.mortgageCapped(price, +st.down, +st.rate, +st.years, +st.grace, L.YOUTH_LOAN.cap, LOAN_DEFAULT.rate, LOAN_DEFAULT.years);
+  if (st.youth) return L.mortgageCapped(price, +st.down, +st.rate, +st.years, +st.grace, L.YOUTH_LOAN.cap, LOAN_DEFAULT.rate, LOAN_DEFAULT.years, L.youthSteps(+st.rate));
   return L.mortgage(price, +st.down, +st.rate, +st.years, +st.grace);
 }
 export function loanResult(median) {
@@ -35,7 +40,8 @@ export function loanResult(median) {
   const yuan = v => Math.round(v).toLocaleString("zh-TW");
   let h = `<div class="summary">總價 ${L.fmtNum(price)} 萬：自備款 ${L.fmtNum(Math.round(m.down))} 萬、貸款 ${L.fmtNum(Math.round(m.loan))} 萬` +
     (m.rest ? `（其中 ${L.fmtNum(Math.round(m.rest))} 萬超過新青安上限，以一般房貸 ${LOAN_DEFAULT.rate}%、${LOAN_DEFAULT.years} 年試算）` : "") + `<br>` +
-    (m.graceMonthly ? `寬限期每月只繳利息 <b>${yuan(m.graceMonthly)}</b> 元，之後` : "") + `每月約繳 <b>${yuan(m.monthly)}</b> 元<br>` +
+    (m.graceMonthly ? `寬限期每月只繳利息 <b>${yuan(m.graceMonthly)}</b> 元起，之後` : "") + `每月約繳 <b>${yuan(m.monthly)}</b> 元` +
+    (m.firstMonthly && Math.round(m.firstMonthly) !== Math.round(m.monthly) ? `（利率調升前約 ${yuan(m.firstMonthly)} 元）` : "") + `<br>` +
     `總利息約 ${L.fmtNum(Math.round(m.totalInterest))} 萬｜月付控制在收入三分之一，家庭月收入約需 ${yuan(m.income)} 元</div>`;
   // 和另一種方案並排：選一般房貸時比新青安，選新青安時比一般房貸
   const y = L.YOUTH_LOAN, other = st.youth ? { ...st, ...LOAN_DEFAULT, price: st.price, down: st.down, youth: false }
@@ -74,7 +80,7 @@ export function loanSection(median) {
   return `<h3>房貸試算</h3><div class="row loan-presets">${preset("normal", "一般房貸")}${preset("youth", youthLabel())}</div>` + (st.youth ? youthNote() : "") +
     `<div class="loan">${num("price", "總價", 10, "萬", median ? String(Math.round(median)) : "")}${num("down", "自備款", 5, "%")}` +
     `${num("rate", "年利率", 0.05, "%")}${num("years", "年限", 5, "年")}${num("grace", "寬限期", 1, "年")}</div>` +
-    `<div id="loan-out">${loanResult(median)}</div><p class="muted">本息平均攤還的估算，總價空白就用這一區的中位總價。${youthLabel()}：貸款上限 ${L.fmtNum(L.YOUTH_LOAN.cap)} 萬、最長 ${L.YOUTH_LOAN.years} 年、寬限期最長 ${L.YOUTH_LOAN.grace} 年，限名下無自有住宅者；` +
+    `<div id="loan-out">${loanResult(median)}</div><p class="muted">本息平均攤還的估算，總價空白就用這一區的中位總價。${youthLabel()}：貸款上限 ${L.fmtNum(L.YOUTH_LOAN.cap)} 萬、最長 ${L.YOUTH_LOAN.years} 年、寬限期最長 ${L.YOUTH_LOAN.grace} 年，限名下無自有住宅者${L.YOUTH_POLICY.note ? `（${esc(L.YOUTH_POLICY.note)}）` : ""}；${youthStepText()}` +
     `利率是參考值（${L.YOUTH_POLICY.checked} 整理，一般房貸 ${L.NORMAL_LOAN.rate}%、${L.YOUTH_POLICY.name} ${L.YOUTH_LOAN.rate}%），會隨央行與銀行調整。` +
     `實際利率、成數、寬限期與申請資格以承辦銀行公告為準，這不是貸款建議。</p>`;
 }
@@ -92,7 +98,7 @@ export function costResult(median) {
     `<tr class="total"><td>合計（交屋前要準備）</td><td class="r">${L.fmtNum(c.total)} 萬</td></tr></tbody></table>`;
   h += `<div class="summary">頭期款以外的稅費與雜支約 <b>${wan(c.fees)} 萬</b>（總價的 ${(c.fees / price * 100).toFixed(1)}%）` +
     (reserve ? `<br>另外建議預留 6 個月房貸約 ${wan(reserve)} 萬，以免收入中斷時繳不出來` : "") + `</div>`;
-  if (c.estimated) h += `<p class="muted">房屋評定現值、土地公告現值沒填，暫用總價的 ${L.COST_RATIO.house * 100}%、${L.COST_RATIO.land * 100}% 粗估（新大樓通常更低、老透天的土地比例更高）；實際數字看賣方的房屋稅單、地價稅單，或請代書查。</p>`;
+  if (c.estimated) h += `<p class="muted">房屋評定現值、土地公告現值沒填，暫用總價的 ${L.COST_RATIO.house * 100}%、${L.COST_RATIO.land * 100}% 粗估（新大樓通常更低、老透天的土地比例更高）；實際數字看賣方的房屋稅單、地價稅單，或請代書查。${L.LOAN_RULES.taxChecked ? `（比例 ${L.LOAN_RULES.taxChecked} 查證）` : ""}</p>`;
   return h;
 }
 export function costSection(median) {
@@ -155,7 +161,7 @@ export function rvbResult(name, median) {
   if (!price) return `<p class="muted">輸入總價就能比較。</p>`;
   if (!rent) return `<p class="muted">這一區沒有足夠的租金資料，請自己填同樣房子的月租。</p>`;
   const c = L.purchaseCosts(price, +st.down, costState());
-  const cap = st.youth ? { cap: L.YOUTH_LOAN.cap, restRate: LOAN_DEFAULT.rate, restYears: LOAN_DEFAULT.years } : {};
+  const cap = st.youth ? { cap: L.YOUTH_LOAN.cap, restRate: LOAN_DEFAULT.rate, restYears: LOAN_DEFAULT.years, steps: L.youthSteps(+st.rate) } : {};
   const res = L.rentVsBuy({ price, down: +st.down, rate: +st.rate, loanYears: +st.years, grace: +st.grace, rent, cash: c.total, ...cap,
     years: +rv.years, g: +rv.g, rg: +rv.rg, inv: +rv.inv, hold: +rv.hold, sell: +rv.sell });
   if (!res) return `<p class="muted">條件不完整。</p>`;
@@ -172,7 +178,7 @@ export function rvbSection(name, median) {
   return `<details class="more" data-det="rvbOpen"${S.settings.rvbOpen ? " open" : ""}><summary>買房還是租房比較划算</summary>` +
     `<div class="loan">${num("rent", "月租", 500, "元", def ? String(def) : "")}${num("years", "比較", 1, "年")}${num("g", "房價年漲", 0.5, "%")}` +
     `${num("rg", "租金年漲", 0.5, "%")}${num("inv", "投資報酬", 0.5, "%")}</div><div id="rvb-out">${rvbResult(name, median)}</div>` +
-    `<p class="muted">月租空白時用這一區的毛租金報酬率推算同總價房子的租金。房貸條件沿用上面的試算；持有成本（房屋稅、地價稅、管理費、修繕）以每年房價 ${L.RVB_DEFAULT.hold}% 估，賣屋時扣 ${L.RVB_DEFAULT.sell}% 仲介與稅費，未計房地合一稅。結果對「房價年漲」與「投資報酬」很敏感，請多試幾組；這不是投資建議。</p></details>`;
+    `<p class="muted">月租空白時用這一區的毛租金報酬率推算同總價房子的租金。房貸條件沿用上面的試算；持有成本（房屋稅、地價稅、管理費、修繕）以每年房價 ${L.RVB_DEFAULT.hold}% 估，賣屋時扣 ${L.RVB_DEFAULT.sell}% 仲介與稅費，未計房地合一稅；名下已有其他房屋者房屋稅率較高，持有成本要自己調高。結果對「房價年漲」與「投資報酬」很敏感，請多試幾組；這不是投資建議。</p></details>`;
 }
 // 上班地點選單：依縣市分組，目前看的縣市排最前面
 

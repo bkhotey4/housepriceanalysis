@@ -38,6 +38,14 @@ if __name__ == "__main__":
     until = (loan.get("youth") or {}).get("until", "")
     if until and until < datetime.date.today().isoformat():
         print("[提醒] 房貸利率檔的新青安申請期限 %s 已經過了，請確認是否續辦（每週情資排程會查）" % until)
+    tax_day = (loan.get("tax") or {}).get("checked", "")
+    if tax_day and (datetime.date.today() - datetime.date.fromisoformat(tax_day)).days > 400:
+        print("[提醒] 稅費粗估假設的查證日是 %s，已經超過一年（每週情資排程會查）" % tax_day)
+    # 只是資訊、不開 Issue：來源很舊的項目留給排程優先重查
+    year_ago = (datetime.date.today() - datetime.timedelta(days=365)).isoformat()
+    old = [it for it in intel["items"] if max([str(s.get("date", "")) for s in it.get("sources", [])] + [it.get("checked", "")]) < year_ago]
+    if old:
+        print("情資裡有 %d 筆最新來源超過一年" % len(old))
     print("情資 %d 筆（查證日 %s）、捷運 %d 條路線、鐵路計畫 %d 項（查證日 %s）" % (
         len(intel["items"]), intel["as_of"], len(mrt["lines"]), len(mrt.get("rail_projects", [])), mrt["as_of"]))
     # CI 用：--require-tw N 時，確認全台網頁資料真的產生了，而且至少 N 個縣市有資料（不然寧可不要部署）

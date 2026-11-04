@@ -119,7 +119,7 @@ export async function loadRoads(dist) {
 async function fetchRoadsOsm(county, dist) {
   const cacheKey = `https://cache.local/roads/${county.code}/${encodeURIComponent(dist)}.json`;
   let cache = null;
-  try { cache = await caches.open("dth-roads-osm-v1"); const hit = await cache.match(cacheKey); if (hit) return await hit.json(); } catch { cache = null; }
+  try { cache = await caches.open("dth-roads-osm-v1"); const hit = await cache.match(cacheKey), saved = hit && +hit.headers.get("x-saved"); if (hit && Date.now() - saved < 180 * 864e5) return await hit.json(); } catch { cache = null; }
   toast(`第一次看${dist}：正在從 OpenStreetMap 下載道路位置（約 10～40 秒）…`, 8000);
   const q = L.roadsQuery(county.name, dist);
   let last = null;
@@ -131,7 +131,7 @@ async function fetchRoadsOsm(county, dist) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       const data = L.reduceRoads(await r.json());
       if (!Object.keys(data.roads).length) throw new Error("沒有抓到任何道路");
-      if (cache) cache.put(cacheKey, new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } })).catch(() => {});
+      if (cache) cache.put(cacheKey, new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json", "x-saved": String(Date.now()) } })).catch(() => {});
       return data;
     } catch (e) { last = e; } finally { clearTimeout(timer); }
   }
@@ -532,8 +532,8 @@ export async function refreshRoads() {
   const data = roadsNow(name) || await loadRoads(name);
   if (S.current !== name) return;
   if (!data) { view.request(); return; }
-  const key = S.metric === "u" ? "u" : "t", since = D.book.windows.y12[0];
-  const rows = L.roadPrices(D.txs, name, S.cat, since);
+  const key = S.metric === "u" ? "u" : "t", [since, until] = D.book.windows.y12;
+  const rows = L.roadPrices(D.txs, name, S.cat, since, until);
   const found = [];
   for (const r of rows) { const loc = L.locate(data, r.name); if (loc) found.push({ ...r, ...loc }); }
   let solid = found.filter(r => !r.low).map(r => r[key]);
@@ -551,7 +551,7 @@ export async function refreshRoads() {
   if (S.roadFilter) view.select("road", S.roadFilter);
   renderLegend();
 }
-function refreshAll() { refreshBars(); refreshModels(); refreshPins(); refreshRoads(); renderPanel(); }
+function refreshAll() { if (view) view.stamp = dataStamp(); placeAttrib(); refreshBars(); refreshModels(); refreshPins(); refreshRoads(); renderPanel(); }
 
 // ------------------------------------------------------------------ 選取
 export function selectDistrict(name, fly = true) {
@@ -812,8 +812,8 @@ function trendSVG(series, every = 3) {
 // 近一年成交的價格分佈：中位數之外，看得出價格集中在哪、預算落在第幾個百分位
 function distSVG(name) {
   if (!D.txs || name === L.CITY) return "";
-  const since = D.book.windows.y12[0], isU = S.metric === "u";
-  const vals = D.txs.filter(x => x.dist === name && x.ym >= since && L.inCat(x, S.cat)).map(x => isU ? x.u : x.tw);
+  const [since, until] = D.book.windows.y12, isU = S.metric === "u";
+  const vals = D.txs.filter(x => x.dist === name && x.ym >= since && x.ym <= until && L.inCat(x, S.cat)).map(x => isU ? x.u : x.tw);
   const hg = L.priceHistogram(vals);
   if (!hg) return "";
   const W = 360, H = 144, l = 14, r = 14, t = 20, b = 34, bw = (W - l - r) / hg.counts.length, max = Math.max(...hg.counts);
@@ -936,6 +936,16 @@ function introCard() {
     `<li>🧮 「<b>估價</b>」估合理價、「<b>試算</b>」算房貸與交屋要準備的錢；「<b>看屋</b>」記下在看的房子，有新成交會提醒</li></ol>` +
     `<div class="row"><button type="button" class="btn small primary" data-act="intro-ok">知道了</button></div></div>`;
 }
+// 目前縣市學校最多的行政區與校名（學區情境卡片用）
+function schoolPick() {
+  const code = D.county ? D.county.code : D.tw ? null : "D";
+  const list = (D.schools || []).filter(s => (s.county || "D") === code);
+  if (!code || !list.length) return null;
+  const n = {};
+  for (const s of list) n[s.district] = (n[s.district] || 0) + 1;
+  const dist = Object.keys(n).filter(d => D.dmap[d]).sort((a, b) => n[b] - n[a])[0];
+  return dist ? { dist, names: list.slice(0, 3).map(s => s.name.replace(/[（(].*$/, "").replace(/^(國立|.{2}[市縣]立)/, "").replace("國民中學", "國中").replace("國民小學", "國小").replace("高級中學", "高中")) } : null;
+}
 function tabOverview() {
   return introCard() + tabOverviewBody();
 }
@@ -966,13 +976,14 @@ function tabOverviewBody() {
       (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
     h += rentSection(name) + calcLink();
   } else {
-    // 情境捷徑：南科、明星學區是台南限定，只在台南顯示；新青安與雙區 PK 全台都能用
+    // 情境捷徑：南科是台南限定；明星學區看目前縣市在 schools.json 有沒有資料；新青安與雙區 PK 全台都能用
     const tainan = !D.tw || (D.county && D.county.code === "D");
     const card = (k, icon, title, desc) => `<button type="button" class="scenario-card" data-scenario="${k}"><span class="sc-icon" aria-hidden="true">${icon}</span>` +
       `<span class="sc-content"><span class="sc-title">${title}</span><span class="sc-desc">${desc}</span></span></button>`;
     const pair = cmpDefaultPair();
     h += `<div class="scenario-section"><h3 style="margin:14px 0 8px">🧭 買房情境快捷導航</h3><div class="scenario-grid">` +
-      (tainan ? card("nanke", "🚄", "南科通勤生活圈", "善化、新市、安南科技聚落") + card("school", "🎓", "明星額滿學區地圖", "建興、後甲、復興熱門雙語學區") : "") +
+      (tainan ? card("nanke", "🚄", "南科通勤生活圈", "善化、新市、安南科技聚落") : "") +
+      (schoolPick() ? card("school", "🎓", "明星額滿學區地圖", `${esc(schoolPick().names.join("、"))}等熱門學區`) : "") +
       card("youth", "💰", `${youthLabel()}首購試算`, `${L.YOUTH_LOAN.years} 年期與 ${L.YOUTH_LOAN.grace} 年寬限期斷崖體檢`) +
       card("fit", "🎯", "依條件找適合的區", "預算、通勤、價格穩定…自己決定比重") +
       card("duel", "⚔️", "雙區買房 PK 擂台", pair ? `${esc(pair[0].name)} vs ${esc(pair[1].name)}，或自選任兩區` : "全台任選兩區（可跨縣市）指標對決") +
@@ -1048,13 +1059,13 @@ export const needCounty = () => `<p class="muted">先在地圖上點一個縣市
 function tabRoads() {
   if (isNation()) return needCounty();
   if (!D.txs) return txLoading();
-  const since = D.book.windows.y12[0], kw = S.roadKw.trim();
+  const [since, until] = D.book.windows.y12, kw = S.roadKw.trim();
   let list, note;
   if (S.current === L.CITY) {
-    list = kw ? L.searchRoads(D.txs, kw, S.cat, since) : [];
+    list = kw ? L.searchRoads(D.txs, kw, S.cat, since, 200, until) : [];
     note = kw ? `全市路名含「${esc(kw)}」的路段 ${list.length} 個，點一列會到那一區。` : "輸入路名（例如「中山路」）搜尋全市；或先選一個行政區，列出區內所有路段。";
   } else {
-    list = L.roadPrices(D.txs, S.current, S.cat, since);
+    list = L.roadPrices(D.txs, S.current, S.cat, since, until);
     if (kw) list = list.filter(r => r.name.includes(kw));
     note = `${esc(S.current)}近一年有成交的${S.cat === "presale" ? "建案" : "路段"} ${list.length} 個（灰字不到 3 件），點一列看逐筆成交並在地圖上標出來。`;
   }
@@ -1076,8 +1087,8 @@ function tabBldg() {
   if (isNation()) return needCounty();
   if (!D.txs) return txLoading();
   if (S.current === L.CITY) return `<p class="muted">先在地圖或「排行」選一個行政區，這裡會列出區內有多筆成交的社區／大樓。</p>`;
-  const since = D.book.windows.y12[0], kw = S.bldgKw.trim();
-  const all = L.buildings(D.txs, S.current, S.cat, since);
+  const [since, until] = D.book.windows.y12, kw = S.bldgKw.trim();
+  const all = L.buildings(D.txs, S.current, S.cat, since, until);
   let h = "";
   const b = S.bldg && all.find(r => r.key === S.bldg);
   // 預售屋解約：已解約筆數 ÷（有效成交＋已解約）；資料是實價登錄「解約情形」欄
@@ -1391,12 +1402,14 @@ function updateReserved() {
     .map(el => { const r = el.getBoundingClientRect(); return [r.left - m.left - pad, r.top - m.top - pad, r.right - m.left + pad, r.bottom - m.top + pad]; });
   view.request();
 }
+// 浮水印旁的「資料至 YYYY-MM」：實價登錄有登記時間差，提醒看的人資料到哪個月
+const dataStamp = () => { const ct = D.book && D.book.complete_through; return ct ? `｜資料至 ${ct}` : ""; };
 function placeAttrib() {
   const a = $("#attrib"), wide = window.innerWidth >= 900;
   const bottom = wide ? 4 : (S.sheet === "peek" || !S.sheet ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sheet-peek")) || 168) + 4 : $("#app").clientHeight * 0.55 + 4);
   a.style.bottom = bottom + "px";
   // 手機：資料來源縮成一行，浮水印（網站名稱與網址）接在第二行；寬螢幕的浮水印畫在地圖右下角
-  a.textContent = wide ? "影像、行政區界：內政部國土測繪中心｜道路：© OpenStreetMap 貢獻者" : "影像、界線：國土測繪中心｜道路：© OpenStreetMap 貢獻者\n" + WATERMARK;
+  a.textContent = wide ? "影像、行政區界：內政部國土測繪中心｜道路：© OpenStreetMap 貢獻者" : "影像、界線：國土測繪中心｜道路：© OpenStreetMap 貢獻者\n" + WATERMARK + dataStamp();
   requestAnimationFrame(updateReserved);
 }
 function bindSheetDrag() {
@@ -1587,8 +1600,8 @@ function bindUI() {
         selectDistrict("善化區");
         toast("已前往南科生活圈：善化區");
       } else if (mode === "school") {
-        selectDistrict("東區");
-        toast("已前往明星學區重鎮：東區");
+        const sp = schoolPick();
+        if (sp) { selectDistrict(sp.dist); toast(`已前往明星學區重鎮：${sp.dist}`); }
       } else if (mode === "youth") {
         // 直接把房貸試算切成新青安，捲到試算那一段（全台、各縣市都能用）
         S.settings.loan = { ...loanState(), ...presetTerms(true), auto: true }; saveStore();
@@ -1641,7 +1654,7 @@ function bindUI() {
     if (tr && tr.dataset.poi) { const o = view.pois.find(x => x.id === tr.dataset.poi); if (o) { view.select("poi", o.id); view.flyTo(o.lat, o.lng, Math.max(view.zoom, 110)); toast(`${o.name}｜距離 ${o.d} 公尺`); } return; }
     if (tr && tr.dataset.bldg) {
       S.bldg = tr.dataset.bldg; renderPanel();
-      const b = L.buildings(D.txs, S.current, S.cat, D.book.windows.y12[0]).find(r => r.key === S.bldg);
+      const b = L.buildings(D.txs, S.current, S.cat, ...D.book.windows.y12).find(r => r.key === S.bldg);
       if (b && b.road && b.road !== "其他") {
         const q = { district: S.current, road: b.road, lane: b.lane, alley: b.alley, num: b.num };
         await pinAt(q, `${S.current} ${b.name}`, b.name, false);
@@ -1893,11 +1906,12 @@ export async function main() {
   const tw = params.get("tw") === "0" ? null : await getJSON("data/tw/index.json").catch(e => { if (e.network || (e.status && e.status !== 404)) twErr = e; return null; });    // ?tw=0：強制台南版（測試用）
   // 建設情資（全台，約 200KB）不擋開場畫面：地圖和行情先出來，情資到了再補畫建設的 3D 圖案
   const intelP = getJSON("data/intel.json", 60000).catch(e => { logError("載入 intel", e, true); return { items: [] }; });
-  const shared = ["mrt", "landmarks", "models", "workplaces", "schools", "loan", "landbank", "openings"];
+  const shared = ["mrt", "landmarks", "models", "workplaces", "schools", "loan", "landbank", "openings", "aliases"];
   // 這幾份輔助資料任何一份載不到都不要讓整個網站停住：用空的資料繼續
-  const empty = { mrt: { lines: [] }, landmarks: [], models: null, workplaces: { places: [] }, schools: [], loan: null, landbank: { items: [] }, openings: { items: [] } };
-  const [mrt, landmarks, models, workplaces, schools, loan, landbank, openings] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`).catch(e => { logError("載入 " + n, e, true); return empty[n]; })));
+  const empty = { mrt: { lines: [] }, landmarks: [], models: null, workplaces: { places: [] }, schools: [], loan: null, landbank: { items: [] }, openings: { items: [] }, aliases: null };
+  const [mrt, landmarks, models, workplaces, schools, loan, landbank, openings, aliases] = await Promise.all(shared.map(n => getJSON(`data/${n}.json`).catch(e => { logError("載入 " + n, e, true); return empty[n]; })));
   L.setLoanTerms(loan);      // 房貸利率、新青安條件（data/loan.json）
+  L.setAliases(aliases);     // 搜尋別名（data/aliases.json）
   D.landbank = landbank || { items: [] };     // 建商購地紀錄
   D.openings = openings || { items: [] };     // 即將開幕的店
   if (twErr) setTimeout(() => toast("全台資料載入失敗（網路不穩？），先顯示臺南市；重新整理可以再試一次。", 8000), 500);

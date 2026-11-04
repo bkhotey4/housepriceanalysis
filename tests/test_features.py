@@ -667,10 +667,7 @@ class LandmarkSourceTest(unittest.TestCase):
 
     def test_alias_targets_exist(self):
         """搜尋別名（「台大」→國立臺灣大學…）指到的地點都要找得到，不然搜尋別名不會有結果。"""
-        import re
-        js = open(os.path.join(ROOT, "web", "js", "logic.js"), encoding="utf-8").read()
-        block = js[js.index("export const SEARCH_ALIASES = ["):]
-        targets = re.findall(r'target: "([^"]+)"', block[:block.index("];")])
+        targets = [a["target"] for a in geo.load_json("aliases.json")["items"]]
         self.assertGreater(len(targets), 30)
         texts = [lm["name"] + " " + (lm.get("note") or "") for lm in landmarks.load(county=None)]
         with open(os.path.join(ROOT, "web", "data", "schools.json"), encoding="utf-8") as f:
