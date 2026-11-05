@@ -1,5 +1,5 @@
 {
- "as_of": "2026-11-04",
+ "as_of": "2026-11-05",
  "note": "即將開幕的連鎖店與大型商場：每週雲端排程從新聞、品牌公告、徵才資訊與建照開放資料整理。只是公開線索，開幕時間常延後或取消。",
  "items": [
   {
@@ -1005,6 +1005,797 @@
     }
    ],
    "note": "65 間獨棟 Villa、基地逾 33,000 坪；來源寫 2028 年開幕，動土日未載明"
+  },
+  {
+   "name": "遠東 Garden City B區「莫內花園」（大巨蛋商場棟）",
+   "brand": "遠東SOGO",
+   "category": "百貨商場",
+   "county": "A",
+   "district": "信義區",
+   "location": "台北大巨蛋（忠孝東路四段505號）B區商場棟",
+   "stage": "已開幕",
+   "expected": "2026-09-16",
+   "updated": "2026-11-05",
+   "lat": 25.0405,
+   "lng": 121.5604,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "大巨蛋Garden City今開幕！560品牌進駐（自由財經）",
+     "url": "https://ec.ltn.com.tw/article/breakingnews/5575887",
+     "date": "2026-09-16"
+    },
+    {
+     "title": "大巨蛋商場棟今正式開幕！5大優惠快收（鏡週刊／三立）",
+     "url": "https://www.mirrormedia.mg/external/setn_1907902",
+     "date": "2026-09-16"
+    },
+    {
+     "title": "SOGO揮軍大巨蛋1》560品牌進駐、公設占比過半！22日試營運　總座：絕不輸101（風傳媒）",
+     "url": "https://www.storm.mg/article/11157611",
+     "date": "2026-08-19"
+    },
+    {
+     "title": "大巨蛋「遠東 Garden City」8/22全區開幕！525個品牌彙集（今周刊）",
+     "url": "https://www.businesstoday.com.tw/article/category/80393/post/202608180036/",
+     "date": "2026-08-18"
+    },
+    {
+     "title": "圖解》全台最大百貨要來了，老百貨卻接連熄燈！新商場、退場百貨一次看（風傳媒）",
+     "url": "https://www.storm.mg/lifestyle/11175471",
+     "date": "2026-10-26"
+    }
+   ],
+   "note": "B區 2026-08-22 試營運、09-16 正式開幕，至此 Garden City 全區（約 3.6 萬坪、逾 560 品牌、近 200 家首店）開放；試營運業績高於預期約 2 成，12 月推感恩慶"
+  },
+  {
+   "name": "LOPIA 大巨蛋店",
+   "brand": "LOPIA",
+   "category": "超市量販",
+   "county": "A",
+   "district": "信義區",
+   "location": "遠東 Garden City（大巨蛋）",
+   "stage": "已確認",
+   "expected": "",
+   "updated": "2026-11-05",
+   "lat": 25.0405,
+   "lng": 121.5604,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "大巨蛋商場棟今正式開幕！5大優惠快收（鏡週刊／三立）",
+     "url": "https://www.mirrormedia.mg/external/setn_1907902",
+     "date": "2026-09-16"
+    }
+   ],
+   "note": "2026-09-16 開幕報導稱日系超市 Lopia 大巨蛋店「今年第 4 季開幕」，未給確切日期"
+  },
+  {
+   "name": "島語 大巨蛋店（漢來美食）",
+   "brand": "漢來美食",
+   "category": "餐飲",
+   "county": "A",
+   "district": "信義區",
+   "location": "遠東 Garden City B2",
+   "stage": "已確認",
+   "expected": "2026-11",
+   "updated": "2026-11-05",
+   "lat": 25.0405,
+   "lng": 121.5604,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "大巨蛋商場棟今正式開幕！5大優惠快收（鏡週刊／三立）",
+     "url": "https://www.mirrormedia.mg/external/setn_1907902",
+     "date": "2026-09-16"
+    },
+    {
+     "title": "台灣又有新百貨公司快開幕！「3.8萬坪超大商場、24小時餐飲進駐」串聯捷運商圈（風傳媒）",
+     "url": "https://www.storm.mg/article/11141542",
+     "date": "2026-06-15"
+    }
+   ],
+   "note": "2026-06-15 報導稱島語即將進駐 B2；09-16 開幕報導稱「今年 11 月登場」"
+  },
+  {
+   "name": "莆田 大巨蛋店（王品集團）",
+   "brand": "王品",
+   "category": "餐飲",
+   "county": "A",
+   "district": "信義區",
+   "location": "遠東 Garden City（大巨蛋）",
+   "stage": "已開幕",
+   "expected": "2026-09-16",
+   "updated": "2026-11-05",
+   "lat": 25.0405,
+   "lng": 121.5604,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "大巨蛋商場棟今正式開幕！5大優惠快收（鏡週刊／三立）",
+     "url": "https://www.mirrormedia.mg/external/setn_1907902",
+     "date": "2026-09-16"
+    }
+   ],
+   "note": "王品集團旗下中餐廳莆田 9 月 16 日起試營運"
+  },
+  {
+   "name": "壽司郎 SUSHIRO To Go TOGO 站前店",
+   "brand": "壽司郎",
+   "category": "餐飲",
+   "county": "A",
+   "district": "中正區",
+   "location": "台北車站 atre 地下街",
+   "stage": "已開幕",
+   "expected": "2026-05-22",
+   "updated": "2026-11-05",
+   "lat": 25.0478,
+   "lng": 121.517,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "壽司郎首拓外帶版圖 全台首間「SUSHIRO To Go」進駐台北車站（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260522701672-430503",
+     "date": "2026-05-22"
+    }
+   ],
+   "note": "壽司郎全台首間外帶專門店，約 11 坪，2026-05-22 試營運；報導時壽司郎全台 57 店"
+  },
+  {
+   "name": "新光三越 台北車站商場",
+   "brand": "新光三越",
+   "category": "百貨商場",
+   "county": "A",
+   "district": "中正區",
+   "location": "台北車站商場（原微風台北車站）",
+   "stage": "已開幕",
+   "expected": "2026-07-25",
+   "updated": "2026-11-05",
+   "lat": 25.0478,
+   "lng": 121.517,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "告別19年微風時代！新光三越北車商場今開幕　9成櫃位續留　整建計畫搶先曝光（風傳媒）",
+     "url": "https://www.storm.mg/article/11151681",
+     "date": "2026-07-25"
+    },
+    {
+     "title": "北車黑白棋盤地板走入歷史！新光三越砸10億揭改造藍圖：餐飲占比降、導入智慧服務（風傳媒）",
+     "url": "https://www.storm.mg/article/11155729",
+     "date": "2026-08-11"
+    }
+   ],
+   "note": "新光三越接手北車商場 2026-07-25 開門營業，約 120 家櫃位、續約率逾 9 成；08-11 公布投入逾 10 億、約 2 年 8 個月分區分期整建，施工期間維持至少 7 成營運量能，餐飲占比由約 9 成降至 7 成以下"
+  },
+  {
+   "name": "台北水園區新天地（誠品生活營運）",
+   "brand": "誠品生活",
+   "category": "百貨商場",
+   "county": "A",
+   "district": "中正區",
+   "location": "公館 台北自來水事業處多目標綜合大樓腹地（中正區思源街1號），捷運公館站步行約 3 分鐘",
+   "stage": "已確認",
+   "expected": "",
+   "updated": "2026-11-05",
+   "lat": 25.0133,
+   "lng": 121.534,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "台北要有新百貨了！捷運出站3分鐘就到、「超巨型森林系地標」砸4.3億打造，開幕時間曝光（風傳媒）",
+     "url": "https://www.storm.mg/lifestyle/11137075",
+     "date": "2026-06-01"
+    }
+   ],
+   "note": "2026-06-01 報導：商場約 2,895 坪（整體約 3,000 坪）由誠品生活營運，預計 2027 年第二季開幕，園區部分設施 2026 年先行開放；另規劃臺北好水故事館、臺北文學館、公館運動館"
+  },
+  {
+   "name": "遠東百貨 寶慶店（原址重建）",
+   "brand": "遠東百貨",
+   "category": "百貨商場",
+   "county": "A",
+   "district": "中正區",
+   "location": "西門町寶慶路遠百寶慶店原址（鄰近總統府、捷運共構）",
+   "stage": "施工中",
+   "expected": "",
+   "updated": "2026-11-05",
+   "lat": 25.0421,
+   "lng": 121.5077,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "不只SOGO大巨蛋！遠百「2間新百貨」也來了　逾萬坪、捷運出站到（NOWnews）",
+     "url": "https://www.nownews.com/news/6868118",
+     "date": "2026-08-22"
+    },
+    {
+     "title": "遠百喜迎60周年續開新據點 「旭集」插旗台中大遠百（中時）",
+     "url": "https://wantrich.chinatimes.com/news/20260602900683-420101",
+     "date": "2026-06-02"
+    }
+   ],
+   "note": "遠百已啟動寶慶店原址拆除重建，原約 6,000 多坪、重建後營業面積預計逾萬坪，最快 2029 年回歸；因鄰近總統府施工規定嚴格、工期較長"
+  },
+  {
+   "name": "環球購物中心 南港店（台電南港北儲運中心舊址 AR-1 都更案）",
+   "brand": "環球購物中心",
+   "category": "百貨商場",
+   "county": "A",
+   "district": "南港區",
+   "location": "台電南港北部儲運中心舊址（AR1 都更案），鄰近捷運後山埤站、松山車站",
+   "stage": "已確認",
+   "expected": "",
+   "updated": "2026-11-05",
+   "lat": 25.0453,
+   "lng": 121.583,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "台灣又有新百貨！全台第二大「1.6萬坪商場、150品牌進駐」三鐵共構方便，開幕地點時間曝（風傳媒）",
+     "url": "https://www.storm.mg/lifestyle/11174088",
+     "date": "2026-10-20"
+    },
+    {
+     "title": "專題／掌握南港黑鄉變黑金　四大商場周遭房市佈局指南（NOWnews／LINE TODAY）",
+     "url": "https://today.line.me/tw/v3/article/gzREENN",
+     "date": "未載明"
+    },
+    {
+     "title": "一表看雙北將開幕百貨商場 「這區」4案齊發房市看好（經濟日報）",
+     "url": "https://money.udn.com/money/story/5621/9648153",
+     "date": "2026-07-24"
+    }
+   ],
+   "note": "2026-10-20 報導：基地興建 2 棟地上 22 層、地下 4 層商業及住宅大樓，Global Mall 預計 2028 年進駐、確切季度未公布，規模相對較小，引進餐飲、生活用品、服飾；永慶 7 月盤點稱 AR-1-2 環球購物中心 2029 年完工"
+  },
+  {
+   "name": "遠東百貨 板橋 TPARK 園區店",
+   "brand": "遠東百貨",
+   "category": "百貨商場",
+   "county": "F",
+   "district": "板橋區",
+   "location": "遠東通訊園區（TPARK），捷運亞東醫院站旁、捷運共構",
+   "stage": "已確認",
+   "expected": "",
+   "updated": "2026-11-05",
+   "lat": 24.9985,
+   "lng": 121.4523,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "不只SOGO大巨蛋！遠百「2間新百貨」也來了　逾萬坪、捷運出站到（NOWnews）",
+     "url": "https://www.nownews.com/news/6868118",
+     "date": "2026-08-22"
+    },
+    {
+     "title": "遠百喜迎60周年續開新據點 「旭集」插旗台中大遠百（中時）",
+     "url": "https://wantrich.chinatimes.com/news/20260602900683-420101",
+     "date": "2026-06-02"
+    },
+    {
+     "title": "一表看雙北將開幕百貨商場 「這區」4案齊發房市看好（經濟日報）",
+     "url": "https://money.udn.com/money/story/5621/9648153",
+     "date": "2026-07-24"
+    },
+    {
+     "title": "《產業》重劃區+商場 土城、新莊5字頭房價最親民（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260725700434-430503",
+     "date": "2026-07-25"
+    }
+   ],
+   "note": "遠百稱最快 2029 年進駐、規模逾萬坪；2026-08 報導仍處規劃階段，品牌招商預計開業前約一年半啟動；永慶 7 月盤點周邊住宅均價約 56.2 萬／坪"
+  },
+  {
+   "name": "宏匯廣場二期（宏匯二館）",
+   "brand": "宏匯集團",
+   "category": "百貨商場",
+   "county": "F",
+   "district": "新莊區",
+   "location": "新莊北側知識產業園區轉運站及停車場 BOT 案，環狀線與機場捷運交會區、鄰捷運新北產業園區站",
+   "stage": "已確認",
+   "expected": "",
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "新莊有新商場了！『宏匯二期』最快2028登場：6000坪可逛、4層樓（NOWnews）",
+     "url": "https://www.nownews.com/news/6778184",
+     "date": "2026-01-21"
+    },
+    {
+     "title": "一表看雙北將開幕百貨商場 「這區」4案齊發房市看好（經濟日報）",
+     "url": "https://money.udn.com/money/story/5621/9648153",
+     "date": "2026-07-24"
+    },
+    {
+     "title": "《產業》重劃區+商場 土城、新莊5字頭房價最親民（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260725700434-430503",
+     "date": "2026-07-25"
+    }
+   ],
+   "note": "2026-01-21 報導：營業面積約 6,000 坪、可逛 4 層樓，餐飲占約 7 成，結合轉運站與停車場，最快 2028 年開幕（2028～2029 年間）；2026-01-26 簽約；永慶 2026-07 盤點列為雙北即將開幕商場"
+  },
+  {
+   "name": "統一複合式商場 土城店",
+   "brand": "統一",
+   "category": "百貨商場",
+   "county": "F",
+   "district": "土城區",
+   "location": "土城暫緩重劃區內",
+   "stage": "已確認",
+   "expected": "",
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "一表看雙北將開幕百貨商場 「這區」4案齊發房市看好（經濟日報）",
+     "url": "https://money.udn.com/money/story/5621/9648153",
+     "date": "2026-07-24"
+    },
+    {
+     "title": "《產業》重劃區+商場 土城、新莊5字頭房價最親民（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260725700434-430503",
+     "date": "2026-07-25"
+    }
+   ],
+   "note": "永慶 2026-07-24 盤點列為雙北「即將開幕及已開工」大型商場之一，報導未給開幕時間與規模"
+  },
+  {
+   "name": "新北市立土城醫院附設住宿長照機構",
+   "brand": "新北市立土城醫院（長庚）",
+   "category": "醫療",
+   "county": "F",
+   "district": "土城區",
+   "location": "市立土城醫院 8 至 9 樓",
+   "stage": "已開幕",
+   "expected": "2026-11-04",
+   "updated": "2026-11-05",
+   "lat": 24.9736,
+   "lng": 121.4492,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "新北土城醫院附設200長照床啟用　串聯醫療照護（中央社）",
+     "url": "https://www.cna.com.tw/news/aloc/202611040195.aspx",
+     "date": "2026-11-04"
+    }
+   ],
+   "note": "200 床住宿式長照機構 2026-11-04 啟用，長庚醫療財團法人決策委員會主委程文俊與院長賴旗俊共同主持；提供健康評估、慢性病管理、復能、日常照顧，導入智慧跌倒偵測"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "置地生活廣場 小檜溪店",
+   "brand": "置地生活廣場（國泰人壽）",
+   "category": "百貨商場",
+   "county": "H",
+   "district": "桃園區",
+   "location": "國泰小檜溪商業大樓（桃園區春日路，小檜溪重劃區正中間；來源未載門牌）",
+   "stage": "已開幕",
+   "expected": "2026-10-29",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "小檜溪重劃區新百貨開幕 信義房屋專家：機能再升級（經濟日報）",
+     "url": "https://money.udn.com/money/story/5621/9846310",
+     "date": "2026-10-30"
+    },
+    {
+     "title": "置地生活廣場小檜溪店開幕　信義房屋看好機能再升級（中時新聞網）",
+     "url": "https://www.chinatimes.com/realtimenews/20261030001506-260410",
+     "date": "2026-10-30"
+    },
+    {
+     "title": "小檜溪重劃區買房指南！小檜溪重劃區機能？房價？小檜溪建案！（房感 HouseFeel，最新更新 2026-10-28）",
+     "url": "https://www.housefeel.com.tw/article?id=455",
+     "date": "2026-10-28"
+    }
+   ],
+   "note": "2026-10-29 開幕，桃園首座複合式商辦內的商場；房感資料：1～4 樓購物餐飲、5 樓以上商辦，預計引進約 24 個品牌（無印良品、大創、西松屋等）。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "無印良品 桃園小檜溪置地店",
+   "brand": "無印良品 MUJI",
+   "category": "零售",
+   "county": "H",
+   "district": "桃園區",
+   "location": "桃園小檜溪置地商場（置地生活廣場小檜溪店）內",
+   "stage": "已開幕",
+   "expected": "2026-10",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "台灣市場有何魔力？JINS狂賣拚110店、無印良品藏吸客利器（中時新聞網）",
+     "url": "https://www.chinatimes.com/realtimenews/20261030002710-260410",
+     "date": "2026-10-30"
+    },
+    {
+     "title": "日系連鎖MUJI、JINS 加速全台展店（工商時報）",
+     "url": "https://www.chinatimes.com/newspapers/20261102000267-260202",
+     "date": "2026-11-02"
+    }
+   ],
+   "note": "工商時報 2026-11-02：10 月底進駐，全台第 76 店、桃園第 10 店，規模逾 320 坪；來源未載確切開幕日。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "車麗屋 A7 生活館",
+   "brand": "車麗屋",
+   "category": "零售",
+   "county": "H",
+   "district": "龜山區",
+   "location": "A7 重劃區（桃園經發局稱 A7 生活圈；與台塑企業合作開發，來源未載路名）",
+   "stage": "施工中",
+   "expected": "",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "全台最大汽車百貨來了！車麗屋挾 196 萬會員大數據 10/13 登錄興櫃（科技新報 TechNews）",
+     "url": "https://finance.technews.tw/2026/10/12/automotive-department-store/",
+     "date": "2026-10-12"
+    },
+    {
+     "title": "汽車百貨A7生活館動土 桃園經發局：展現對投資環境的肯定（中時新聞網）",
+     "url": "https://www.chinatimes.com/realtimenews/20250808003189-260421",
+     "date": "2025-08-08"
+    }
+   ],
+   "note": "2025-08-08 動土，原預計 2026 年第 4 季前完工營運；2026-10-12 科技新報：改為「預計 2027 年上半年開業」，占地約 1,900 坪、樓地板近 3,000 坪、三層樓社區型綜合商場，引進零售、餐飲、休閒健身品牌（未點名）。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "陽明交大附設醫院 青埔院區",
+   "brand": "陽明交通大學附設醫院",
+   "category": "醫療",
+   "county": "H",
+   "district": "中壢區、大園區",
+   "location": "青埔特區（108 年市府無償撥用給陽明交大之土地；來源未載詳細位置）",
+   "stage": "已確認",
+   "expected": "",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "桃園青埔醫療新里程！陽明交大附醫計畫審查通過 張善政：拚121年啟用（中時新聞網）",
+     "url": "https://www.chinatimes.com/realtimenews/20260902002357-260405",
+     "date": "2026-09-02"
+    },
+    {
+     "title": "陽明交大青埔附設醫院通過審查 張善政：力拚2032完工（中時房產）",
+     "url": "https://house.chinatimes.com/20260904003456-264412",
+     "date": "2026-09-04"
+    }
+   ],
+   "note": "2026-08 通過桃園市衛生局審查（市政會議 2026-09-02 宣布），規劃 400 床（300 一般＋100 特殊）、24 小時急診；預計 2026 年底前送衛福部審查，目標民國 121 年（2032）營運，須視招商順利。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "桃園市立醫院 八德總院",
+   "brand": "桃園市立醫院",
+   "category": "醫療",
+   "county": "H",
+   "district": "八德區",
+   "location": "八德區霄裡公園附近（八德、平鎮、中壢交界，長興路一帶），4.8 公頃醫院用地",
+   "stage": "已確認",
+   "expected": "",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "好消息！桃園市立醫院八德總院4.8公頃用地 都計變更過關了（自由時報）",
+     "url": "https://news.ltn.com.tw/amp/news/life/breakingnews/5529919",
+     "date": "2026-08-05"
+    },
+    {
+     "title": "桃園市立醫院規劃「一總院、三分院」　謝美英籲增設醫護專屬社宅（ETtoday）",
+     "url": "https://www.ettoday.net/news/20260807/3215416.htm",
+     "date": "2026-08-07"
+    },
+    {
+     "title": "桃園市立醫院第2波規劃啟動 將落腳大園、蘆竹補足醫療量能（中時新聞網）",
+     "url": "https://www.chinatimes.com/realtimenews/20261028001955-260405",
+     "date": "2026-10-28"
+    },
+    {
+     "title": "桃園八德市立醫院 力拚兩年內動工（工商時報）",
+     "url": "https://www.chinatimes.com/newspapers/20261103000443-260210",
+     "date": "2026-11-03"
+    }
+   ],
+   "note": "2026-08-04 內政部都委會通過都計變更；市府稱都計預計 2026 年底發布實施、2028 年底前取得全區土地；2026-11-03 工商時報：預計 2027 上半年完成建築設計招標，力拚兩年內動工、民國 123 年（2034）完工，總經費逾 100 億元。另第 2 波規劃大園（機捷橫山站車站專區）、蘆竹（大竹）分院（2026-10-28）。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "桃園市立醫院 大溪分院",
+   "brand": "桃園市立醫院",
+   "category": "醫療",
+   "county": "H",
+   "district": "大溪區",
+   "location": "大溪區，結合社會住宅開發案（來源未載地址）",
+   "stage": "已確認",
+   "expected": "",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "好消息！桃園市立醫院八德總院4.8公頃用地 都計變更過關了（自由時報）",
+     "url": "https://news.ltn.com.tw/amp/news/life/breakingnews/5529919",
+     "date": "2026-08-05"
+    },
+    {
+     "title": "桃園市立醫院第2波規劃啟動 將落腳大園、蘆竹補足醫療量能（中時新聞網）",
+     "url": "https://www.chinatimes.com/realtimenews/20261028001955-260405",
+     "date": "2026-10-28"
+    }
+   ],
+   "note": "已完成工程發包，預計 2026 年 11 月動工，醫院棟約 2 年後完工（中時 2026-10-28）。觀音分院預計 2026 年底辦理統包商招標；復興分院仍辦環評、地質鑽探。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "國泰置地廣場 青埔 B 區（二期）",
+   "brand": "置地廣場（國泰人壽）",
+   "category": "百貨商場",
+   "county": "H",
+   "district": "中壢區",
+   "location": "高鐵桃園站後站、華泰名品城旁（高鐵產專區）",
+   "stage": "施工中",
+   "expected": "",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "三大商場五年內完工 信義房屋：青埔可望再吸新客群（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20251030701395-430602",
+     "date": "2025-10-30"
+    },
+    {
+     "title": "房市／「3大百貨商場」5年內完工！專家看好桃園青埔：再吸新客群（NOWnews）",
+     "url": "https://www.nownews.com/news/6748771",
+     "date": "2025-11-01"
+    },
+    {
+     "title": "青埔買房指南｜青埔機能？青埔建案？桃園青埔重大建設！（房感 HouseFeel，最新更新 2026-10-06）",
+     "url": "https://www.housefeel.com.tw/article?id=375",
+     "date": "2026-10-06"
+    },
+    {
+     "title": "壽險業開發商場自營 成趨勢（工商時報）",
+     "url": "https://www.chinatimes.com/newspapers/20260720000311-260202",
+     "date": "2026-07-20"
+    }
+   ],
+   "note": "2025-10-30 工商時報：已進入落架階段；房感（2026-10-06 更新）：原定 2026 年底完工，但建物最高點超出限高約 17 公尺需辦理變更設計，進度恐受影響；2026-07-20 工商時報稱國壽朝自行招商方向進行。開幕日期無官方公告。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "鳥貴族 桃園ATT店",
+   "brand": "鳥貴族",
+   "category": "餐飲",
+   "county": "H",
+   "district": "桃園區",
+   "location": "桃園ATT筷食尚（桃園火車站前）",
+   "stage": "已開幕",
+   "expected": "2026-07-23",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "桃園第一間「鳥貴族」開幕了！全品項通通100元、滿額送帆布袋（聯合新聞網）",
+     "url": "https://udn.com/news/story/7270/9645914",
+     "date": "2026-07-23"
+    }
+   ],
+   "note": "鳥貴族在台第 6 店、首次跨出台北市。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "iFG 遠雄廣場 新竹店",
+   "brand": "iFG 遠雄廣場（遠雄流通）",
+   "category": "百貨商場",
+   "county": "O",
+   "district": "北區",
+   "location": "新竹市大雅路（原大魯閣新竹商場經營權由遠雄接手；行政區為依大雅路推定）",
+   "stage": "已開幕",
+   "expected": "2026-07-24",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "遠雄流通事業 5年全台拚六店（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260725700116-430503",
+     "date": "2026-07-25"
+    },
+    {
+     "title": "《傳產》遠雄流通擴張實體零售版圖 北中新三店首年營收挑戰80億元（旺得富）",
+     "url": "https://wantrich.chinatimes.com/news/20260724900229-420101",
+     "date": "2026-07-24"
+    },
+    {
+     "title": "遠雄廣場雙店齊開！搶攻台中、新竹商機 首年營收挑戰80億元（中時新聞網）",
+     "url": "https://www.chinatimes.com/realtimenews/20260724002566-260421",
+     "date": "2026-07-24"
+    },
+    {
+     "title": "遠雄廣場新竹店B1燒肉店驚傳火警！幸無人受傷受困（中時新聞網）",
+     "url": "https://www.chinatimes.com/realtimenews/20260915002377-260402",
+     "date": "2026-09-15"
+    },
+    {
+     "title": "建商搶布局商場經營（工商時報，付費牆僅讀到前段）",
+     "url": "https://www.chinatimes.com/newspapers/20260720000314-260202",
+     "date": "2026-07-20"
+    }
+   ],
+   "note": "2026-07-24 與台中店同步開幕；娛樂體驗業種占比 30%，鎖定 30～49 歲竹科家庭客；三店首年營收目標 80 億元。來源未列新竹店坪數與進駐品牌。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "宏匯 竹北高鐵站前雙塔商場（未來之心 Gateway Plaza）",
+   "brand": "宏匯集團",
+   "category": "百貨商場",
+   "county": "J",
+   "district": "竹北市",
+   "location": "高鐵新竹站前（竹北高鐵特區）",
+   "stage": "已確認",
+   "expected": "",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "兩大建設加持竹北高鐵特區 信義房屋：部分新案站上8字頭（中時新聞網）",
+     "url": "https://www.chinatimes.com/realtimenews/20260313000004-260410",
+     "date": "2026-03-13"
+    }
+   ],
+   "note": "中時 2026-03-13：宏匯集團於高鐵站前興建 26 樓與 42 樓雙塔，含飯店、A 級商辦、百貨商場，預計 2027 年完工；「未來之心／Gateway Plaza」名稱見於其他媒體標題（遠見城市學，未能讀到全文）。無施工進度與招商資料。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "大千醫療體系 竹南醫院",
+   "brand": "大千醫療體系",
+   "category": "醫療",
+   "county": "K",
+   "district": "竹南鎮",
+   "location": "竹南（來源未載地址）",
+   "stage": "施工中",
+   "expected": "",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "苗縣府盤點目前推動醫療院所新建工程 部苗新建大樓最令人擔憂（中時新聞網）",
+     "url": "https://www.chinatimes.com/realtimenews/20261026001910-260421",
+     "date": "2026-10-26"
+    },
+    {
+     "title": "鍾東錦推醫療升級 部苗新大樓11／2開標（中國時報）",
+     "url": "https://www.chinatimes.com/newspapers/20261027000490-260118",
+     "date": "2026-10-27"
+    }
+   ],
+   "note": "2026-10-26 中時：地基連續壁作業中，地基完成 40%，地基工程預計持續到 11 月底；整體完工時程未公布。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "部立苗栗醫院 放射腫瘤暨急重症醫療大樓",
+   "brand": "衛福部苗栗醫院",
+   "category": "醫療",
+   "county": "K",
+   "district": "苗栗市",
+   "location": "部立苗栗醫院院區（苗栗市；來源未載地址，行政區依院址推定）",
+   "stage": "已確認",
+   "expected": "",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "苗縣府盤點目前推動醫療院所新建工程 部苗新建大樓最令人擔憂（中時新聞網）",
+     "url": "https://www.chinatimes.com/realtimenews/20261026001910-260421",
+     "date": "2026-10-26"
+    },
+    {
+     "title": "鍾東錦推醫療升級 部苗新大樓11／2開標（中國時報）",
+     "url": "https://www.chinatimes.com/newspapers/20261027000490-260118",
+     "date": "2026-10-27"
+    }
+   ],
+   "note": "多次流標後衛福部同意修正採購金額，招標金額 18.5 億元、總樓地板 4,700 坪，另約 3 億元儀器設備，總額 21.5 億元；2026-10-02 上網招標、10-30 截止、11-02 開標（開標結果未讀到）。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "童綜合 白沙屯媽祖醫院",
+   "brand": "童綜合醫療社團法人",
+   "category": "醫療",
+   "county": "K",
+   "district": "通霄鎮",
+   "location": "白沙屯（通霄鎮；來源未載地址，行政區依地名推定）",
+   "stage": "已確認",
+   "expected": "",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "苗縣府盤點目前推動醫療院所新建工程 部苗新建大樓最令人擔憂（中時新聞網）",
+     "url": "https://www.chinatimes.com/realtimenews/20261026001910-260421",
+     "date": "2026-10-26"
+    },
+    {
+     "title": "鍾東錦推醫療升級 部苗新大樓11／2開標（中國時報）",
+     "url": "https://www.chinatimes.com/newspapers/20261027000490-260118",
+     "date": "2026-10-27"
+    }
+   ],
+   "note": "2026-09-24 中央醫審會提案通過，目前進行開挖前準備（鄰房鑑定、地質改良／托基）；床數、完工時程未公布。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "小北百貨 羅東倉前店",
+   "brand": "小北百貨",
+   "category": "零售",
+   "county": "G",
+   "district": "羅東鎮",
+   "location": "羅東倉前路（原全聯羅東倉前店舊址）",
+   "stage": "已開幕",
+   "expected": "2026-08-08",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "等了32年！連鎖店首插旗宜蘭 在地人見黃色招牌嗨翻：終於（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20260805701692-431401",
+     "date": "2026-08-05"
+    },
+    {
+     "title": "全聯舊址揭曉新租客！小北百貨插旗羅東　在地人嗨喊「等好久」（鏡週刊）",
+     "url": "https://www.mirrormedia.mg/story/20260805edi073",
+     "date": "2026-08-05"
+    }
+   ],
+   "note": "小北百貨首度進駐宜蘭／東台灣，200 坪以上大型店型；開幕日依 8/5 兩篇報導「將於 8 月 8 日正式開幕」，未另讀到開幕當日報導。規劃宜蘭 2 店、花蓮 1 店。"
+  },
+  {
+   "updated": "2026-11-05",
+   "lat": null,
+   "lng": null,
+   "name": "陽明交大附設醫院 二期醫療大樓（宜蘭）",
+   "brand": "陽明交通大學附設醫院",
+   "category": "醫療",
+   "county": "G",
+   "district": "宜蘭市",
+   "location": "陽明交大附醫院區（行政區依院址推定；來源未載）",
+   "stage": "施工中",
+   "expected": "2027-09",
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "宜蘭醫療升級 吳宗憲：首重病床、人力（中國時報）",
+     "url": "https://www.chinatimes.com/newspapers/20260811000548-260107",
+     "date": "2026-08-11"
+    }
+   ],
+   "note": "2026-08-11 中國時報：二期擴建核定總經費 59.21 億元，醫療大樓已興建至 10 樓，預計民國 116 年 9 月竣工；急性病床 400→499 床、加護病房 36→59 床、手術室 10→18 間。"
   }
  ]
 }

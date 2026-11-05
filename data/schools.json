@@ -1,5 +1,5 @@
 {
- "as_of": "2026-11-04",
+ "as_of": "2026-11-05",
  "note": "明星學區與總量管制學校（網站地圖上的 🎓）。status 的額滿、管制每學年會變：每週情資排程逐校查證，查到就填 checked（YYYY-MM-DD）與 sources。",
  "items": [
   {
@@ -132,8 +132,26 @@
    "district": "東區",
    "lat": 24.7925,
    "lng": 121.0163,
-   "status": "總量管制額滿",
-   "note": "關埔重劃區核心國中，鄰近好市多與竹科大門，長年超額嚴重，常需比設籍時間與自有產權。"
+   "status": "總量限制學校（115學年度，7-9年級）",
+   "note": "關埔重劃區核心國中，鄰近好市多與竹科大門，長年超額嚴重，常需比設籍時間與自有產權。依新竹市教育處「115學年度實施班級總量限制學校表」，光武國中列為總量限制學校（實施年級7、8、9），單一學區轉分發至新科國中與建華國中；115.7.7核定表：一年級18班495人、全校52班1,461人（含資優班）。教育處註明總量限制學校可入學之設籍時間，依當地適齡入學人口數、居住時間長短及學校空間量體每年不同；115學年度國中總量限制學校入學通知單3/6前寄發。",
+   "sources": [
+    {
+     "title": "新竹市教育處 學區與班級數（115學年度實施班級總量限制學校表）",
+     "url": "https://www.hc.edu.tw/edub/basic/schoolArea.aspx",
+     "date": "未載明"
+    },
+    {
+     "title": "新竹市國民中學（含高中國中部）115學年度普通班學生數暨班級數核定表（115.7.7核定，新竹市教育處）",
+     "url": "https://www.hc.edu.tw/edub/basic/doc/115jhClass.pdf",
+     "date": "2026-07-07"
+    },
+    {
+     "title": "新竹市各國民中學115學年度學區劃分表（114.12公告，新竹市教育處）",
+     "url": "https://www.hc.edu.tw/edub/basic/schoolarea/115jh.pdf",
+     "date": "未載明"
+    }
+   ],
+   "checked": "2026-11-05"
   },
   {
    "id": "sch_o4",
@@ -143,8 +161,26 @@
    "district": "東區",
    "lat": 24.8102,
    "lng": 120.9781,
-   "status": "總量管制額滿",
-   "note": "巨城商圈傳統升學名校，歷史悠久，生活機能極佳，市區換屋與設籍熱區。"
+   "status": "總量限制學校（115學年度，7-9年級）",
+   "note": "巨城商圈傳統升學名校，歷史悠久，生活機能極佳，市區換屋與設籍熱區。依新竹市教育處「115學年度實施班級總量限制學校表」，三民國中列為總量限制學校（實施年級7、8、9），轉分發學校為建華國中；115.7.7核定表：一年級26班761人、全校86班2,572人，為全市國中最大校。學區：前溪、復興、三民、復中、親仁、中正、育賢、錦華等里全里，另水田、東園、水源、文華等里部分鄰（115學年度學區劃分表，114.12公告）。",
+   "sources": [
+    {
+     "title": "新竹市教育處 學區與班級數（115學年度實施班級總量限制學校表）",
+     "url": "https://www.hc.edu.tw/edub/basic/schoolArea.aspx",
+     "date": "未載明"
+    },
+    {
+     "title": "新竹市國民中學（含高中國中部）115學年度普通班學生數暨班級數核定表（115.7.7核定，新竹市教育處）",
+     "url": "https://www.hc.edu.tw/edub/basic/doc/115jhClass.pdf",
+     "date": "2026-07-07"
+    },
+    {
+     "title": "新竹市各國民中學115學年度學區劃分表（114.12公告，新竹市教育處）",
+     "url": "https://www.hc.edu.tw/edub/basic/schoolarea/115jh.pdf",
+     "date": "未載明"
+    }
+   ],
+   "checked": "2026-11-05"
   },
   {
    "id": "sch_j1",
@@ -183,8 +219,21 @@
    "district": "竹北市",
    "lat": 24.8136,
    "lng": 121.0378,
-   "status": "總量管制額滿",
-   "note": "竹北高鐵特區核心名校，軟硬體新穎，高鐵特區科技主管家庭首選，長年總量管制。"
+   "status": "總量管制（115學年度）",
+   "note": "竹北高鐵特區核心名校，軟硬體新穎，高鐵特區科技主管家庭首選，長年總量管制。新竹縣115學年度國民中學學區劃分表將東興國中標註為「(總量管制)」，學區：中興里全里、東平里1-27鄰、隘口里1鄰、鹿場里30-32鄰、東興里1-3、5-8、35-45、50鄰；同表註明六家高中國中部115學年度起停招（8-9年級仍總量管制）。依新竹縣教育局說明（114學年度，工商時報2025-02-24），總量管制學校入學資格審查依《新竹縣國民中小學班級數總量管制暨學生入學實施要點》第4條，須提供全戶設籍資料、設籍之房屋所有權狀（或當年度房屋稅籍證明），租屋者需水電費收據及經法院公證之租賃契約。115學年度門檻設籍日官方未公布。",
+   "sources": [
+    {
+     "title": "新竹縣115學年度各鄉鎮（市）國民中學／國民小學學區劃分表（新竹縣政府教育局文件，臺中市校務公告系統轉載PDF）",
+     "url": "https://school.tc.edu.tw/open-message/193606/get-file/69829fd6eda67bcc360b8444",
+     "date": "未載明"
+    },
+    {
+     "title": "新竹縣家長注意！114學年度總量管制學校登記時間出爐（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20250224701146-431401",
+     "date": "2025-02-24"
+    }
+   ],
+   "checked": "2026-11-05"
   },
   {
    "id": "sch_j3",
@@ -194,8 +243,21 @@
    "district": "竹北市",
    "lat": 24.8258,
    "lng": 121.0242,
-   "status": "總量管制額滿",
-   "note": "竹北縣二特區（大遠百商圈）明星小學，額滿多年，周邊住宅大樓買盤穩定。"
+   "status": "總量管制（115學年度）",
+   "note": "竹北縣二特區（大遠百商圈）明星小學，額滿多年，周邊住宅大樓買盤穩定。新竹縣115學年度國民小學學區劃分表將十興國小標註為「(總量管制)」，學區：十興里全里、東興里1-16鄰、北興里2-9、14-15、18-19鄰。依新竹縣教育局說明（114學年度，工商時報2025-02-24），入學資格審查須提供全戶設籍資料、設籍之房屋所有權狀（或當年度房屋稅籍證明），租屋者需水電費收據及經法院公證之租賃契約。115學年度門檻設籍日官方未公布。",
+   "sources": [
+    {
+     "title": "新竹縣115學年度各鄉鎮（市）國民中學／國民小學學區劃分表（新竹縣政府教育局文件，臺中市校務公告系統轉載PDF）",
+     "url": "https://school.tc.edu.tw/open-message/193606/get-file/69829fd6eda67bcc360b8444",
+     "date": "未載明"
+    },
+    {
+     "title": "新竹縣家長注意！114學年度總量管制學校登記時間出爐（工商時報）",
+     "url": "https://www.ctee.com.tw/news/20250224701146-431401",
+     "date": "2025-02-24"
+    }
+   ],
+   "checked": "2026-11-05"
   },
   {
    "id": "sch_a1",
@@ -229,8 +291,36 @@
    "district": "松山區",
    "lat": 25.0531,
    "lng": 121.5492,
-   "status": "總量管制額滿",
-   "note": "敦北小巨蛋生活圈雙滿額學區，政商與高階主管雲集，台北首屈一指文教燙金地段。"
+   "status": "額滿學校（115學年度第一階段核定）",
+   "note": "敦北小巨蛋生活圈雙滿額學區，政商與高階主管雲集，台北首屈一指文教燙金地段。臺北市教育局115.3.28新聞稿核定敦化國中為115學年度第一階段額滿國中（22所需審查校之一）；115.09.02公告版名單：7年級最後設籍日114.06.20（父母雙方與學生共同設籍），改分發新興、北安國中；8年級113.07.31（父母雙方）、9年級109.12.31（父或母）。優先分發資格為二等親內持有同址房屋所有權狀或連續租賃6年以上（公證），115年4/1-4/10線上登記、5/4-5/8實體審查、5/25公告錄取名單、5/27-29網路改分發登記。",
+   "sources": [
+    {
+     "title": "教育局新聞稿 公告臺北市115學年度公立國民中學額滿學校暨改分發學校名單（臺北市政府教育局，永樂國小網站轉載PDF）",
+     "url": "https://www.ylps.tp.edu.tw/uploads/1774924476400NULqgbss.pdf",
+     "date": "2026-03-28"
+    },
+    {
+     "title": "臺北市115學年度額滿國民中學暨改分發學校名單(7年級)（臺北市政府教育局）",
+     "url": "https://www-ws.gov.taipei/Download.ashx?u=LzAwMS9VcGxvYWQvMzQyL3JlbGZpbGUvMzY5NjcvOTU1NzA3Ni9mYWUxNWI1Ni1jMDA0LTQyOTgtYTE0OS1mN2M1ZDMwOTU0NmUucGRm&n=6Ie65YyX5biCMTE15a245bm05bqm6aGN5ru%2f5ZyL5rCR5Lit5a245pqo5pS55YiG55m85a245qCh5ZCN5ZauLnBkZg%3d%3d&icon=..pdf",
+     "date": "2026-03-27"
+    },
+    {
+     "title": "臺北市立國民中學115學年度7-9年級額滿暨改分發學校名單（115.09.02公告版）（臺北市政府教育局）",
+     "url": "https://www-ws.gov.taipei/Download.ashx?u=LzAwMS9VcGxvYWQvMzQyL3JlbGZpbGUvMzY5NjcvOTY2Mjc2My8zYTg4OThlYi05ODUwLTQyYzktOGFiYi1lZmRhODEyOWYwMTIucGRm&n=MTE15a245bm05bqmNy055bm057Sa6aGN5ru%2f5pqo5pS55YiG55m85a245qCh5ZCN5ZauKDExNS4wOS4wMuWFrOWRiueJiCkucGRm&icon=..pdf",
+     "date": "2026-09-02"
+    },
+    {
+     "title": "臺北市政府教育局 中等教育科公告列表（115學年度7-9年級額滿暨改分發學校名單(115.09.02)等）",
+     "url": "https://www.doe.gov.taipei/News.aspx?n=6948C3CBF6631855&sms=69B4E6B26379EE4E",
+     "date": "未載明"
+    },
+    {
+     "title": "蔣萬安兒怎擠進國中名校？入讀規則曝（三立新聞網，鏡週刊轉載）",
+     "url": "https://www.mirrormedia.mg/external/setn_1902073",
+     "date": "2026-09-05"
+    }
+   ],
+   "checked": "2026-11-05"
   },
   {
    "id": "sch_a3",
@@ -240,8 +330,31 @@
    "district": "大安區",
    "lat": 25.0318,
    "lng": 121.5327,
-   "status": "總量管制額滿",
-   "note": "大安森林公園與永康商圈核心名校，外商、教授與公教家庭聚集，設籍條件嚴格。"
+   "status": "額滿學校（115學年度第一階段核定）",
+   "note": "大安森林公園與永康商圈核心名校，外商、教授與公教家庭聚集，設籍條件嚴格。臺北市教育局115.3.28新聞稿核定金華國中為115學年度第一階段額滿國中；115.09.02公告版名單：7年級最後設籍日112.12.20（父母雙方與學生共同設籍），改分發忠孝、瑠公國中；8年級112.03.03（父母雙方）、9年級112.05.01（父母雙方）。3/27版改分發學校：大安、懷生、長安、信義、中崙、西松、建成、忠孝。優先分發資格為二等親內持有同址房屋所有權狀或連續租賃6年以上（公證）。",
+   "sources": [
+    {
+     "title": "教育局新聞稿 公告臺北市115學年度公立國民中學額滿學校暨改分發學校名單（臺北市政府教育局，永樂國小網站轉載PDF）",
+     "url": "https://www.ylps.tp.edu.tw/uploads/1774924476400NULqgbss.pdf",
+     "date": "2026-03-28"
+    },
+    {
+     "title": "臺北市115學年度額滿國民中學暨改分發學校名單(7年級)（臺北市政府教育局）",
+     "url": "https://www-ws.gov.taipei/Download.ashx?u=LzAwMS9VcGxvYWQvMzQyL3JlbGZpbGUvMzY5NjcvOTU1NzA3Ni9mYWUxNWI1Ni1jMDA0LTQyOTgtYTE0OS1mN2M1ZDMwOTU0NmUucGRm&n=6Ie65YyX5biCMTE15a245bm05bqm6aGN5ru%2f5ZyL5rCR5Lit5a245pqo5pS55YiG55m85a245qCh5ZCN5ZauLnBkZg%3d%3d&icon=..pdf",
+     "date": "2026-03-27"
+    },
+    {
+     "title": "臺北市立國民中學115學年度7-9年級額滿暨改分發學校名單（115.09.02公告版）（臺北市政府教育局）",
+     "url": "https://www-ws.gov.taipei/Download.ashx?u=LzAwMS9VcGxvYWQvMzQyL3JlbGZpbGUvMzY5NjcvOTY2Mjc2My8zYTg4OThlYi05ODUwLTQyYzktOGFiYi1lZmRhODEyOWYwMTIucGRm&n=MTE15a245bm05bqmNy055bm057Sa6aGN5ru%2f5pqo5pS55YiG55m85a245qCh5ZCN5ZauKDExNS4wOS4wMuWFrOWRiueJiCkucGRm&icon=..pdf",
+     "date": "2026-09-02"
+    },
+    {
+     "title": "蔣萬安兒怎擠進國中名校？入讀規則曝（三立新聞網，鏡週刊轉載）",
+     "url": "https://www.mirrormedia.mg/external/setn_1902073",
+     "date": "2026-09-05"
+    }
+   ],
+   "checked": "2026-11-05"
   },
   {
    "id": "sch_a4",
@@ -251,8 +364,46 @@
    "district": "大安區",
    "lat": 25.0375,
    "lng": 121.5408,
-   "status": "總量管制額滿",
-   "note": "大安區信義路精華地段，附中國中部僅數班，設籍資格極為嚴苛，是全台北最頂級學區。"
+   "status": "額滿學校（115學年度第一階段核定）",
+   "note": "大安區信義路精華地段，附中國中部僅數班，設籍資格極為嚴苛，是全台北最頂級學區。臺北市教育局115.3.28新聞稿核定師大附中國中部為115學年度第一階段額滿國中；115.09.02公告版名單：7年級最後設籍日103.09.15（父母雙方與學生共同設籍，即需設籍約11年），改分發瑠公國中；8年級111.11.28（具優先分發資格）、9年級101.10.05（父母雙方）。校方通知：A順位為114.12.31前與父母共同設籍且二親等內直系血親同日前持有同址房屋權狀，或109.03.15前共同設籍連續租屋6年以上並公證；外縣市國小畢業生符合優先資格者依設籍先後錄取6名為限；115學年度額滿改分發學校為大安、懷生、信義國中、中崙高中國中部。",
+   "sources": [
+    {
+     "title": "教育局新聞稿 公告臺北市115學年度公立國民中學額滿學校暨改分發學校名單（臺北市政府教育局，永樂國小網站轉載PDF）",
+     "url": "https://www.ylps.tp.edu.tw/uploads/1774924476400NULqgbss.pdf",
+     "date": "2026-03-28"
+    },
+    {
+     "title": "臺北市115學年度額滿國民中學暨改分發學校名單(7年級)（臺北市政府教育局）",
+     "url": "https://www-ws.gov.taipei/Download.ashx?u=LzAwMS9VcGxvYWQvMzQyL3JlbGZpbGUvMzY5NjcvOTU1NzA3Ni9mYWUxNWI1Ni1jMDA0LTQyOTgtYTE0OS1mN2M1ZDMwOTU0NmUucGRm&n=6Ie65YyX5biCMTE15a245bm05bqm6aGN5ru%2f5ZyL5rCR5Lit5a245pqo5pS55YiG55m85a245qCh5ZCN5ZauLnBkZg%3d%3d&icon=..pdf",
+     "date": "2026-03-27"
+    },
+    {
+     "title": "臺北市立國民中學115學年度7-9年級額滿暨改分發學校名單（115.09.02公告版）（臺北市政府教育局）",
+     "url": "https://www-ws.gov.taipei/Download.ashx?u=LzAwMS9VcGxvYWQvMzQyL3JlbGZpbGUvMzY5NjcvOTY2Mjc2My8zYTg4OThlYi05ODUwLTQyYzktOGFiYi1lZmRhODEyOWYwMTIucGRm&n=MTE15a245bm05bqmNy055bm057Sa6aGN5ru%2f5pqo5pS55YiG55m85a245qCh5ZCN5ZauKDExNS4wOS4wMuWFrOWRiueJiCkucGRm&icon=..pdf",
+     "date": "2026-09-02"
+    },
+    {
+     "title": "國立臺灣師大附中國中部115學年度(外縣市國小畢業)新生入學作業通知單（師大附中國中部）",
+     "url": "https://jr.hs.ntnu.edu.tw/wp-content/uploads/2026/03/師大附中國中部115學年度外縣市國小畢業新生入學作業通知單.pdf",
+     "date": "未載明"
+    },
+    {
+     "title": "國立臺灣師範大學附屬高級中學國中部 新生入學資格複審通知單（115新生審查通知 網路公告版）",
+     "url": "https://jr.hs.ntnu.edu.tw/wp-content/uploads/2026/04/115新生審查通知-網路公告版-A3.pdf",
+     "date": "2026-04-27"
+    },
+    {
+     "title": "國立臺灣師大附中115學年度國中部新生改分發通知單",
+     "url": "https://jr.hs.ntnu.edu.tw/wp-content/uploads/2026/05/115新生改分發通知單公告版.pdf",
+     "date": "2026-05-25"
+    },
+    {
+     "title": "蔣萬安兒怎擠進國中名校？入讀規則曝（三立新聞網，鏡週刊轉載）",
+     "url": "https://www.mirrormedia.mg/external/setn_1902073",
+     "date": "2026-09-05"
+    }
+   ],
+   "checked": "2026-11-05"
   },
   {
    "id": "sch_f1",
