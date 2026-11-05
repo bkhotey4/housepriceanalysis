@@ -202,6 +202,27 @@ class NationalDownloadTest(unittest.TestCase):
 class LongTermTest(unittest.TestCase):
     """長期走勢：舊季檔濃縮成每月統計，同一個月分散在兩個季檔時用件數加權合併。"""
 
+    def test_stray_quote_keeps_rows(self):
+        """欄位裡打錯的引號不能吞掉後面的列（110S4 臺中、新北的預售屋檔就是這樣失敗的）。"""
+        b = _read("fixture_d_lvr_land_b.csv").decode("utf-8-sig")
+        lines = b.splitlines()
+        want = len(prices.parse_csv_text(b))
+        self.assertGreater(want, 1)
+        cells = lines[2].split(",")
+        cells[prices.C_PROJ + 1] = '"' + cells[prices.C_PROJ + 1]     # 「棟及號」開頭多一個引號，和實際情況一樣
+        lines[2] = ",".join(cells)
+        self.assertEqual(len(prices.parse_csv_text("\n".join(lines))), want)
+
+    def test_old_presale_without_cancel_column(self):
+        """112S2 以前的預售屋檔沒有「解約情形」欄（30 欄），不能整季解析成 0 筆。"""
+        import csv as _csv
+        rows = list(_csv.reader(io.StringIO(_read("fixture_d_lvr_land_b.csv").decode("utf-8-sig"))))
+        keep = [r for r in rows[2:] if not r[prices.C_CANCEL].strip()]
+        self.assertTrue(keep)
+        buf = io.StringIO()
+        _csv.writer(buf).writerows([r[:prices.C_CANCEL] for r in rows[:2] + keep])
+        self.assertEqual(len(prices.parse_csv_text(buf.getvalue())), len(prices.parse_csv_text(_read("fixture_d_lvr_land_b.csv").decode("utf-8-sig"))))
+
     def test_merge_weighted(self):
         from core import longterm
         f1 = {"counties": {"D": {"東區": {"all": {"2022-03": [10, 20.0, 1000], "2022-04": [4, 22.0, 1100]}}}}}

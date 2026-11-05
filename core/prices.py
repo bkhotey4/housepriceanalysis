@@ -162,7 +162,7 @@ def reduce_row(r, presale=False, keep_cancelled=False):
     """把一列實價登錄原始資料轉成精簡交易 dict；不符口徑回傳 None。
 
     keep_cancelled=True 時，已解約的預售屋也會回傳（帶 "cancel": True），給「建案解約率」用；統計房價時一律不要用它們。"""
-    if len(r) < (31 if presale else 28):
+    if len(r) < (C_CANCEL if presale else 28):      # 預售屋 112S2（含）以前的季檔沒有「解約情形」欄，只有 30 欄
         return None
     if not r[C_TARGET].startswith("房地"):
         return None
@@ -180,7 +180,7 @@ def reduce_row(r, presale=False, keep_cancelled=False):
         return None
     if _EXCL.search(r[C_NOTE]) or _USE_EXCL.search(r[C_USE].strip()):
         return None
-    cancelled = bool(presale and r[C_CANCEL].strip())
+    cancelled = bool(presale and len(r) > C_CANCEL and r[C_CANCEL].strip())
     if cancelled and not keep_cancelled:
         return None                     # 已解約
     pk, pka, pkp = parking_of(r)
@@ -222,8 +222,11 @@ def parse_csv_text(text, presale=None, keep_cancelled=False):
     """
     if text.startswith("\ufeff"):
         text = text[1:]
+    text = text.replace("\0", "")                  # 舊季檔偶爾夾 NUL 字元，Python 3.10 的 csv 遇到會直接報錯
     out = []
-    for r in csv.reader(io.StringIO(text)):
+    # 內政部的 CSV 不用引號包欄位，但資料裡偶爾有打錯的引號（110S4 預售屋的「"棟0號」）。
+    # 照預設解析會把後面幾千列吞成同一格，所以引號一律當普通文字
+    for r in csv.reader(io.StringIO(text), quoting=csv.QUOTE_NONE):
         if not r:
             continue
         if r[0] == "鄉鎮市區":
