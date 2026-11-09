@@ -1,5 +1,5 @@
 {
- "as_of": "2026-11-07",
+ "as_of": "2026-11-09",
  "note": "即將開幕的連鎖店與大型商場：每週雲端排程從新聞、品牌公告、徵才資訊與建照開放資料整理。只是公開線索，開幕時間常延後或取消。",
  "items": [
   {
@@ -690,7 +690,7 @@
    "location": "鳳山國泰重劃區，國泰路二段與自由路口，緊鄰捷運橘線鳳山西站",
    "stage": "施工中",
    "expected": "",
-   "updated": "2026-11-04",
+   "updated": "2026-11-09",
    "lat": 22.616,
    "lng": 120.342,
    "confidence": "中",
@@ -714,9 +714,14 @@
      "title": "台灣有11間新百貨公司來了！全台最大6.2萬坪、誠品3000坪，2027開幕時間地址一次看（風傳媒）",
      "url": "https://www.storm.mg/lifestyle/11178071",
      "date": "2026-11-03"
+    },
+    {
+     "title": "高雄LaLaport 2027春季亮相 台灣三井不動產：邁向500億目標指日可待（聯合報）",
+     "url": "https://udn.com/news/story/7270/9753028",
+     "date": "2026-09-14"
     }
    ],
-   "note": "地上 7 層、地下 2 層，總樓地板約 6.2 萬坪、約 270 個品牌；風傳媒 2026-11-03 寫最快 2026 年底試營運、最慢 2027 年第 1 季正式開幕（聯合報 2026-09-14 為 2027 年春天），使用執照審查中"
+   "note": "地上 7 層、地下 2 層，總樓地板約 6.2 萬坪、約 270 個品牌；台灣三井不動產 2026-09-14 官方說法為 2027 年春季開幕（聯合報），風傳媒 2026-11-03 寫最快 2026 年底試營運、最慢 2027 年第 1 季正式開幕，使用執照審查中；已公布進駐餐飲含漢來海港、藏壽司、京都勝牛等（數位時代 2026-09-08）"
   },
   {
    "name": "ARTE MUSEUM 高雄（LaLaport 高雄館內）",
@@ -840,7 +845,7 @@
    "location": "高雄車站上方商業大樓",
    "stage": "已確認",
    "expected": "",
-   "updated": "2026-11-04",
+   "updated": "2026-11-09",
    "lat": 22.639,
    "lng": 120.302,
    "confidence": "中",
@@ -849,9 +854,14 @@
      "title": "台灣有11間新百貨公司來了！全台最大6.2萬坪、誠品3000坪，2027開幕時間地址一次看（風傳媒）",
      "url": "https://www.storm.mg/lifestyle/11178071",
      "date": "2026-11-03"
+    },
+    {
+     "title": "高雄有新百貨！「環球購物中心」高鐵出站到　1.6萬坪商場規劃曝（NOWnews）",
+     "url": "https://www.nownews.com/news/6889063",
+     "date": "2026-11-03"
     }
    ],
-   "note": "商業大樓地上 10 層，營業面積約 1.6 萬坪、150～160 個品牌；風傳媒 2026-11-03 寫 2028 年第 1 季開幕"
+   "note": "商業大樓地上 10 層、地下 3 層，營業面積約 1.6 萬坪、150～160 個品牌，零售與餐飲約 6：4，將為全台最大車站型商場、環球第二大店；NOWnews 2026-11-03 寫最快 2028 年第 1 季開幕"
   },
   {
    "name": "東南米樂 PLAZA",
@@ -2064,6 +2074,175 @@
      "date": "2025-11-30"
     }
    ]
+  },
+  {
+   "name": "LOPIA PREMIO 漢神本館店",
+   "brand": "LOPIA",
+   "category": "超市量販",
+   "county": "E",
+   "district": "前金區",
+   "location": "漢神百貨本館 B3",
+   "stage": "已開幕",
+   "expected": "2026-09-12",
+   "updated": "2026-11-09",
+   "lat": 22.6197,
+   "lng": 120.2963,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "LOPIA全球首間「夢想超市」升級版門市 今登場高雄漢神（自由時報）",
+     "url": "https://news.ltn.com.tw/news/life/breakingnews/5571514",
+     "date": "2026-09-12"
+    },
+    {
+     "title": "漢神攜手LOPIA 頂級超市PREMIO全球首店高雄登場（經濟日報）",
+     "url": "https://money.udn.com/money/story/122328/9753085",
+     "date": "2026-09-14"
+    }
+   ],
+   "note": "全球首間 LOPIA PREMIO 店型，與漢神百貨合作；2026-09-12 開幕（早於本次查證窗口，上次未收錄補登）"
+  },
+  {
+   "name": "藏壽司 LaLaport 高雄店",
+   "brand": "藏壽司",
+   "category": "餐飲",
+   "county": "E",
+   "district": "鳳山區",
+   "location": "三井 LaLaport 高雄館內（鳳山國泰重劃區，捷運橘線鳳山西站旁）",
+   "stage": "已確認",
+   "expected": "",
+   "updated": "2026-11-09",
+   "lat": 22.616,
+   "lng": 120.342,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "LaLaport高雄｜何時開幕、有哪些品牌？為何三井一路押注台灣？（數位時代）",
+     "url": "https://www.bnext.com.tw/article/92158/lalaport-kaohsiung-opening-brands-transportation",
+     "date": "2026-09-08"
+    },
+    {
+     "title": "高雄LaLaport 2027春季亮相 台灣三井不動產：邁向500億目標指日可待（聯合報）",
+     "url": "https://udn.com/news/story/7270/9753028",
+     "date": "2026-09-14"
+    }
+   ],
+   "note": "三井公布之進駐餐飲名單之一，隨 LaLaport 高雄開幕（三井 2026-09-14 稱 2027 年春季）"
+  },
+  {
+   "name": "京都勝牛 LaLaport 高雄店",
+   "brand": "京都勝牛",
+   "category": "餐飲",
+   "county": "E",
+   "district": "鳳山區",
+   "location": "三井 LaLaport 高雄館內",
+   "stage": "已確認",
+   "expected": "",
+   "updated": "2026-11-09",
+   "lat": 22.616,
+   "lng": 120.342,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "LaLaport高雄｜何時開幕、有哪些品牌？為何三井一路押注台灣？（數位時代）",
+     "url": "https://www.bnext.com.tw/article/92158/lalaport-kaohsiung-opening-brands-transportation",
+     "date": "2026-09-08"
+    }
+   ],
+   "note": "三井公布之進駐餐飲名單之一（同名單另有 Suage 北海道湯咖哩、勝勢日式豬排、京昌園、鄧師傅功夫菜、上海湯包等）"
+  },
+  {
+   "name": "饗食天堂 嘉義店",
+   "brand": "饗食天堂（饗賓餐旅）",
+   "category": "餐飲",
+   "county": "I",
+   "district": "東區",
+   "location": "耐斯王子大飯店（原萬國百匯）",
+   "stage": "已確認",
+   "expected": "2026-12-01",
+   "updated": "2026-11-09",
+   "lat": 23.492,
+   "lng": 120.459,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "饗食天堂插旗嘉義接手耐斯王子飯店萬國百匯 12月1日開幕（聯合報）",
+     "url": "https://udn.com/news/story/7270/9861730",
+     "date": "2026-11-06"
+    }
+   ],
+   "note": "進駐耐斯王子大飯店原萬國百匯空間，2026-12-01 開幕；投資與面積未載"
+  },
+  {
+   "name": "藏壽司 花蓮自由店",
+   "brand": "藏壽司",
+   "category": "餐飲",
+   "county": "U",
+   "district": "花蓮市",
+   "location": "花蓮市自由街 20 號（鄰鐵道文化園區、東大門夜市）",
+   "stage": "已開幕",
+   "expected": "2026-06-03",
+   "updated": "2026-11-09",
+   "lat": 23.977,
+   "lng": 121.607,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "藏壽司首度插旗東台灣！花蓮自由店5/27試營運 連14天9折（NOWnews）",
+     "url": "https://www.nownews.com/news/6838496",
+     "date": "2026-05-21"
+    }
+   ],
+   "note": "藏壽司東部首店；2026-05-27 試營運、06-03 正式開幕（補登過去 6 個月內花蓮新店）"
+  },
+  {
+   "name": "瓦城 台東秀泰店",
+   "brand": "瓦城（瓦城泰統）",
+   "category": "餐飲",
+   "county": "V",
+   "district": "臺東市",
+   "location": "秀泰生活台東店",
+   "stage": "已開幕",
+   "expected": "",
+   "updated": "2026-11-09",
+   "lat": 22.757,
+   "lng": 121.145,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "瓦城版圖首度跨進台東！雙品牌進駐秀泰 開幕假日翻桌率逾5次（經濟日報）",
+     "url": "https://money.udn.com/money/story/5612/9726456",
+     "date": "2026-09-01"
+    },
+    {
+     "title": "《觀光股》瓦城上半年營收32.9億創同期新高 Q3台東展店（旺得富）",
+     "url": "https://wantrich.chinatimes.com/news/20260811900594-420101",
+     "date": "2026-08-11"
+    }
+   ],
+   "note": "瓦城集團首進台東，2026 年第 3 季開幕（經濟日報 2026-09-01 報導已開幕，確切開幕日未載）"
+  },
+  {
+   "name": "時時香 台東秀泰店",
+   "brand": "時時香（瓦城泰統）",
+   "category": "餐飲",
+   "county": "V",
+   "district": "臺東市",
+   "location": "秀泰生活台東店",
+   "stage": "已開幕",
+   "expected": "",
+   "updated": "2026-11-09",
+   "lat": 22.757,
+   "lng": 121.145,
+   "confidence": "中",
+   "sources": [
+    {
+     "title": "瓦城版圖首度跨進台東！雙品牌進駐秀泰 開幕假日翻桌率逾5次（經濟日報）",
+     "url": "https://money.udn.com/money/story/5612/9726456",
+     "date": "2026-09-01"
+    }
+   ],
+   "note": "與瓦城台東秀泰店同步開出（經濟日報 2026-09-01；確切開幕日未載）"
   }
  ]
 }

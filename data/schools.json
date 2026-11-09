@@ -1,5 +1,5 @@
 {
- "as_of": "2026-11-07",
+ "as_of": "2026-11-09",
  "note": "明星學區與總量管制學校（網站地圖上的 🎓）。status 的額滿、管制每學年會變：每週情資排程逐校查證，查到就填 checked（YYYY-MM-DD）與 sources。",
  "items": [
   {
@@ -7,11 +7,34 @@
    "name": "國立南科國際實驗高級中學（國中小部）",
    "type": "完全中學",
    "county": "D",
-   "district": "善化區",
+   "district": "新市區",
    "lat": 23.1192,
    "lng": 120.2925,
-   "status": "額滿／園區限制",
-   "note": "南科台積電與園區員工首選，雙語部熱門，需具備南科事業單位在職員工證明，長年額滿。"
+   "status": "園區員工子女為主、超額抽籤（115／116 簡章）",
+   "note": "國小部每年 8 班 232 名：園區事業單位在職員工子女 191、社區生（樹谷園區與園區服務業員工子女，及設籍新市三舍・豐華・大洲・社內、善化文昌・胡厝・坐駕・南關共同學區者）41，超額即線上抽籤；115 學年度兩類皆抽籤並備取遞補。國中部 116 學年度 240 名（園區 178／社區 33／直升 25／體育 4），同樣抽籤。校址新市區西拉雅大道 888 巷。",
+   "checked": "2026-11-09",
+   "sources": [
+    {
+     "title": "國立南科國際實驗高級中學 115 學年度國小部招生簡章（114 年 7 月 16 日國教署核定，臺南市政府檔案）",
+     "url": "https://w3fs.tainan.gov.tw/Download.ashx?u=LzAwMS9VcGxvYWQvMTkyL3JlbGZpbGUvMjAwNDkvODc4NjQ0OC9jNTljY2Q4MC1jNDUzLTRhNDQtYjEwNS1iMjRjNjJjMjgxMmQucGRm&n=5ZyL5bCP6YOo5oub55Sf57Ch56ugLnBkZg%3D%3D",
+     "date": "2025-07-16"
+    },
+    {
+     "title": "國立南科國際實驗高級中學 116 學年度國小部招生簡章（115 年 7 月 20 日核定）",
+     "url": "https://es.nnkieh.tn.edu.tw/uploads/tadnews/file/116學年度南科實中國小部招生簡章修訂0618.pdf",
+     "date": "2026-07-20"
+    },
+    {
+     "title": "115學年度國小部新生抽籤結果暨線上報到注意事項（南科實中國小部）",
+     "url": "https://es.nnkieh.tn.edu.tw/modules/tadnews/index.php?nsn=2046",
+     "date": "2026-03-06"
+    },
+    {
+     "title": "國立南科國際實驗高級中學 116 學年度國中部招生簡章（115 年 7 月 20 日核定）",
+     "url": "https://hs.nnkieh.tn.edu.tw/uploads/tad_book3/file/115國中部招生簡章/116學年度南科實中國中部招生簡章.pdf",
+     "date": "2026-07-20"
+    }
+   ]
   },
   {
    "id": "sch_d2",
@@ -122,8 +145,26 @@
    "district": "善化區",
    "lat": 23.1256,
    "lng": 120.3092,
-   "status": "總量管制額滿",
-   "note": "善化LM特區核心小學，因南科人口遷入迅速額滿，已啟動二期擴校，LM特區家庭首選。"
+   "status": "一般學區入學（115 非總量管制）",
+   "note": "臺南市 115 學年度國小學區一覽表備註所列 6 所總量管制國小不含小新國小（善化區僅蓮潭國中小列管）；113 學年度曾核定管制，因新生登記未達班級數改為一般入學（教育局 2024-04-29 公告）。基本學區善化區小新里，與大成國小共用坐駕里 13、17 鄰。鄰南科 LM 特區。",
+   "checked": "2026-11-09",
+   "sources": [
+    {
+     "title": "臺南市 115 學年度國民小學學區一覽表（備註列 115 學年度總量管制學校；臺南市政府檔案）",
+     "url": "https://w3fs.tainan.gov.tw/Download.ashx?u=LzAwMi9GUzAxLzg1L3JlbGZpbGUvOTEzNS8xMjMwNC83MGE0OTA0NC0wZmNmLTQ5NzYtYWI3Mi02NDQ0OTdiNGFiYzEucGRm&n=MTE15a245bm05bqm5ZyL5rCR5bCP5a245a245Y2A5LiA6Ka96KGoLnBkZg%3d%3d",
+     "date": "未載明"
+    },
+    {
+     "title": "臺南市府東戶政事務所－國中小學區查詢（115 學年度）",
+     "url": "https://web.tainan.gov.tw/tnecg/cp.aspx?n=10164",
+     "date": "2026-03-26"
+    },
+    {
+     "title": "本市修正後「113學年度國民小學學區一覽表」及「113學年度國中小學校入學類型一覽表」（臺南市安南區公所轉教育局公告）",
+     "url": "https://www.annan.gov.tw/News_Content.aspx?n=5848&s=8634159",
+     "date": "2024-04-29"
+    }
+   ]
   },
   {
    "id": "sch_o1",
