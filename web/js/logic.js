@@ -1117,7 +1117,11 @@ export function safetyBid(est, askingWan = null) {
 
 // ------------------------------------------------------------------ 新青安寬限期斷崖與家庭所得體檢
 export function youthLoanCliff(priceWan, downPct = 20, incomeMonthly = 0, opt = {}) {
-  const youthMax = opt.youthMaxWan ?? YOUTH_LOAN.cap;
+  const cap = opt.priceCap ?? (opt.countyCode ? youthPriceCap(opt.countyCode) : null);
+  const exceedsCap = cap != null && priceWan > cap;
+  const expired = youthExpired();
+  const youthEligible = !exceedsCap && !expired;
+  const youthMax = youthEligible ? (opt.youthMaxWan ?? YOUTH_LOAN.cap) : 0;
   const yRate = opt.youthRate ?? YOUTH_LOAN.rate;
   const nRate = opt.normalRate ?? NORMAL_LOAN.rate;
   const loanTotalWan = Math.max(0, priceWan * (1 - downPct / 100));
@@ -1127,8 +1131,8 @@ export function youthLoanCliff(priceWan, downPct = 20, incomeMonthly = 0, opt = 
   const normalWan = Math.max(0, loanTotalWan - youthMax);
 
   // 寬限期月付看第一個月；攤還月付看利率調升完之後（這才是要長期繳的數字）
-  const ySim = steppedLoan(youthWan * 10000, yRate, YOUTH_LOAN.years, YOUTH_LOAN.grace, youthSteps(yRate));
-  const yGraceMonthly = youthWan * 10000 * yRate / 100 / 12;
+  const ySim = youthWan > 0 ? steppedLoan(youthWan * 10000, yRate, YOUTH_LOAN.years, YOUTH_LOAN.grace, youthSteps(yRate)) : { monthly: 0 };
+  const yGraceMonthly = youthWan > 0 ? youthWan * 10000 * yRate / 100 / 12 : 0;
   const yPostMonthly = ySim.monthly;
 
   const nMonths = (opt.normalYears ?? NORMAL_LOAN.years) * 12, nr = nRate / 100 / 12;
@@ -1156,7 +1160,7 @@ export function youthLoanCliff(priceWan, downPct = 20, incomeMonthly = 0, opt = 
   return {
     loanTotalWan, youthWan, normalWan, normalRate: nRate,
     period1, period2, cliffDiff, cliffPct: +cliffPct.toFixed(1),
-    incomeEval
+    incomeEval, exceedsCap, cap, youthEligible
   };
 }
 

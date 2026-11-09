@@ -166,8 +166,9 @@ input, select, textarea { font: inherit; color: inherit; }
 #toast .toast-x { margin-left: 6px; background: none; color: #fff; border: 0; font: inherit; cursor: pointer; opacity: .8; }
 
 /* ---------- 面板（手機：底部抽屜；寬螢幕：右側欄） */
-#sheet { position: absolute; z-index: 10; background: var(--surface); display: flex; flex-direction: column; }
-#sheet-handle { height: 22px; display: flex; justify-content: center; align-items: center; touch-action: none; cursor: grab; flex: none; }
+#sheet { position: absolute; z-index: 10; background: var(--surface); display: flex; flex-direction: column; will-change: transform; }
+#sheet-handle { position: relative; height: 22px; display: flex; justify-content: center; align-items: center; touch-action: none; cursor: grab; flex: none; }
+#sheet-handle::before { content: ""; position: absolute; top: -12px; bottom: -12px; left: 0; right: 0; }
 @media (max-width: 899px) {
   #sheet { left: 0; right: 0; bottom: 0; height: 88%; border-radius: 14px 14px 0 0; box-shadow: 0 -2px 12px rgba(0,0,0,.18);
     transform: translateY(calc(100% - var(--sheet-peek) - var(--safe-b))); transition: transform .22s ease; }
@@ -196,11 +197,12 @@ input, select, textarea { font: inherit; color: inherit; }
 .kpi .v { font-size: 1.1rem; font-weight: 700; white-space: nowrap; }
 .kpi .v small { font-size: 0.7rem; font-weight: 400; color: var(--muted); }
 .up { color: var(--up); } .down { color: var(--down); }
-#tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); padding: 0 8px; flex: none; scrollbar-width: none; }
+#tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); padding: 0 8px; flex: none; scrollbar-width: none; scroll-behavior: smooth; overscroll-behavior-x: contain; }
 #tabs::-webkit-scrollbar { display: none; }
 #tabs button { border: 0; background: none; padding: 9px 9px 7px; white-space: nowrap; border-bottom: 3px solid transparent; color: var(--muted); }
 #tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
-#tab-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px calc(16px + var(--safe-b)); }
+#subtabs { scroll-behavior: smooth; overscroll-behavior-x: contain; }
+#tab-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; touch-action: pan-y; padding: 10px 12px calc(16px + var(--safe-b)); }
 
 /* ---------- 表格與清單 */
 table.list { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
@@ -364,14 +366,14 @@ table.list.cost tr.total td { font-weight: 700; border-top: 2px solid var(--line
 }
 
 /* ---------- 快速坪數膠囊 (Ping Chips) ---------- */
-.ping-chips-row {
+.ping-chips-row, .income-chips-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   margin: 6px 0 10px;
 }
-.ping-chip {
+.ping-chip, .income-chip {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -380,16 +382,28 @@ table.list.cost tr.total td { font-weight: 700; border-top: 2px solid var(--line
   color: var(--ink);
   cursor: pointer;
   transition: all 0.12s ease;
+  user-select: none;
 }
-.ping-chip:hover {
+.ping-chip:hover, .income-chip:hover {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--tint);
 }
-.ping-chip.active {
+.ping-chip.active, .income-chip.active {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
+}
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active, button:active, .ping-chip:active, .income-chip:active {
+  transform: scale(0.97);
+  transition: transform 0.05s ease;
+}
+#search-sug {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ---------- 3D 地圖懸停浮動卡 (Map Tooltip) ---------- */

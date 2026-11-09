@@ -745,7 +745,10 @@ export function renderPanel() {
   body.scrollTop = key === renderPanel.lastKey ? keepTop : 0;
   renderPanel.lastKey = key;
   const on = $("#tabs [aria-selected='true']");
-  if (on) { const bar = $("#tabs"); if (on.offsetLeft < bar.scrollLeft || on.offsetLeft + on.offsetWidth > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = on.offsetLeft - 16; }
+  if (on) {
+    try { on.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" }); }
+    catch (_) { const bar = $("#tabs"); if (on.offsetLeft < bar.scrollLeft || on.offsetLeft + on.offsetWidth > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = on.offsetLeft - 16; }
+  }
   syncUrl();
 }
 
@@ -1415,23 +1418,50 @@ function placeAttrib() {
 function bindSheetDrag() {
   const el = $("#sheet"), handle = [$("#sheet-handle"), $("#sheet-head")];
   let y0 = null, s0 = null, moved = false;
+  let cachedH = 0, cachedPeek = 168, cachedBase = 0, currentTranslate = 0;
+  let rafId = null;
+
   for (const h of handle) {
-    h.addEventListener("pointerdown", e => { if (window.innerWidth >= 900 || e.target.closest("button")) return; y0 = e.clientY; s0 = S.sheet || "peek"; moved = false; h.setPointerCapture(e.pointerId); el.classList.add("dragging"); });
+    h.addEventListener("pointerdown", e => {
+      if (window.innerWidth >= 900 || e.target.closest("button, a, input, select")) return;
+      y0 = e.clientY;
+      s0 = S.sheet || "peek";
+      moved = false;
+      cachedH = el.clientHeight;
+      cachedPeek = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sheet-peek")) || 168;
+      cachedBase = s0 === "full" ? 0 : s0 === "half" ? cachedH * 0.45 : cachedH - cachedPeek;
+      currentTranslate = cachedBase;
+      try { h.setPointerCapture(e.pointerId); } catch (_) {}
+      el.classList.add("dragging");
+    });
+
     h.addEventListener("pointermove", e => {
       if (y0 == null) return;
-      const dy = e.clientY - y0; if (Math.abs(dy) > 6) moved = true;
-      const H = el.clientHeight, peek = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sheet-peek")) || 168;
-      const base = s0 === "full" ? 0 : s0 === "half" ? H * 0.45 : H - peek;
-      el.style.transform = `translateY(${Math.max(0, Math.min(H - peek, base + dy))}px)`;
+      const dy = e.clientY - y0;
+      if (Math.abs(dy) > 6) moved = true;
+      currentTranslate = Math.max(0, Math.min(cachedH - cachedPeek, cachedBase + dy));
+      if (!rafId) {
+        rafId = requestAnimationFrame(() => {
+          if (y0 != null) el.style.transform = `translateY(${currentTranslate}px)`;
+          rafId = null;
+        });
+      }
     });
+
     const up = e => {
       if (y0 == null) return;
-      const dy = e.clientY - y0; y0 = null; el.classList.remove("dragging"); el.style.transform = "";
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      const dy = e.clientY - y0;
+      y0 = null;
+      el.classList.remove("dragging");
+      el.style.transform = "";
       const order = ["peek", "half", "full"], i = order.indexOf(s0);
       if (!moved) sheet(s0 === "peek" ? "half" : s0 === "half" ? "peek" : "half");
       else sheet(order[Math.max(0, Math.min(2, i + (dy < -40 ? 1 : dy > 40 ? -1 : 0)))]);
     };
-    h.addEventListener("pointerup", up); h.addEventListener("pointercancel", up);
+
+    h.addEventListener("pointerup", up);
+    h.addEventListener("pointercancel", up);
   }
 }
 
@@ -1693,9 +1723,18 @@ function bindUI() {
     if (act === "tm-stop") { tmStop(); tmUi(); return; }
     if (act === "span") { S.settings.span = +t.closest("[data-span]").dataset.span; saveStore(); const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; return; }
     if (act === "txf") { const el = t.closest("[data-k]"); S.txf = { ...(S.txf || {}), [el.dataset.k]: el.dataset.v }; renderPanel(); return; }
+    const incChip = t.closest(".income-chip");
+    if (incChip) {
+      S.settings.incomeMonthly = incChip.dataset.income;
+      saveStore();
+      const sc = $("#tab-body").scrollTop;
+      renderPanel();
+      $("#tab-body").scrollTop = sc;
+      return;
+    }
     if (act === "loan-preset") {
-      const youth = t.closest("[data-preset]").dataset.preset === "youth";
-      S.settings.loan = { ...loanState(), ...presetTerms(youth), auto: true };
+      const presetKey = t.closest("[data-preset]").dataset.preset;
+      S.settings.loan = { ...loanState(), ...presetTerms(presetKey), auto: true, preset: presetKey };
       saveStore(); const sc = $("#tab-body").scrollTop; renderPanel(); $("#tab-body").scrollTop = sc; return;
     }
     if (act === "watch-seen" && it) {

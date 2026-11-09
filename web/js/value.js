@@ -80,12 +80,22 @@ export function tabValue() {
 
   const targetPrice = +v.price || e.tMid;
   const incomeVal = parseFloat(S.settings.incomeMonthly) || 0, down = +loanState().down || 20, gy = L.YOUTH_LOAN.grace;
-  const cliff = L.youthLoanCliff(targetPrice, down, incomeVal);
+  const countyCode = D.county ? D.county.code : (D.tw ? null : "D");
+  const cliff = L.youthLoanCliff(targetPrice, down, incomeVal, { countyCode });
   const budget = L.affordableBudget(incomeVal, down);
   if (cliff) {
+    const incChips = [
+      ["60000", "6萬 (單薪小資)"],
+      ["100000", "10萬 (標準雙薪)"],
+      ["150000", "15萬 (科技雙薪)"],
+      ["200000", "20萬 (高所得)"]
+    ].map(([inc, label]) => `<button type="button" class="income-chip${String(incomeVal) === inc ? " active" : ""}" data-income="${inc}">${label}</button>`).join("");
+
     h += `<details class="more" open><summary>${L.youthExpired() ? "新青安原方案" : "新青安"} ${L.YOUTH_LOAN.years} 年房貸與家庭所得體檢（以 ${L.fmtNum(targetPrice)} 萬試算）</summary>` +
       `<div class="cliff-box">` +
-      `<div class="row" style="margin-bottom:6px"><span>家庭月收入（元）</span><input type="text" inputmode="numeric" data-set="incomeMonthly" value="${incomeVal || ""}" placeholder="填了才算負擔比例" style="max-width:140px"></div>` +
+      `<div class="row" style="margin-bottom:4px"><span>家庭月收入（元）</span><input type="text" inputmode="numeric" data-set="incomeMonthly" value="${incomeVal || ""}" placeholder="填了才算負擔比例" style="max-width:140px"></div>` +
+      `<div class="income-chips-row" style="margin-bottom:8px"><span class="muted" style="font-size:11px;margin-right:4px">快速試算：</span>${incChips}</div>` +
+      (cliff.exceedsCap ? `<div class="cliff-badge danger" style="display:inline-block;margin-bottom:8px;padding:4px 8px;font-size:12px;border-radius:6px;line-height:1.4">⚠ 總價 ${L.fmtNum(targetPrice)} 萬超過該縣市新青安上限（${L.fmtNum(cliff.cap)} 萬），依法不得申貸新青安，全額改以一般房貸計算！</div>` : "") +
       `<div class="cliff-row"><span>${L.youthExpired() ? "新青安原方案" : "新青安"}額度（${L.YOUTH_LOAN.rate}%，上限 ${L.fmtNum(L.YOUTH_LOAN.cap)} 萬）</span><b>${L.fmtNum(cliff.youthWan)} 萬</b></div>` +
       (cliff.normalWan > 0 ? `<div class="cliff-row"><span>超額一般房貸（${cliff.normalRate}%，${L.NORMAL_LOAN.years} 年、沒有寬限期）</span><b>${L.fmtNum(cliff.normalWan)} 萬</b></div>` : "") +
       (gy ? `<div class="cliff-row"><span>前 ${gy} 年寬限期月繳（只繳利息，利率調升後會略增）</span><b style="color:#2ea36b">${L.fmtNum(cliff.period1)} 元/月</b></div>` : "") +

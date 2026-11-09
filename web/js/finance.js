@@ -8,12 +8,24 @@ export const LOAN_DEFAULT = { price: "", down: 20, get rate() { return L.NORMAL_
 // auto：利率、年限、寬限期跟著程式裡的參考條件（政策或利率調整時自動更新）；使用者自己改過這三欄就不再自動帶入
 export function loanState() {
   const st = Object.assign({}, LOAN_DEFAULT, S.settings.loan || {});
-  if (st.auto) Object.assign(st, presetTerms(st.youth));
+  if (st.auto) Object.assign(st, presetTerms(st.preset || (st.youth ? "youth" : "normal")));
   return st;
 }
-export function presetTerms(youth) {
-  const y = L.YOUTH_LOAN, n = L.NORMAL_LOAN;
-  return youth ? { rate: y.rate, years: y.years, grace: y.grace, youth: true } : { rate: n.rate, years: n.years, grace: 0, youth: false };
+export function presetTerms(key) {
+  const y = L.YOUTH_LOAN, n = L.NORMAL_LOAN, cr = L.LOAN_RULES.credit;
+  const isYouth = key === true || key === "youth";
+  if (isYouth) {
+    return { rate: y.rate, years: y.years, grace: y.grace, down: 20, youth: true, preset: "youth" };
+  }
+  if (key === "second") {
+    const ltv = cr && cr.second_ltv != null ? cr.second_ltv : 70;
+    return { rate: n.rate, years: n.years, grace: 0, down: Math.max(0, 100 - ltv), youth: false, preset: "second" };
+  }
+  if (key === "third") {
+    const ltv = cr && cr.third_ltv != null ? cr.third_ltv : 30;
+    return { rate: n.rate, years: n.years, grace: 0, down: Math.max(0, 100 - ltv), youth: false, preset: "third" };
+  }
+  return { rate: n.rate, years: n.years, grace: 3, down: 20, youth: false, preset: "normal" };
 }
 // 新青安原方案過了期限：按鈕與說明都標「原方案」，提醒續辦條件以官方公告為準
 export function youthNote() {
@@ -76,8 +88,22 @@ function loanRuleNotes(st, price) {
 export function loanSection(median) {
   const st = loanState(), num = (k, label, step, unit, ph) =>
     `<label class="loan-f"><span>${label}</span><input type="number" inputmode="decimal" step="${step}" data-loan="${k}" value="${esc(String(st[k]))}"${ph ? ` placeholder="${esc(ph)}"` : ""}><small>${unit}</small></label>`;
-  const preset = (k, label) => `<button type="button" class="btn small${(k === "youth") === !!st.youth ? " primary" : ""}" data-act="loan-preset" data-preset="${k}" aria-pressed="${(k === "youth") === !!st.youth}">${label}</button>`;
-  return `<h3>房貸試算</h3><div class="row loan-presets">${preset("normal", "一般房貸")}${preset("youth", youthLabel())}</div>` + (st.youth ? youthNote() : "") +
+  const cr = L.LOAN_RULES.credit;
+  const curPreset = st.preset || (st.youth ? "youth" : "normal");
+  const preset = (k, label) => `<button type="button" class="btn small${curPreset === k ? " primary" : ""}" data-act="loan-preset" data-preset="${k}" aria-pressed="${curPreset === k}">${label}</button>`;
+  const secondLtv = cr && cr.second_ltv != null ? cr.second_ltv : 70;
+  const thirdLtv = cr && cr.third_ltv != null ? cr.third_ltv : 30;
+
+  let policyNotice = "";
+  if (curPreset === "second") {
+    policyNotice = `<p class="note">已套用央行第 7 波選擇性信用管制「名下已有房屋（第 2 戶）」限制：最高貸款 ${secondLtv} 成（自備款 ${100 - secondLtv}%）、無寬限期。</p>`;
+  } else if (curPreset === "third") {
+    policyNotice = `<p class="note">已套用央行信用管制「第 3 戶以上或高價住宅」限制：最高貸款 ${thirdLtv} 成（自備款 ${100 - thirdLtv}%）、無寬限期。</p>`;
+  } else if (st.youth) {
+    policyNotice = youthNote();
+  }
+
+  return `<h3>房貸試算</h3><div class="row loan-presets">${preset("normal", "首購一般")}${preset("youth", youthLabel())}${preset("second", `第2戶(${secondLtv}成)`)}${preset("third", `第3戶(${thirdLtv}成)`)}</div>` + policyNotice +
     `<div class="loan">${num("price", "總價", 10, "萬", median ? String(Math.round(median)) : "")}${num("down", "自備款", 5, "%")}` +
     `${num("rate", "年利率", 0.05, "%")}${num("years", "年限", 5, "年")}${num("grace", "寬限期", 1, "年")}</div>` +
     `<div id="loan-out">${loanResult(median)}</div><p class="muted">本息平均攤還的估算，總價空白就用這一區的中位總價。${youthLabel()}：貸款上限 ${L.fmtNum(L.YOUTH_LOAN.cap)} 萬、最長 ${L.YOUTH_LOAN.years} 年、寬限期最長 ${L.YOUTH_LOAN.grace} 年，限名下無自有住宅者${L.YOUTH_POLICY.note ? `（${esc(L.YOUTH_POLICY.note)}）` : ""}；${youthStepText()}` +

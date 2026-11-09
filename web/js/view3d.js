@@ -619,9 +619,15 @@ export class View3D {
     cv.addEventListener("pointermove", e => {
       if (!ptrs.has(e.pointerId)) {
         if (e.pointerType === "mouse" && !this.drag) {
-          const hit = this.pick(e.offsetX, e.offsetY);
-          cv.style.cursor = hit ? "pointer" : "default";
-          this.onHover && this.onHover(hit, e);
+          if (!this._hoverRaf) {
+            const ox = e.offsetX, oy = e.offsetY;
+            this._hoverRaf = requestAnimationFrame(() => {
+              this._hoverRaf = null;
+              const hit = this.pick(ox, oy);
+              cv.style.cursor = hit ? "pointer" : "default";
+              this.onHover && this.onHover(hit, e);
+            });
+          }
         }
         return;
       }
@@ -679,6 +685,7 @@ export class View3D {
       if (!ptrs.size) { this.drag = false; gesture = null; this.request(true); }
     });
     cv.addEventListener("pointerleave", () => {
+      if (this._hoverRaf) { cancelAnimationFrame(this._hoverRaf); this._hoverRaf = null; }
       cv.style.cursor = "default";
       if (this.onHover) this.onHover(null);
     });
