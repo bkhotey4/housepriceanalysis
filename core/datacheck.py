@@ -318,7 +318,7 @@ def check_workplaces(d):
     return out
 
 
-LAND_DEALS = ["購地", "合建", "都更", "標售得標", "地上權", "其他"]
+LAND_DEALS = ["購地", "合建", "都更", "標售得標", "地上權", "營造承攬", "其他"]
 LAND_STATUS = ["取得土地", "規劃中", "申請建照", "已取得建照", "已開工", "預售中", "完工", "取消"]
 
 
@@ -348,6 +348,11 @@ def check_landbank(d):
             out.append("%s：county 不是縣市代碼" % where)
         if it.get("deal") not in LAND_DEALS:
             out.append("%s：deal 只能是 %s" % (where, "／".join(LAND_DEALS)))
+        ctr = it.get("contractor")
+        if ctr is not None and not (isinstance(ctr, str) and ctr.strip()):
+            out.append("%s：contractor（營造廠）要是名稱，沒有就省略" % where)
+        if it.get("deal") == "營造承攬" and not ctr:
+            out.append("%s：營造承攬要填 contractor（營造廠名稱）" % where)
         if it.get("status") not in LAND_STATUS:
             out.append("%s：status 只能是 %s" % (where, "／".join(LAND_STATUS)))
         if not re.match(r"^\d{4}(-\d{2}(-\d{2})?)?$", str(it.get("date") or "")):

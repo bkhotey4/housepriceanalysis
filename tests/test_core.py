@@ -472,6 +472,18 @@ class GeoTest(unittest.TestCase):
         bad = copy.deepcopy(mrt); del bad["lines"][1]["short"]
         self.assertTrue(datacheck.check_mrt(bad))
 
+    def test_landbank_contract_check(self):
+        """營造廠承攬合約記在 landbank：deal 是「營造承攬」時一定要有營造廠名稱。"""
+        src = [{"title": "重大訊息", "url": "https://mops.twse.com.tw/", "date": "2026-11-01"}]
+        it = {"developer": "某建設", "contractor": "某營造", "county": "D", "district": "東區", "location": "東區某段",
+              "date": "2026-11", "deal": "營造承攬", "status": "已取得建照", "area_ping": None, "amount_wan": 250000,
+              "plan": "住宅大樓 300 戶", "lat": None, "lng": None, "confidence": "高", "sources": src}
+        self.assertEqual(datacheck.check_landbank({"as_of": "2026-11-10", "items": [it]}), [])
+        self.assertTrue(datacheck.check_landbank({"items": [dict(it, contractor="")]}))
+        no = dict(it); del no["contractor"]
+        self.assertTrue(datacheck.check_landbank({"items": [no]}))
+        self.assertEqual(datacheck.check_landbank({"items": [dict(no, deal="購地")]}), [])      # 其他交易不必有營造廠
+
     def test_openings_check(self):
         """即將開幕的店：階段、類別、日期、座標、來源都要合規。"""
         import copy

@@ -1,6 +1,6 @@
 // 土地分頁：建商買地的線索。兩種資料——
 //  1. 大面積純土地成交（實價登錄，data/tw/<代碼>/land.json）：看得到哪一區、哪一段有大筆土地成交，看不到買方是誰。
-//  2. 建商購地紀錄（data/landbank.json）：上市櫃建商重大訊息、標售得標與新聞整理，有建商名稱與來源。
+//  2. 建商購地紀錄（data/landbank.json）：上市櫃建商重大訊息、標售得標、營造廠承攬合約與新聞整理，有建商名稱與來源。
 import * as L from "./logic.js";
 import { D, S, esc, isNation, needCounty, renderPanel } from "./main.js";
 
@@ -39,18 +39,18 @@ function bankSection() {
   const items = bankItems(), lb = D.landbank || {};
   let h = `<h3>建商購地紀錄</h3>`;
   if (!items.length) {
-    return h + `<p class="empty">${(lb.items || []).length ? "這個範圍目前沒有收錄的建商購地紀錄。" : "建商購地紀錄還在整理中（每週更新時從公開資訊觀測站重大訊息、土地標售結果與新聞補進來）。"}</p>`;
+    return h + `<p class="empty">${(lb.items || []).length ? "這個範圍目前沒有收錄的建商購地紀錄。" : "建商購地紀錄還在整理中（每週更新時從公開資訊觀測站重大訊息、土地標售結果、營造廠承攬合約與新聞補進來）。"}</p>`;
   }
   h += `<table class="list"><thead><tr><th>日期</th><th>建商／地點</th><th class="r">面積</th><th class="r">金額</th></tr></thead><tbody>`;
   for (const it of items.slice(0, 80)) {
     const src = (it.sources || [])[0];
     const sub = [it.district, it.location, it.deal, it.status, it.plan].filter(Boolean).join("｜");
-    h += `<tr><td>${esc(String(it.date || "").slice(0, 7))}</td><td><b>${esc(it.developer)}</b>${it.architect ? `<span class="muted">（設計：${esc(it.architect)}）</span>` : ""}` +
+    h += `<tr><td>${esc(String(it.date || "").slice(0, 7))}</td><td><b>${esc(it.developer)}</b>${it.contractor ? `<span class="muted">（營造：${esc(it.contractor)}）</span>` : ""}${it.architect ? `<span class="muted">（設計：${esc(it.architect)}）</span>` : ""}` +
       `<div class="muted">${esc(sub)}${src ? `｜<a href="${esc(src.url)}" target="_blank" rel="noopener">${esc(src.title.slice(0, 18))}</a>` : ""}</div></td>` +
       `<td class="r">${it.area_ping ? L.fmtNum(Math.round(it.area_ping)) + " 坪" : "—"}</td><td class="r">${it.amount_wan ? wan(it.amount_wan) : "—"}</td></tr>`;
   }
   h += `</tbody></table>`;
-  if (lb.as_of) h += `<p class="muted">整理到 ${esc(lb.as_of)}。只收公開資料（上市櫃公司重大訊息、政府標售公告、新聞報導），未上市的建商買地多半不會公開。</p>`;
+  if (lb.as_of) h += `<p class="muted">整理到 ${esc(lb.as_of)}。只收公開資料（上市櫃公司重大訊息、政府標售公告、新聞報導）；未上市的建商買地多半不會公開，但發包給上市櫃營造廠時，營造廠的承攬公告常會帶出案子。</p>`;
   return h;
 }
 
