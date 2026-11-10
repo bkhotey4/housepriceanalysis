@@ -31,6 +31,7 @@ step towns   "全台鄉鎮市區清單"           0 python tools/build_towns.py
 step static  "情資、捷運、地標"           1 python tools/export_web.py --no-images
 step plvr    "全台實價登錄"               0 timeout 50m python tools/export_tw.py --update     # 第一次補抓較舊的季檔會比較久
 step long    "長期房價走勢（近 5 年）"     0 timeout 20m python tools/build_long.py
+step bcase   "預售屋建案報備"             0 timeout 10m python tools/build_buildcase.py
 git add data/tw/long 2>/dev/null || true              # 舊季檔的摘要存回專案（原始檔不保留）
 step pop     "人口成長與年齡結構"          0 timeout 15m python tools/build_population.py
 git add data/tw/population.json 2>/dev/null || true   # 戶政司資料整理結果存回專案（超過 25 天才重抓）

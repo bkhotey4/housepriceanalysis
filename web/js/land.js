@@ -4,16 +4,20 @@
 import * as L from "./logic.js";
 import { D, S, esc, isNation, needCounty, renderPanel } from "./main.js";
 
-const LAND_CACHE = new Map();
-// 進到縣市時呼叫：背景下載那個縣市的 land.json，下載好時如果正在看土地分頁就重畫
+const LAND_CACHE = new Map(), BC_CACHE = new Map();
+// 進到縣市時呼叫：背景下載那個縣市的 land.json 與 buildcase.json（預售屋建案報備），下載好時如果正在看土地分頁就重畫
 export function loadLand(code) {
   D.land = LAND_CACHE.get(code) || null;
-  if (!code || LAND_CACHE.has(code)) return;
-  LAND_CACHE.set(code, null);
-  fetch(`data/tw/${code}/land.json`).then(r => r.ok ? r.json() : null).then(lb => {
-    LAND_CACHE.set(code, lb);
-    if (D.county && D.county.code === code) { D.land = lb; if (S.tab === "land") renderPanel(); }
-  }).catch(() => LAND_CACHE.delete(code));          // 網路斷掉：下次進來再試，不要一直顯示「還沒產生」
+  D.buildcase = BC_CACHE.get(code) || null;
+  if (!code) return;
+  for (const [cache, file, key] of [[LAND_CACHE, "land", "land"], [BC_CACHE, "buildcase", "buildcase"]]) {
+    if (cache.has(code)) continue;
+    cache.set(code, null);
+    fetch(`data/tw/${code}/${file}.json`).then(r => r.ok ? r.json() : null).then(lb => {
+      cache.set(code, lb);
+      if (D.county && D.county.code === code) { D[key] = lb; if (S.tab === "land") renderPanel(); }
+    }).catch(() => cache.delete(code));          // 網路斷掉：下次進來再試，不要一直顯示「還沒產生」
+  }
 }
 
 // 篩選：預設只看住宅區、商業區（蓋房子最相關）；可以切換成含工業區或全部
@@ -89,7 +93,46 @@ function dealsSection() {
   return h + `</tbody></table>` + note;
 }
 
+// 預售屋建案報備：建商開賣預售屋前要向縣市政府報備（內政部全國備查清單，每月更新）。
+// 列：[行政區索引, 建案名稱, 坐落街道, 起造人, 戶數, 主要用途, 報備日期, 建照核發日期, 第一次成交登記日期, 第一筆地號, 地號筆數]
+function buildcaseSection() {
+  const bc = D.buildcase;
+  if (!bc) return `<h3>預售屋建案報備</h3><p class="empty">${D.county ? "這個縣市的預售屋報備清單還沒產生（下次資料更新後就會有）。" : ""}</p>`;
+  const ago = days => new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+  const day = r => r[6] || r[7], since = ago(365), old = ago(730);
+  const note = `<p class="muted">建商開賣預售屋前要向縣市政府報備，這是內政部的全國備查清單（110 年 7 月起，最新報備 ${esc(bc.latest || "—")}，${esc(bc.fetched || "")} 取得）。` +
+    `「尚無成交」表示還沒有登錄過第一筆成交，多半是剛報備、即將或剛開始銷售；報備超過兩年還沒有成交紀錄的，可能延後推出或停售。戶數是報備的總戶數，個人起造人不顯示姓名。</p>`;
+  let h = `<h3>預售屋建案報備</h3>`;
+  if (S.current === L.CITY) {
+    const by = new Map();
+    for (const r of bc.rows) {
+      const s = by.get(r[0]) || { n12: 0, u12: 0, n: 0, last: "" };
+      s.n++; if (day(r) >= since) { s.n12++; s.u12 += r[4]; } if (day(r) > s.last) s.last = day(r);
+      by.set(r[0], s);
+    }
+    const list = [...by.entries()].sort((a, b) => b[1].u12 - a[1].u12 || b[1].n - a[1].n);
+    if (!list.length) return h + `<p class="empty">這個縣市沒有預售屋報備紀錄。</p>` + note;
+    h += `<table class="list"><thead><tr><th>區</th><th class="r">近一年件數</th><th class="r">近一年戶數</th><th class="r">累計件數</th><th>最新報備</th></tr></thead><tbody>`;
+    for (const [i, s] of list) h += `<tr class="click" data-dist="${esc(bc.dists[i])}"><td>${esc(bc.dists[i])}</td><td class="r">${s.n12}</td><td class="r">${L.fmtNum(s.u12)}</td><td class="r">${s.n}</td><td>${esc(s.last.slice(0, 7))}</td></tr>`;
+    return h + `</tbody></table><p class="muted">依近一年報備戶數排序，點一區看每個建案。</p>` + note;
+  }
+  const di = bc.dists.indexOf(S.current), mine = bc.rows.filter(r => r[0] === di);
+  if (!mine.length) return h + `<p class="empty">${esc(S.current)}沒有預售屋報備紀錄。</p>` + note;
+  const recent = mine.filter(r => day(r) >= since);
+  h += `<p class="muted">${esc(S.current)}共 ${mine.length} 件，近一年 ${recent.length} 件、${L.fmtNum(recent.reduce((s, r) => s + r[4], 0))} 戶。</p>`;
+  h += `<table class="list"><thead><tr><th>報備</th><th>建案／起造人</th><th class="r">戶數</th></tr></thead><tbody>`;
+  for (const r of mine.slice(0, 120)) {
+    const sub = [r[2], r[5], r[9] ? r[9] + (r[10] > 1 ? ` 等 ${r[10]} 筆` : "") : ""].filter(Boolean).join("｜");
+    const tag = r[8] ? `<span class="pill done">${esc(r[8].slice(0, 7))} 起有成交</span>`
+      : day(r) && day(r) < old ? `<span class="pill plan">未見成交紀錄</span>` : `<span class="pill new">尚無成交</span>`;
+    h += `<tr><td>${esc((day(r) || "").slice(0, 7))}</td><td><b>${esc(r[1])}</b> ${tag}<div class="muted">${esc(r[3])}${sub ? "｜" + esc(sub) : ""}</div></td><td class="r">${r[4] ? L.fmtNum(r[4]) : "—"}</td></tr>`;
+  }
+  h += `</tbody></table>`;
+  if (mine.length > 120) h += `<p class="muted">只列最近 120 件。</p>`;
+  return h + note;
+}
+
 export function tabLand() {
-  if (isNation()) return bankSection() + `<h3>大面積土地成交</h3>` + needCounty();
-  return (D.tw ? dealsSection() : "") + bankSection();
+  if (isNation()) return bankSection() + `<h3>預售屋建案報備</h3>` + needCounty() + `<h3>大面積土地成交</h3>` + needCounty();
+  return (D.tw ? buildcaseSection() + dealsSection() : "") + bankSection();
 }
