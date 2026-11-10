@@ -223,6 +223,36 @@ class LongTermTest(unittest.TestCase):
         _csv.writer(buf).writerows([r[:prices.C_CANCEL] for r in rows[:2] + keep])
         self.assertEqual(len(prices.parse_csv_text(buf.getvalue())), len(prices.parse_csv_text(_read("fixture_d_lvr_land_b.csv").decode("utf-8-sig"))))
 
+    def test_broken_season_warns(self):
+        """季檔解析錯誤（重抓也不會好）要列成 [提醒]；連線失敗下次會自己好，不提醒。"""
+        import contextlib
+        import csv as _csv
+        import sys as _sys
+        from tools import build_long
+        tmp = tempfile.mkdtemp()
+        old = (build_long.LONG_DIR, build_long.WEB_TW, plvr.fetch, plvr_tw.CACHE, _sys.argv)
+        build_long.LONG_DIR, build_long.WEB_TW = os.path.join(tmp, "long"), os.path.join(tmp, "web")
+        plvr_tw.CACHE = os.path.join(tmp, "cache")
+        seen = []
+
+        def fake(url, **kw):
+            seen.append(url)
+            if len(seen) == 1:
+                raise _csv.Error("field larger than field limit (131072)")
+            raise plvr.DownloadError("無法連線")
+        plvr.fetch = fake
+        out = io.StringIO()
+        try:
+            _sys.argv = ["build_long.py", "--max", "3"]
+            with contextlib.redirect_stdout(out):
+                build_long.main()
+        finally:
+            build_long.LONG_DIR, build_long.WEB_TW, plvr.fetch, plvr_tw.CACHE, _sys.argv = old
+            shutil.rmtree(tmp, ignore_errors=True)
+        warns = [l for l in out.getvalue().splitlines() if l.startswith("[提醒]")]
+        self.assertEqual(len(warns), 1)
+        self.assertIn("field larger", warns[0])
+
     def test_merge_weighted(self):
         from core import longterm
         f1 = {"counties": {"D": {"東區": {"all": {"2022-03": [10, 20.0, 1000], "2022-04": [4, 22.0, 1100]}}}}}

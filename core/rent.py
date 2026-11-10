@@ -71,7 +71,7 @@ def parse_rent_csv(text, stats=None):
         st[why] = st.get(why, 0) + 1
     if text.startswith("﻿"):
         text = text[1:]
-    rows = csv.reader(io.StringIO(text))
+    rows = csv.reader(io.StringIO(text.replace("\0", "")), quoting=csv.QUOTE_NONE)     # 打錯的引號當普通文字，見 prices.parse_csv_text
     header, idx, out = None, None, []
     for r in rows:
         if not r:

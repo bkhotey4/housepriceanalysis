@@ -110,7 +110,7 @@ def main():
     want = wanted_seasons(today)
     have = {f["season"] for f in longterm.load_season_files(LONG_DIR) if f.get("season")}     # 壞掉的檔案不算，會重抓
     missing = [s for s in want if s not in have]
-    fetched, failed = 0, []
+    fetched, failed, broken = 0, [], []
     if not args.no_fetch:
         for name in missing:                       # 新的先補：近 3 年的漲跌會先出來
             if fetched >= args.max:
@@ -120,6 +120,8 @@ def main():
             except Exception as e:                  # 下載失敗、憑證錯誤、壞掉的 zip：這季先跳過，下次再補
                 print("%s：下載失敗（%s）" % (name, e), flush=True)
                 failed.append(name)
+                if not isinstance(e, plvr.DownloadError):   # 連線問題下次會好；解析錯誤每次都會一樣，要有人看
+                    broken.append("%s（%s）" % (name, e))
                 continue
             if r is None:
                 print("%s：尚未釋出或沒有檔案" % name, flush=True)
@@ -141,6 +143,8 @@ def main():
     write_web(today)
     if failed:
         print("有 %d 季下載失敗：%s（下次更新再補）" % (len(failed), "、".join(failed)))
+    for b in broken:
+        print("[提醒] 長期走勢的季檔 %s 不是連線問題，重抓也不會好，要修解析程式" % b)
 
 
 if __name__ == "__main__":

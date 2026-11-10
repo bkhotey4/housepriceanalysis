@@ -70,8 +70,9 @@ def parse_land_csv(text):
     """一份買賣檔 → 純土地成交（全部，不分大小）。"""
     if text.startswith("﻿"):
         text = text[1:]
+    text = text.replace("\0", "")
     out = []
-    for r in csv.reader(io.StringIO(text)):
+    for r in csv.reader(io.StringIO(text), quoting=csv.QUOTE_NONE):     # 打錯的引號當普通文字，見 prices.parse_csv_text
         if not r or r[0] == "鄉鎮市區" or r[0].startswith("The villages"):
             continue
         x = reduce_land_row(r)
