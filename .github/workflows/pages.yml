@@ -20,6 +20,7 @@ permissions:
   pages: write
   id-token: write
   issues: write
+  actions: read        # 部署重試前查有沒有較新的執行
 
 concurrency:
   group: pages
@@ -80,14 +81,30 @@ jobs:
           path: data/cache/plvr_tw
           key: plvr-tw-${{ github.run_id }}
   deploy:
+    # GitHub Pages 偶爾卡在排隊或同步檔案而逾時（不是網站的問題）：失敗就等 1 分鐘再試一次。
+    # 重試前先看有沒有更新的部署已經開始，有的話交給它，免得舊版本蓋掉新版本。
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
     steps:
       - id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - id: newer
+        if: steps.deployment.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          sleep 60
+          N=$(gh run list --workflow pages.yml --limit 20 --json databaseId --jq '[.[] | select(.databaseId > ${{ github.run_id }})] | length')
+          echo "count=${N:-0}" >> "$GITHUB_OUTPUT"
+          if [ "${N:-0}" != "0" ]; then echo "已經有較新的部署，交給它，不重試"; fi
+      - id: retry
+        if: steps.deployment.outcome == 'failure' && steps.newer.outputs.count == '0'
         uses: actions/deploy-pages@v4
   cloudflare:
     # 同一份網站另外送一份到 Cloudflare Pages（網址 <專案名>.pages.dev）。
