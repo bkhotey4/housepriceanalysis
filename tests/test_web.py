@@ -964,7 +964,8 @@ class TaiwanWebTest(unittest.TestCase):
         pg.evaluate("__app.openTab('land')"); pg.wait_for_timeout(200)
         body = pg.inner_text("#tab-body")
         self.assertIn("大面積土地成交", body); self.assertIn("大安區", body)
-        self.assertNotIn("信義區", body.split("建商購地紀錄")[0])   # 預設只看住宅＋商業區，信義區的農地不列
+        self.assertIn("預售屋建案報備", body)
+        self.assertNotIn("信義區", body.split("大面積土地成交")[1].split("建商購地紀錄")[0])   # 預設只看住宅＋商業區，信義區的農地不列
         pg.click("button[data-act='landf'][data-v='all']"); pg.wait_for_timeout(100)
         self.assertIn("信義區", pg.inner_text("#tab-body"))
         pg.click("button[data-act='landf'][data-v='rc']")
