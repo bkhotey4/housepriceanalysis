@@ -4,7 +4,7 @@
 const VERSION = "v15";        // 部署時 tools/ci.sh 會換成「v15-<commit>」，每次上線自動換版，不用手動改
 const DATA = "data-v1", TX_KEEP = 6;      // 逐筆成交只留最近看過的 6 個縣市，免得手機空間一直被吃掉
 const SHELL = ["./", "index.html", "css/app.css", "js/main.js", "js/logic.js", "js/view3d.js", "js/report.js",
-               "js/search.js", "js/poi.js", "js/finance.js", "js/watch.js", "js/compare.js", "js/value.js", "js/fit.js", "js/land.js", "manifest.webmanifest", "img/icon-192.png"];
+               "js/search.js", "js/poi.js", "js/finance.js", "js/watch.js", "js/compare.js", "js/value.js", "js/fit.js", "js/land.js", "js/shops.js", "manifest.webmanifest", "img/icon-192.png"];
 // 安裝時強制向網路拿最新檔（不經瀏覽器的 HTTP 快取），免得新版 main.js 配到舊版 logic.js
 self.addEventListener("install", e => { e.waitUntil(caches.open("shell-" + VERSION).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: "reload" }))))); self.skipWaiting(); });
 self.addEventListener("activate", e => {

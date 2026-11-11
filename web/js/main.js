@@ -10,6 +10,7 @@ import { OVERPASS, refreshPois, showPoi } from "./poi.js";
 import { hideSuggestions, pinAt, renderSuggestions, search, selectSuggestion, showAddress, sugState, updateActiveSug } from "./search.js";
 import { tabValue, valState } from "./value.js";
 import { landClick, loadLand, tabLand } from "./land.js";
+import { loadShops, shopsSection } from "./shops.js";
 import { TYPE_CAT, checkWatchNews, cleanWatch, markSeen, tabWatch, watchBadge, watchChange, watchClick, watchDialog, followOpen, followSeen, isFollowing, toggleFollow } from "./watch.js";
 
 export const $ = (s, el = document) => el.querySelector(s);
@@ -974,7 +975,7 @@ function tabOverviewBody() {
     if (w) { const road = routeTimes(w)?.mins[L.ptKey(d.lat, d.lng)] != null;
       bits.push(`到${esc(w.name)}：${modeName()}約 ${minsTo(d.lat, d.lng, w)} 分鐘（${road ? ((L.ROUTE_ADJ[S.settings.mode] || L.ROUTE_ADJ.car)[0] > 1 ? "依道路路線、含尖峰" : "依道路路線") : `直線 ${L.distKm(d.lat, d.lng, w.lat, w.lng).toFixed(1)} 公里，估計`}）`); }
     if (bits.length) h += `<div class="summary">${bits.join("<br>")}</div>`;
-    h += popSection(name) + distSVG(name) + marketSection(name);
+    h += popSection(name) + shopsSection(name) + distSVG(name) + marketSection(name);
     h += `<div class="row">${reportButton()}<button class="btn small" data-act="cmp-add">加入比較</button><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/@${d.lat},${d.lng},14z">Google 地圖</a><a class="btn" target="_blank" rel="noopener" href="${FLOOD_URL}">淹水潛勢</a>${schoolLink(name)}` +
       (w ? `<a class="btn" target="_blank" rel="noopener" href="${L.routeUrl(d, w, S.settings.mode)}">通勤路線</a>` : "") + `</div>`;
     h += rentSection(name) + calcLink();
@@ -991,7 +992,7 @@ function tabOverviewBody() {
       card("fit", "🎯", "依條件找適合的區", "預算、通勤、價格穩定…自己決定比重") +
       card("duel", "⚔️", "雙區買房 PK 擂台", pair ? `${esc(pair[0].name)} vs ${esc(pair[1].name)}，或自選任兩區` : "全台任選兩區（可跨縣市）指標對決") +
       `</div></div>`;
-    h += tmSection() + popSection(name) + rentSection(name) + calcLink();
+    h += tmSection() + popSection(name) + shopsSection(name) + rentSection(name) + calcLink();
     h += isNation() ? `<p class="muted">點地圖上的柱子（或「排行」）進入一個縣市，才會下載那個縣市的逐筆成交與路段；也可以直接搜尋「台北市大安區…」這樣的地址。透天厝的單價含土地，看透天請以總價為主。</p>`
       : `<p class="muted">點地圖上的柱子看各區，或在上方搜尋地址。透天厝的單價含土地，看透天請以總價為主。</p>`;
   }
@@ -1857,7 +1858,7 @@ function enterNation(fly = true, draw = true) {
   D.county = null;
   L.setCity(D.tw.nation || "全台", "全台");
   enterSeq++;
-  D.book = D.twBook; D.rent = D.twRent; D.pop = D.twPop; D.txs = null; D.txPromise = Promise.resolve(); if (draw) { loadLong(""); loadLand(""); }
+  D.book = D.twBook; D.rent = D.twRent; D.pop = D.twPop; D.txs = null; D.txPromise = Promise.resolve(); if (draw) { loadLong(""); loadLand(""); loadShops(""); }
   D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   D.districts = D.tw.counties.map(c => ({ name: c.short, lat: c.lat, lng: c.lng, zone: c.region, code: c.code }));
   D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
@@ -1903,7 +1904,7 @@ export async function enterCounty(code, fly = true) {
   try { ({ raw: book, dd, rent, pop } = await countyData(code)); }
   catch (e) { logError(`載入${c.short}資料`, e); toast(`${c.short}的資料載入失敗，請檢查網路後再試。`); return false; }
   if (seq !== enterSeq) return false;           // 等資料時使用者又換到別的縣市了
-  D.county = c; D.rent = rent; D.pop = pop; loadLong(code); loadLand(code);
+  D.county = c; D.rent = rent; D.pop = pop; loadLong(code); loadLand(code); loadShops(code);
   D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   L.setCity(c.short, c.short);
   D.book = new L.Book(book);

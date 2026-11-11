@@ -676,6 +676,7 @@ class WebAppTest(unittest.TestCase):
                    {"type": "node", "id": 9, "lat": lat - 0.0025, "lon": lng, "tags": {"amenity": "cafe", "cuisine": "bubble_tea", "name": "手搖E"}},
                    {"type": "node", "id": 10, "lat": lat - 0.003, "lon": lng, "tags": {"amenity": "cafe", "name": "咖啡F"}},
                    {"type": "node", "id": 11, "lat": lat + 0.0025, "lon": lng, "tags": {"shop": "bakery", "name": "蛋糕G"}},
+                   {"type": "node", "id": 12, "lat": lat + 0.0012, "lon": lng, "tags": {"amenity": "restaurant", "name": "牛肉湯H"}},
                    {"type": "node", "id": 3, "lat": lat + 0.03, "lon": lng, "tags": {"amenity": "hospital", "name": "太遠的醫院"}},
                    {"type": "way", "id": 4, "center": {"lat": lat - 0.004, "lon": lng}, "tags": {"landuse": "cemetery"}},
                    # 高壓電線：兩段同名，只算一條；距離量到線上最近一點（約 110 公尺），不是線的中心
@@ -693,10 +694,12 @@ class WebAppTest(unittest.TestCase):
         text = pg.inner_text("#tab-body")
         self.assertIn("超商A", text); self.assertIn("加油站B", text); self.assertNotIn("太遠的醫院", text)
         self.assertEqual(pg.evaluate("__app.S.tab"), "poi")
-        self.assertEqual(pg.evaluate("__app.view.pois.length"), 8)
+        self.assertEqual(pg.evaluate("__app.view.pois.length"), 9)
+        self.assertIn("牛肉湯H", text); self.assertEqual(pg.evaluate("__app.S.poi.res.byCat.food.n"), 1)
         self.assertIn("甜點店D", text); self.assertEqual(pg.evaluate("__app.S.poi.res.byCat.dessert.n"), 1)
         self.assertIn("飲料店（手搖、茶飲）全部 1 家", text)
         self.assertEqual([pg.evaluate("__app.S.poi.res.byCat.%s.n" % k) for k in ("drink", "cafe", "cake")], [1, 1, 1])     # 手搖店不會算成咖啡店
+        self.assertEqual(pg.evaluate("__app.S.poi.res.byCat.cafe.n"), 1)                                           # 咖啡店不會又算成餐廳
         href = pg.get_attribute("#tab-body a[data-sweet='飲料店']", "href")
         self.assertIn("google.com/maps/search/", href); self.assertIn(",16z", href)
         self.assertIn("高壓線C", text); self.assertNotIn("鐵路、高架捷運（噪音、震動）\t1", text)      # 地下捷運不算
@@ -773,6 +776,12 @@ def _make_tw_fixture(root):
         build_population.write_web(pop)
     finally:
         build_population.WEB_TW = old_web
+    from core import shops as shopsmod              # 各區生活機能：大安區每類 10 家、便利商店 62 家；信義區每類 5 家、便利商店 20 家
+    conv = [k for k, _, _ in shopsmod.CATS].index("conv")
+    rows = {"大安區": [62 if i == conv else 10 for i in range(len(shopsmod.CATS))], "信義區": [20 if i == conv else 5 for i in range(len(shopsmod.CATS))]}
+    export_tw._dump("A/shops.json", {"source": "測試", "url": "", "built": "2026-11-11", "as_of": "2026-11-11",
+                                     "cats": [[k, label] for k, label, _ in shopsmod.CATS], "data": rows,
+                                     "total": [a + b for a, b in zip(rows["大安區"], rows["信義區"])]})
     from core import land as landmod                # 大面積土地成交：大安區 3 筆住宅區（同一段）、信義區 1 筆農地
     lands = [{"id": "LD%d" % i, "dist": d, "ym": "2026-0%d" % (i + 3), "date": "2026-0%d-10" % (i + 3), "sec": sec, "lot": "%d" % (100 + i),
               "ping": 400 + i * 50, "tw": 60000 + i * 5000, "u": 150, "zone": z, "zone_text": zt, "pieces": 1, "note": ""}
@@ -1047,6 +1056,9 @@ class TaiwanWebTest(unittest.TestCase):
         body = pg.inner_text("#tab-body")
         self.assertIn("人口與年齡結構", body); self.assertIn("308,500", body); self.assertRegex(body, r"近 4 年 \+2\.7%")
         self.assertIn("遷入比遷出多 2,000 人", body)
+        # 生活機能（店家登記）：大安區便利商店 62 家 ÷ 30.85 萬人 = 每萬人 2.0；全市 82 ÷ 51.65 萬 = 1.6 → 多 27%
+        self.assertIn("生活機能（店家登記數）", body)
+        self.assertRegex(body, r"便利商店\s+62\s+2\.0\s+多 27%")
         pg.evaluate("__app.S.settings.color = 'pop'; __app.selectDistrict('大安區')")
         self.assertIn("近 5 年人口增減", pg.inner_text("#legend"))
         open_tab(pg, "rank")

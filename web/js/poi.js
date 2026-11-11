@@ -4,7 +4,7 @@ import { $, S, logError, renderPanel, sheet, view } from "./main.js";
 
 // ------------------------------------------------------------------ 周邊（OpenStreetMap / Overpass，在使用者裝置上查詢；結果暫存在這台裝置）
 export const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter"];
-const POI_CACHE = "dth_poi_v4";      // v2：加了高壓電線、鐵路、快速道路、機場；v3：甜點、咖啡廳；v4：咖啡／飲料／甜點／蛋糕分開
+const POI_CACHE = "dth_poi_v5";      // v2：加了高壓電線、鐵路、快速道路、機場；v3：甜點、咖啡廳；v4：咖啡／飲料／甜點／蛋糕分開；v5：餐廳小吃、銀行郵局
 function poiCacheGet(k) { try { const c = JSON.parse(localStorage.getItem(POI_CACHE) || "{}"); const e = c[k]; return e && Date.now() - e.t < 30 * 864e5 ? e.d : null; } catch { return null; } }
 // 最多留 25 筆；瀏覽器空間不夠時先丟掉較舊的一半再存（不然塞滿之後，看屋清單、設定也存不進去）
 function poiCachePut(k, d) {

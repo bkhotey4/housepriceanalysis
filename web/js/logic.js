@@ -703,6 +703,11 @@ export const POI_CATS = [
   { key: "expwy", label: "高速公路、快速道路", ch: "速", color: "#8a929b", group: "bad", r: 200, geom: true,
     q: ['way["highway"~"^(motorway|trunk)$"]["tunnel"!="yes"]'], t: t => /^(motorway|trunk)$/.test(t.highway || "") && t.tunnel !== "yes" },
   { key: "airport", label: "機場（航道噪音）", ch: "機", color: "#2a78d6", group: "bad", r: 4000, q: ['nwr["aeroway"="aerodrome"]["iata"]'], t: t => t.aeroway === "aerodrome" && !!t.iata },
+  // 放在最後：同一家店先歸到上面的咖啡、飲料、甜點（例如 amenity=cafe 不會算成餐廳）；顯示時照 group 分段，不受順序影響
+  { key: "food", label: "餐廳／小吃（OpenStreetMap 收錄不全）", ch: "食", color: "#d2601f", group: "good", r: 500,
+    q: ['nwr["amenity"~"^(restaurant|fast_food|food_court)$"]'], t: t => /^(restaurant|fast_food|food_court)$/.test(t.amenity || "") },
+  { key: "bank", label: "銀行／郵局", ch: "銀", color: "#4a3aa7", group: "good", r: 1000,
+    q: ['nwr["amenity"~"^(bank|post_office)$"]'], t: t => /^(bank|post_office)$/.test(t.amenity || "") },
 ];
 export const POI_RADIUS = 2000;      // 一般設施的查詢上限；機場另外看 4 公里
 export function poiQuery(lat, lng, group = null) {
