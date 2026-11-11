@@ -51,6 +51,7 @@ web/data/tw/*/land.json
 web/data/tw/*/buildcase.json
 web/data/tw/*/shops.json
 web/data/tw/shops.json
+web/data/tw/*/plans.json
 
 # 錯誤紀錄：桌面版的留在本機；GitHub Actions 的執行紀錄只存 logs/ci/latest.md 與 history
 logs/app_errors.log*

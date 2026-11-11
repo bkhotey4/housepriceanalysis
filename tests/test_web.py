@@ -782,6 +782,12 @@ def _make_tw_fixture(root):
     export_tw._dump("A/shops.json", {"source": "測試", "url": "", "built": "2026-11-11", "as_of": "2026-11-11",
                                      "cats": [[k, label] for k, label, _ in shopsmod.CATS], "data": rows,
                                      "total": [a + b for a, b in zip(rows["大安區"], rows["信義區"])]})
+    # 規劃中的公共建設（採購公告）：大安區一筆可行性評估、全市一筆新建工程
+    export_tw._dump("A/plans.json", {"built": "2026-11-11", "through": "20261110", "items": [
+        {"key": "1|A", "title": "大安區運動中心可行性評估", "unit": "臺北市政府體育局", "county": "A", "district": "大安區", "stage": "可行性評估",
+         "works": False, "status": "招標中", "first": "20261101", "last": "20261101", "budget_wan": 350.0, "award_wan": None, "winner": "", "url": "https://example.com/a"},
+        {"key": "1|B", "title": "臺北捷運新線統包工程", "unit": "臺北市政府捷運工程局", "county": "A", "district": "", "stage": "新建工程",
+         "works": True, "status": "已決標", "first": "20261001", "last": "20261105", "budget_wan": 500000.0, "award_wan": 480000.0, "winner": "某營造", "url": "https://example.com/b"}]})
     from core import land as landmod                # 大面積土地成交：大安區 3 筆住宅區（同一段）、信義區 1 筆農地
     lands = [{"id": "LD%d" % i, "dist": d, "ym": "2026-0%d" % (i + 3), "date": "2026-0%d-10" % (i + 3), "sec": sec, "lot": "%d" % (100 + i),
               "ping": 400 + i * 50, "tw": 60000 + i * 5000, "u": 150, "zone": z, "zone_text": zt, "pieces": 1, "note": ""}
@@ -1059,6 +1065,17 @@ class TaiwanWebTest(unittest.TestCase):
         # 生活機能（店家登記）：大安區便利商店 62 家 ÷ 30.85 萬人 = 每萬人 2.0；全市 82 ÷ 51.65 萬 = 1.6 → 多 27%
         self.assertIn("生活機能（店家登記數）", body)
         self.assertRegex(body, r"便利商店\s+62\s+2\.0\s+多 27%")
+        # 規劃中的公共建設：全市兩筆、可依階段篩選；進到大安區只剩那一筆
+        pg.evaluate("__app.S.tab = 'projects'; __app.selectDistrict(__app.L.CITY)")
+        body = pg.inner_text("#tab-body")
+        self.assertIn("規劃中的公共建設（政府標案）", body); self.assertIn("臺北捷運新線統包工程", body); self.assertIn("決標 48 億", body)
+        pg.click("[data-plan-stage='可行性評估']")
+        body = pg.inner_text("#tab-body")
+        self.assertIn("大安區運動中心可行性評估", body); self.assertNotIn("臺北捷運新線統包工程", body)
+        pg.evaluate("__app.S.planStage = ''; __app.selectDistrict('大安區')")
+        body = pg.inner_text("#tab-body")
+        self.assertIn("大安區運動中心可行性評估", body); self.assertNotIn("臺北捷運新線統包工程", body)
+        pg.evaluate("__app.S.tab = 'overview'")
         pg.evaluate("__app.S.settings.color = 'pop'; __app.selectDistrict('大安區')")
         self.assertIn("近 5 年人口增減", pg.inner_text("#legend"))
         open_tab(pg, "rank")

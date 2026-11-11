@@ -11,6 +11,7 @@ import { hideSuggestions, pinAt, renderSuggestions, search, selectSuggestion, sh
 import { tabValue, valState } from "./value.js";
 import { landClick, loadLand, tabLand } from "./land.js";
 import { loadShops, shopsSection } from "./shops.js";
+import { loadPlans, plansSection } from "./plans.js";
 import { TYPE_CAT, checkWatchNews, cleanWatch, markSeen, tabWatch, watchBadge, watchChange, watchClick, watchDialog, followOpen, followSeen, isFollowing, toggleFollow } from "./watch.js";
 
 export const $ = (s, el = document) => el.querySelector(s);
@@ -1214,11 +1215,11 @@ function tabProjects() {
   const yMin = new Date().getFullYear();
   let h = `<div class="year"><span>建設年份</span><input type="range" id="year" min="${yMin}" max="${yMin + 9}" value="${S.year}"><b id="year-v">${S.year} 年</b></div>`;
   h += `<p class="muted">拉到未來的年份，看那時候哪些建設完工。年份依報導與官方說法整理，常會延後。</p>`;
-  if (!items.length) return h + `<p class="empty">這一區沒有收錄有時程的重大建設。</p>` + openingsSection();
+  if (!items.length) return h + `<p class="empty">這一區沒有收錄有時程的重大建設。</p>` + plansSection() + openingsSection();
   const rows = items.map(it => ({ it, st: L.buildState(it.build, S.year, D.intelYear) })).sort((a, b) => (b.it.impact_level || 0) - (a.it.impact_level || 0));
   h += `<table class="list"><tbody>`;
   for (const { it, st } of rows) h += `<tr class="click" data-proj="${it.id}"><td><span class="pill ${stateClass(st)}">${st}</span>${esc(it.name)}<div class="muted">${esc(it.district || "")}｜${esc(it.build.note || "")}</div></td></tr>`;
-  return h + "</tbody></table>" + openingsSection();
+  return h + "</tbody></table>" + plansSection() + openingsSection();
 }
 // 即將開幕的店（data/openings.json）：連鎖餐飲、量販、商場等，依目前範圍（全台／縣市／區）篩選；已開幕的只留最近半年
 const OPEN_ORDER = ["已開幕", "施工中", "徵才中", "已取得建照", "申請建照", "已確認", "傳聞", "取消"];
@@ -1858,7 +1859,7 @@ function enterNation(fly = true, draw = true) {
   D.county = null;
   L.setCity(D.tw.nation || "全台", "全台");
   enterSeq++;
-  D.book = D.twBook; D.rent = D.twRent; D.pop = D.twPop; D.txs = null; D.txPromise = Promise.resolve(); if (draw) { loadLong(""); loadLand(""); loadShops(""); }
+  D.book = D.twBook; D.rent = D.twRent; D.pop = D.twPop; D.txs = null; D.txPromise = Promise.resolve(); if (draw) { loadLong(""); loadLand(""); loadShops(""); loadPlans(""); }
   D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   D.districts = D.tw.counties.map(c => ({ name: c.short, lat: c.lat, lng: c.lng, zone: c.region, code: c.code }));
   D.dmap = Object.fromEntries(D.districts.map(d => [d.name, d]));
@@ -1904,7 +1905,7 @@ export async function enterCounty(code, fly = true) {
   try { ({ raw: book, dd, rent, pop } = await countyData(code)); }
   catch (e) { logError(`載入${c.short}資料`, e); toast(`${c.short}的資料載入失敗，請檢查網路後再試。`); return false; }
   if (seq !== enterSeq) return false;           // 等資料時使用者又換到別的縣市了
-  D.county = c; D.rent = rent; D.pop = pop; loadLong(code); loadLand(code); loadShops(code);
+  D.county = c; D.rent = rent; D.pop = pop; loadLong(code); loadLand(code); loadShops(code); loadPlans(code);
   D.roadCatalog = []; D.cancel = null; S.watchNews = {};
   L.setCity(c.short, c.short);
   D.book = new L.Book(book);
