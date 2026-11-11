@@ -12,6 +12,7 @@ import re
 import unicodedata
 import zipfile
 
+from .prices import road_of
 from .taiwan import COUNTIES, norm
 
 URL = "https://eip.fia.gov.tw/data/BGMOPEN1.zip"
@@ -69,8 +70,20 @@ def as_of(cell):
     return "20%s-%02d-%02d" % (y, _MON.get(mon, 0), int(d))
 
 
-def count(lines, towns):
-    """逐行 CSV 文字 → ({縣市代碼: {區: [各類家數]}}, 資料日期, 對不上區的筆數)"""
+_CN = "零一二三四五六七八九十"
+
+
+def road_name(door):
+    """門牌（已去掉縣市、區、里鄰）→ 路段名稱，和實價登錄的路段同一套規則（core/prices.road_of）。
+    稅籍地址多半寫「西門路2段」，實價登錄是「西門路二段」：先把段數換成國字。取不出來回傳 None。"""
+    door = re.sub(r"(\d{1,2})段", lambda m: (_CN[int(m.group(1))] if int(m.group(1)) <= 10 else "十" + _CN[int(m.group(1)) - 10]) + "段", door)
+    r = road_of(door, strip=False)
+    return r if r and r != "其他" and re.search("(路|街|大道|段)$", r) else None
+
+
+def count(lines, towns, roads=None):
+    """逐行 CSV 文字 → ({縣市代碼: {區: [各類家數]}}, 資料日期, 對不上區的筆數)
+    roads 給一個 dict 就順便填各路段的家數：{縣市代碼: {區: {路段: [各類家數]}}}"""
     seen, out, date, miss = set(), {}, None, 0
     for row in csv.reader(lines):
         if not row or row[0] == "營業地址":
@@ -93,11 +106,15 @@ def count(lines, towns):
             continue
         seen.add(key)
         out.setdefault(code, {}).setdefault(town, [0] * len(CATS))[k] += 1
+        if roads is not None:
+            rd = road_name(door)
+            if rd:
+                roads.setdefault(code, {}).setdefault(town, {}).setdefault(rd, [0] * len(CATS))[k] += 1
     return out, date, miss
 
 
-def parse_zip(data, towns):
+def parse_zip(data, towns, roads=None):
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         name = next(n for n in z.namelist() if n.lower().endswith(".csv"))
         with z.open(name) as f:
-            return count(io.TextIOWrapper(f, encoding="utf-8-sig", errors="replace", newline=""), towns)
+            return count(io.TextIOWrapper(f, encoding="utf-8-sig", errors="replace", newline=""), towns, roads)

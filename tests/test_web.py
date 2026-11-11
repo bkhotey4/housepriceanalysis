@@ -781,7 +781,8 @@ def _make_tw_fixture(root):
     rows = {"大安區": [62 if i == conv else 10 for i in range(len(shopsmod.CATS))], "信義區": [20 if i == conv else 5 for i in range(len(shopsmod.CATS))]}
     export_tw._dump("A/shops.json", {"source": "測試", "url": "", "built": "2026-11-11", "as_of": "2026-11-11",
                                      "cats": [[k, label] for k, label, _ in shopsmod.CATS], "data": rows,
-                                     "total": [a + b for a, b in zip(rows["大安區"], rows["信義區"])]})
+                                     "total": [a + b for a, b in zip(rows["大安區"], rows["信義區"])],
+                                     "roads": {"大安區": {"信義路三段": [3, 4, 5] + [7 if i == conv else 0 for i in range(3, len(shopsmod.CATS))]}}})
     # 規劃中的公共建設（採購公告）：大安區一筆可行性評估、全市一筆新建工程
     export_tw._dump("A/plans.json", {"built": "2026-11-11", "through": "20261110", "items": [
         {"key": "1|A", "title": "大安區運動中心可行性評估", "unit": "臺北市政府體育局", "county": "A", "district": "大安區", "stage": "可行性評估",
@@ -1065,6 +1066,14 @@ class TaiwanWebTest(unittest.TestCase):
         # 生活機能（店家登記）：大安區便利商店 62 家 ÷ 30.85 萬人 = 每萬人 2.0；全市 82 ÷ 51.65 萬 = 1.6 → 多 27%
         self.assertIn("生活機能（店家登記數）", body)
         self.assertRegex(body, r"便利商店\s+62\s+2\.0\s+多 27%")
+        # 路段：路段分頁有「餐飲」欄（早餐＋小吃＋餐廳＝12）；選了這條路，成交分頁有店家摘要
+        pg.evaluate("__app.S.tab = 'roads'; __app.selectDistrict('大安區')")
+        self.assertRegex(pg.inner_text("#tab-body tr[data-road='信義路三段']"), r"	12$")
+        pg.click("#tab-body tr[data-road='信義路三段']"); pg.wait_for_timeout(300)
+        body = pg.inner_text("#tab-body")
+        self.assertIn("信義路三段上登記的店家：餐飲 12 家（早餐 3、小吃 4、餐廳 5）", body); self.assertIn("便利商店 7", body)
+        pg.evaluate("__app.S.tab = 'overview'; __app.selectDistrict('大安區')")
+        body = pg.inner_text("#tab-body")
         # 規劃中的公共建設：全市兩筆、可依階段篩選；進到大安區只剩那一筆
         pg.evaluate("__app.S.tab = 'projects'; __app.selectDistrict(__app.L.CITY)")
         body = pg.inner_text("#tab-body")

@@ -57,6 +57,15 @@ class ShopsTest(unittest.TestCase):
         self.assertEqual(east[idx("rest")], 0)
         self.assertEqual(out["A"]["大安區"][idx("cafe")], 1)
 
+    def test_roads(self):
+        self.assertEqual(shops.road_name("西門路2段123號"), "西門路二段")        # 稅籍寫阿拉伯數字，實價登錄是國字
+        self.assertEqual(shops.road_name("成功路172巷50號"), "成功路")
+        self.assertIsNone(shops.road_name("育樂市場內"))
+        roads = {}
+        shops.parse_zip(make_zip(), TOWNS, roads)
+        self.assertEqual(roads["D"]["永康區"]["中華路"][idx("breakfast")], 1)
+        self.assertEqual(roads["D"]["東區"]["崇學路"][idx("eat")], 1)
+
     def test_build_and_cache_fallback(self):
         tmp = tempfile.mkdtemp()
         old = (build_shops.WEB_TW, plvr_tw.CACHE, plvr.fetch, build_shops.taiwan.load_towns)
@@ -70,6 +79,7 @@ class ShopsTest(unittest.TestCase):
                 out = json.load(f)
             self.assertEqual(out["as_of"], "2026-11-11")
             self.assertEqual(out["total"][idx("breakfast")], 1)
+            self.assertEqual(out["roads"]["永康區"]["中華路"][idx("breakfast")], 1)
             with open(os.path.join(build_shops.WEB_TW, "shops.json"), encoding="utf-8") as f:
                 self.assertEqual(sorted(json.load(f)["data"]), ["台北市", "台南市"])
             os.remove(path)

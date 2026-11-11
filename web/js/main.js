@@ -10,7 +10,7 @@ import { OVERPASS, refreshPois, showPoi } from "./poi.js";
 import { hideSuggestions, pinAt, renderSuggestions, search, selectSuggestion, showAddress, sugState, updateActiveSug } from "./search.js";
 import { tabValue, valState } from "./value.js";
 import { landClick, loadLand, tabLand } from "./land.js";
-import { loadShops, shopsSection } from "./shops.js";
+import { loadShops, roadEat, roadShopsLine, shopsSection } from "./shops.js";
 import { loadPlans, plansSection } from "./plans.js";
 import { TYPE_CAT, checkWatchNews, cleanWatch, markSeen, tabWatch, watchBadge, watchChange, watchClick, watchDialog, followOpen, followSeen, isFollowing, toggleFollow } from "./watch.js";
 
@@ -1074,13 +1074,13 @@ function tabRoads() {
     if (kw) list = list.filter(r => r.name.includes(kw));
     note = `${esc(S.current)}近一年有成交的${S.cat === "presale" ? "建案" : "路段"} ${list.length} 個（灰字不到 3 件），點一列看逐筆成交並在地圖上標出來。`;
   }
-  const city = S.current === L.CITY;
+  const city = S.current === L.CITY, eat = S.cat !== "presale" && D.shops && D.shops.roads;     // 餐飲欄：稅籍登記的店家數
   let h = `<div class="row"><input type="search" id="road-kw" placeholder="路名，例如：中山路" value="${esc(kw)}"></div><p class="muted">${note}</p>`;
   if (!list.length) return h;
-  h += `<table class="list"><thead><tr>${city ? "<th>區</th>" : ""}<th>${S.cat === "presale" ? "建案" : "路段"}</th><th class="r">件</th><th class="r">萬/坪</th><th class="r">總價</th><th class="r">最近</th></tr></thead><tbody>`;
+  h += `<table class="list"><thead><tr>${city ? "<th>區</th>" : ""}<th>${S.cat === "presale" ? "建案" : "路段"}</th><th class="r">件</th><th class="r">萬/坪</th><th class="r">總價</th><th class="r">最近</th>${eat ? `<th class="r">餐飲</th>` : ""}</tr></thead><tbody>`;
   for (const r of list.slice(0, 300)) {
     h += `<tr class="click${r.low ? " low" : ""}${r.name === S.roadFilter && r.dist === S.current ? " sel" : ""}" data-road="${esc(r.name)}" data-rdist="${esc(r.dist)}">` +
-      (city ? `<td>${esc(r.dist)}</td>` : "") + `<td>${esc(r.name)}${r.low ? "*" : ""}</td><td class="r">${r.n}</td><td class="r">${r.u.toFixed(1)}</td><td class="r">${L.fmtNum(r.t)}</td><td class="r">${r.last.slice(2, 7).replace("-", "/")}</td></tr>`;
+      (city ? `<td>${esc(r.dist)}</td>` : "") + `<td>${esc(r.name)}${r.low ? "*" : ""}</td><td class="r">${r.n}</td><td class="r">${r.u.toFixed(1)}</td><td class="r">${L.fmtNum(r.t)}</td><td class="r">${r.last.slice(2, 7).replace("-", "/")}</td>${eat ? `<td class="r">${roadEat(r.dist, r.name) ?? "—"}</td>` : ""}</tr>`;
   }
   return h + "</tbody></table>";
 }
@@ -1193,6 +1193,7 @@ function tabTx() {
     h += `<p class="muted">${esc(scope)}｜${L.CAT_LABEL[S.cat]}｜共 ${ranked.length} 筆，列出最近 ${Math.min(300, ranked.length)} 筆（已排除親友等特殊交易）。點一列在地圖上標出大概位置。</p>`;
   }
   if (S.roadFilter) h += `<div class="row"><button class="btn small" data-act="clear-road">顯示全區</button></div>`;
+  if (S.roadFilter && S.cat !== "presale" && S.current !== L.CITY) h += roadShopsLine(S.current, S.roadFilter);
   const f = S.txf || {};
   h += `<div class="row tx-filter"><span class="muted">格局</span><div class="seg">` +
     [["", "不限"], ["1", "1房"], ["2", "2房"], ["3", "3房"], ["4", "4房+"]].map(([v, t]) => `<button data-act="txf" data-k="rm" data-v="${v}" aria-checked="${(f.rm || "") === v}">${t}</button>`).join("") +

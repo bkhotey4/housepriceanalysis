@@ -25,6 +25,26 @@ function basePop() {
 }
 const per10k = (n, pop) => pop ? n / pop * 1e4 : null;
 const fmt = v => v == null ? "—" : v >= 10 ? v.toFixed(0) : v.toFixed(1);
+// 路段的店家數（稅籍登記，門牌在這條路上的）：沒有資料回傳 null
+export function roadShops(dist, road) {
+  const r = D.shops && D.shops.roads && D.shops.roads[dist];
+  return r ? r[road] || null : null;
+}
+// 路段分頁的「餐飲」欄：早餐＋小吃＋餐廳
+export function roadEat(dist, road) {
+  const r = roadShops(dist, road);
+  return r ? r[0] + r[1] + r[2] : (D.shops && D.shops.roads && D.shops.roads[dist] ? 0 : null);
+}
+// 成交分頁選了一條路時的一行摘要：「這條路上登記的店家：餐飲 32 家（早餐 6…）、便利商店 2…」
+export function roadShopsLine(dist, road) {
+  if (!D.shops || !D.shops.roads || !D.shops.roads[dist] || !road) return "";
+  const r = roadShops(dist, road);
+  if (!r) return `<p class="muted">稅籍登記裡門牌在${esc(road)}的店家：沒有（只算門牌在這條路上的，巷弄裡另有路名的不算）。</p>`;
+  const parts = D.shops.cats.map(([, label], i) => [label.replace(/（.*）/, ""), r[i]]).slice(3).filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1]).slice(0, 6).map(([l, n]) => `${esc(l)} ${n}`);
+  return `<div class="summary">${esc(road)}上登記的店家：<b>餐飲 ${r[0] + r[1] + r[2]} 家</b>（早餐 ${r[0]}、小吃 ${r[1]}、餐廳 ${r[2]}）` +
+    (parts.length ? `<br>${parts.join("、")}` : "") + `<div class="muted">財政部稅籍登記，門牌在這條路上的（含巷弄）；有登記不一定還在營業。</div></div>`;
+}
 // 餐飲＝早餐＋小吃＋餐廳（前三類）
 export function shopsSection(name) {
   const sd = D.shops;

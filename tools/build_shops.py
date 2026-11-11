@@ -3,7 +3,8 @@
     python tools/build_shops.py
 
 輸出：
-    web/data/tw/<代碼>/shops.json   {"source", "url", "built", "as_of", "cats": [[鍵, 名稱], …], "data": {區: [各類家數]}, "total": [縣市合計]}
+    web/data/tw/<代碼>/shops.json   {"source", "url", "built", "as_of", "cats": [[鍵, 名稱], …], "data": {區: [各類家數]}, "total": [縣市合計],
+                                     "roads": {區: {路段: [各類家數]}}}（路段名稱和實價登錄同一套規則，路段分頁與成交分頁用）
     web/data/tw/shops.json          全台：data 以縣市名稱（台南市…）為鍵
 zip 每天更新、約 66 MB；抓不到就用 data/cache/plvr_tw/shops.zip（上次成功的那份，跟著下載快取保存）。
 """
@@ -63,7 +64,8 @@ def main():
         print("[提醒] 稅籍登記資料抓不到，也沒有上次的檔案，網站這次不會有各區生活機能統計")
         return 0
     towns = {c: [t["name"] for t in v] for c, v in taiwan.load_towns().items()}
-    counts, as_of, miss = shops.parse_zip(z, towns)
+    roads = {}
+    counts, as_of, miss = shops.parse_zip(z, towns, roads)
     meta = {"source": SOURCE, "url": shops.URL, "built": today.isoformat(), "as_of": as_of or fetched,
             "cats": [[k, label] for k, label, _ in shops.CATS]}
     nation = {}
@@ -72,7 +74,7 @@ def main():
         if not data:
             continue
         total = [sum(v[i] for v in data.values()) for i in range(len(shops.CATS))]
-        write(os.path.join(WEB_TW, c["code"], "shops.json"), dict(meta, data=data, total=total))
+        write(os.path.join(WEB_TW, c["code"], "shops.json"), dict(meta, data=data, total=total, roads=roads.get(c["code"], {})))
         nation[c["short"]] = total
         print("%s：%d 區，餐飲 %d 家、便利商店 %d 家" % (c["short"], len(data), sum(total[:3]), total[6]))
     write(os.path.join(WEB_TW, "shops.json"), dict(meta, data=nation, total=[sum(v[i] for v in nation.values()) for i in range(len(shops.CATS))]))
