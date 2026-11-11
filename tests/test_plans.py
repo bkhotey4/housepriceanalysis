@@ -41,6 +41,8 @@ class PlansTest(unittest.TestCase):
         self.assertFalse(plans.candidate(rec("三角公園無障礙公廁新建工程")))                          # 小設施
         self.assertFalse(plans.candidate(rec("國道1號匝道可行性評估", typ="無法決標公告")))           # 流標不收
         self.assertFalse(plans.candidate(rec("辦公室影印機採購")))
+        self.assertFalse(plans.candidate(rec("2027月津港燈節燈區及光環境規劃設計執行案")))
+        self.assertFalse(plans.candidate(rec("堤防新建工程碳足跡盤查作業")))
         self.assertEqual(plans.stage_of("縣道200線道路拓建工程環境影響評估委託技術服務"), "環評")
 
     def test_item(self):

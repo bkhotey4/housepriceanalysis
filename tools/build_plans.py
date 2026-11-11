@@ -121,7 +121,8 @@ def run(state, today, towns, days=None, sleep=time.sleep):
             new.append(it)
         sleep(PAUSE)
     cutoff = (today - datetime.timedelta(days=KEEP_DAYS)).strftime("%Y%m%d")
-    items = [it for it in plans.merge(state.get("items", []), new) if it["last"] >= cutoff]
+    # 篩選條件改過時，已經收的也照新條件重篩（例如後來才排除的燈節、碳足跡盤查）
+    items = [it for it in plans.merge(state.get("items", []), new) if it["last"] >= cutoff and not plans.EXCLUDE.search(it["title"])]
     st = {"through": through, "missing": sorted(set(missing)), "pending": pending[-300:], "items": items}
     return st, {"days": len(todo), "ok": ok, "missing": missing, "cands": len(seen), "new": len(new), "pending": len(pending)}
 
