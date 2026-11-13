@@ -33,6 +33,51 @@ export async function searchSweets(sw) {
   return true;
 }
 
+// ------------------------------------------------------------------ 最近搜尋紀錄（Google Maps 風格）
+const RECENT_KEY = "house_recent_searches_v1";
+export function getRecentSearches() {
+  try {
+    const s = localStorage.getItem(RECENT_KEY);
+    return s ? JSON.parse(s) : [];
+  } catch (_) { return []; }
+}
+export function saveRecentSearch(item) {
+  if (!item || !item.title) return;
+  try {
+    const list = getRecentSearches().filter(x => x.title !== item.title);
+    list.unshift({
+      type: item.type,
+      title: item.title,
+      sub: item.sub,
+      badge: item.badge,
+      icon: item.icon,
+      name: item.name,
+      countyCode: item.countyCode,
+      road: item.road,
+      dist: item.dist,
+      st: item.st,
+      line: item.line,
+      lm: item.lm ? { id: item.lm.id, name: item.lm.name, county: item.lm.county } : null,
+      school: item.school ? { id: item.school.id, name: item.school.name, county: item.school.county } : null,
+      pr: item.pr ? { id: item.pr.id, name: item.pr.name } : null,
+      addr: item.addr
+    });
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 5)));
+  } catch (_) {}
+}
+export function removeRecentSearch(idx) {
+  try {
+    const list = getRecentSearches();
+    list.splice(idx, 1);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+  } catch (_) {}
+}
+export function clearRecentSearches() {
+  try {
+    localStorage.removeItem(RECENT_KEY);
+  } catch (_) {}
+}
+
 // ------------------------------------------------------------------ 即時自動補全與搜尋提示（Google Maps 風格）
 export const sugState = { index: -1, list: [], timer: null };      // 目前的提示清單、鍵盤選到第幾個、輸入防抖計時器
 
@@ -89,9 +134,34 @@ export function renderSuggestions(query) {
 
   if (!query) {
     const popular = L.popularLandmarks(data, { currentDistrict: S.current, cityName: L.CITY, limit: 8 });
-    if (!popular.length) { hideSuggestions(); return; }
-    sugState.list = popular;
+    const recent = getRecentSearches();
+    if (!popular.length && !recent.length) { hideSuggestions(); return; }
+    sugState.list = [...recent, ...popular];
     sugState.index = -1;
+
+    let recentHtml = "";
+    if (recent.length) {
+      recentHtml = `
+        <div class="sug-section">
+          <div class="sug-header-row">
+            <div class="sug-header">🕒 最近搜尋</div>
+            <button type="button" class="sug-clear-all" data-act="clear-recent" aria-label="全部清除">全部清除</button>
+          </div>
+          <ul class="sug-list" role="listbox">
+            ${recent.map((item, idx) => `
+              <li class="sug-item sug-item-recent" role="option" data-idx="${idx}">
+                <span class="sug-icon" aria-hidden="true">${item.icon || "🕒"}</span>
+                <div class="sug-main">
+                  <div class="sug-title">${esc(item.title)}<span class="sug-badge">${item.badge || "最近"}</span></div>
+                  <div class="sug-sub">${esc(item.sub || "")}</div>
+                </div>
+                <button type="button" class="sug-remove-btn" data-act="del-recent" data-del-idx="${idx}" aria-label="刪除此紀錄" title="刪除">✕</button>
+              </li>
+            `).join("")}
+          </ul>
+        </div>
+      `;
+    }
 
     const chipsHtml = L.LANDMARK_CATEGORIES.map(c => `
       <button type="button" class="sug-chip" data-kw="${esc(c.kw)}">
@@ -100,6 +170,7 @@ export function renderSuggestions(query) {
     `).join("");
 
     sug.innerHTML = `
+      ${recentHtml}
       <div class="sug-section">
         <div class="sug-header">📍 熱門生活地標捷徑</div>
         <div class="sug-chips">${chipsHtml}</div>
@@ -107,7 +178,9 @@ export function renderSuggestions(query) {
       <div class="sug-section">
         <div class="sug-section-title">熱門推薦地標</div>
         <ul class="sug-list" role="listbox">
-          ${popular.map((item, idx) => `
+          ${popular.map((item, pIdx) => {
+            const idx = recent.length + pIdx;
+            return `
             <li class="sug-item" role="option" data-idx="${idx}">
               <span class="sug-icon" aria-hidden="true">${item.icon}</span>
               <div class="sug-main">
@@ -115,7 +188,7 @@ export function renderSuggestions(query) {
                 <div class="sug-sub">${esc(item.sub)}</div>
               </div>
             </li>
-          `).join("")}
+          `;}).join("")}
         </ul>
       </div>
     `;
@@ -141,6 +214,7 @@ export function renderSuggestions(query) {
 
 export async function selectSuggestion(item) {
   if (!item) return;
+  saveRecentSearch(item);
   hideSuggestions();
   $("#q").value = item.title;
   $("#btn-clear").hidden = false;
@@ -256,7 +330,10 @@ export async function search(text) {
   {
     const names = D.districts.map(d => d.name), nt = L.normTw(text);
     const only = names.find(n => L.normTw(n) === nt || L.normTw(n).replace(/[區鄉鎮市]$/, "") === nt);
-    if (only) { selectDistrict(only); toast(`已移到${only}`); sheet("peek"); return "district"; }
+    if (only) {
+      saveRecentSearch({ type: "district", title: only, name: only, icon: "📍", badge: "行政區", sub: `${D.county ? D.county.name : "台南市"} · 行政區` });
+      selectDistrict(only); toast(`已移到${only}`); sheet("peek"); return "district";
+    }
   }
   // 先以完整關鍵字尋找地標與學區（避免被 parseAddress 拆掉縣市名或路段名導致誤判為其他同名地點）
   // 看起來像地址（有路、街、門牌）時只認完整的地標名稱：「中華東路一段101號」不是台北101、「崇明路」不是崇明國中

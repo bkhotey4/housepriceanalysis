@@ -1443,6 +1443,8 @@ export function parseSweetQuery(text, distNames = []) {
 export function quickSuggest(rawText, data, options = {}) {
   const query = normSearchQuery(rawText);
   if (!query) return [];
+  const tokens = query.split(/\s+/).filter(Boolean);
+  const isMulti = tokens.length > 1;
   const limit = options.limit || 8;
   const currentDist = options.currentDistrict || "";
   const cityName = options.cityName || CITY || "台南市";
@@ -1478,7 +1480,8 @@ export function quickSuggest(rawText, data, options = {}) {
     let score = 0;
     if (dName === query || dStem === query) score = 1000;
     else if (dName.startsWith(query) || dStem.startsWith(query)) score = 700;
-    else if (dName.includes(query) || query.includes(dStem)) score = 400;
+    else if (!isMulti && (dName.includes(query) || query.includes(dStem))) score = 400;
+    else if (isMulti && (tokens.includes(dName) || tokens.includes(dStem))) score = 350;
     if (score > 0) {
       if (d.name === currentDist) score += 120;
       results.push({
@@ -1551,11 +1554,17 @@ export function quickSuggest(rawText, data, options = {}) {
   // 4. 明星學區比對 (Schools)
   for (const sc of schools) {
     const sName = normTw(sc.name).toLowerCase();
+    const sDist = normTw(sc.district || "").toLowerCase();
+    const sType = normTw(sc.type || "").toLowerCase();
+    const sFull = `${sName} ${sDist} ${sType}`;
     let score = 0;
     if (sName === query) score = 960;
     else if (sName.startsWith(query)) score = 660;
     else if (sName.includes(query)) score = 450;
-    else if (query === "學區" || query === "明星學區" || (query.length >= 2 && "明星學區".includes(query))) {
+    else if (isMulti && tokens.every(tk => sFull.includes(tk))) {
+      score = 750;
+      if (sName.includes(tokens.join(""))) score += 100;
+    } else if (query === "學區" || query === "明星學區" || (query.length >= 2 && "明星學區".includes(query))) {
       score = 420;
     } else {
       for (const al of SEARCH_ALIASES) {
@@ -1584,13 +1593,23 @@ export function quickSuggest(rawText, data, options = {}) {
     const lName = normTw(lm.name).toLowerCase();
     const lNote = normTw(lm.note || "").toLowerCase();
     const lCat = (lm.category || "").toLowerCase();
+    const lDist = normTw(lm.district || "").toLowerCase();
     const meta = landmarkMeta(lm);
+    const lBadge = normTw(meta.badge || "").toLowerCase();
+    const co = COUNTIES.find(x => x.code === lm.county);
+    const coName = co ? normTw(co.name).toLowerCase() : "";
+    const coShort = co ? normTw(co.short).toLowerCase() : "";
+    const lFull = `${lName} ${lDist} ${lNote} ${lBadge} ${coName} ${coShort}`;
     let score = 0;
 
     if (lName === query) score = 950;
     else if (lName.startsWith(query)) score = 680;
     else if (lName.includes(query)) score = 420;
     else if (lNote.includes(query)) score = 340;
+    else if (isMulti && tokens.every(tk => lFull.includes(tk))) {
+      score = 720;
+      if (lName.includes(tokens.join(""))) score += 100;
+    }
     // 別名（「台大」→國立臺灣大學）比「說明文字剛好提到」更準：說明有提到時也要檢查別名，取比較高的分數
     if (score < 620) {
       for (const al of SEARCH_ALIASES) {
@@ -1646,11 +1665,15 @@ export function quickSuggest(rawText, data, options = {}) {
   for (const pr of intel) {
     if (!pr.build && !pr.name) continue;
     const pName = normTw(pr.name).toLowerCase();
+    const pDist = normTw(pr.district || "").toLowerCase();
+    const pFull = `${pName} ${pDist}`;
     let score = 0;
     if (pName === query) score = 890;
     else if (pName.startsWith(query)) score = 590;
     else if (pName.includes(query)) score = 380;
-    else {
+    else if (isMulti && tokens.every(tk => pFull.includes(tk))) {
+      score = 680;
+    } else {
       for (const al of SEARCH_ALIASES) {
         if (pName.includes(normTw(al.target).toLowerCase()) && aliasMatch(al, query, pr.county, options.county)) {
           score = 560;
@@ -1676,16 +1699,35 @@ export function quickSuggest(rawText, data, options = {}) {
   // 7. 路段比對 (Roads)
   for (const r of roadCatalog) {
     const rName = normSearchQuery(r.road);
-    let score = 0;
+    const rDists = r.dists.map(d => normTw(d).toLowerCase());
+    let score = 0, preferredDist = r.dists[0];
+
     if (rName === query) score = 860;
     else if (rName.startsWith(query)) score = 570;
     else if (rName.includes(query)) score = 330;
+    else if (parsed.road && (rName === parsed.road || rName.startsWith(parsed.road) || rName.includes(parsed.road))) {
+      if (!parsed.district || r.dists.includes(parsed.district)) {
+        score = 880;
+        if (parsed.district) preferredDist = parsed.district;
+      }
+    } else if (isMulti) {
+      const roadTokens = tokens.filter(tk => rName.includes(tk));
+      const distTokens = tokens.filter(tk => rDists.some(d => d.includes(tk) || tk.includes(d.replace(/區|鄉|鎮|市$/, ""))));
+      if (roadTokens.length && (roadTokens.length + distTokens.length >= tokens.length)) {
+        score = 850;
+        const matchD = r.dists.find(d => distTokens.some(dt => normTw(d).includes(dt)));
+        if (matchD) preferredDist = matchD;
+      }
+    }
+
     if (score > 0) {
       const inCurrent = r.dists.includes(currentDist);
-      if (inCurrent) score += 140;
+      if (inCurrent && preferredDist === r.dists[0]) {
+        score += 140;
+        preferredDist = currentDist;
+      }
       score += Math.min(80, r.n);
-      const preferredDist = inCurrent ? currentDist : r.dists[0];
-      const distLabel = r.dists.length === 1 ? r.dists[0] : inCurrent ? `${currentDist}（跨${r.dists.length}區）` : r.dists.join("、");
+      const distLabel = r.dists.length === 1 ? r.dists[0] : (preferredDist ? preferredDist : r.dists.join("、"));
       results.push({
         type: "road",
         title: r.road,
@@ -1704,7 +1746,7 @@ export function quickSuggest(rawText, data, options = {}) {
   if (data.lines && query.length >= 2) {
     const hasStationWord = /[站車]$|站/.test(rawText);
     for (const { line, st, exact } of findStations(rawText, data.lines, true).slice(0, 4)) {
-      if (!exact && !hasStationWord) continue;
+      if (!exact && !hasStationWord && !isMulti) continue;
       const kind = line.kind || (line.operating === false ? "規劃捷運" : "捷運");
       results.push({
         type: "station",
@@ -1712,7 +1754,7 @@ export function quickSuggest(rawText, data, options = {}) {
         sub: `${line.name}${line.operating === false ? "（規劃中）" : ""}`,
         icon: kind === "台鐵" ? "🚆" : kind === "高鐵" ? "🚄" : "🚇",
         badge: kind === "台鐵" ? "火車站" : kind === "高鐵" ? "高鐵站" : kind.includes("輕軌") ? "輕軌站" : "捷運站",
-        score: (exact ? (hasStationWord ? 990 : 640) : 560) + (line.operating === false ? -40 : 0),
+        score: (exact ? (hasStationWord ? 990 : 640) : (isMulti ? 700 : 560)) + (line.operating === false ? -40 : 0),
         line: line.name,
         st
       });

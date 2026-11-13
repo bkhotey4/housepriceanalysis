@@ -7,7 +7,7 @@ import { fitScores, fitWeights, tabFit } from "./fit.js";
 import { CMP_MAX, cmpAdd, cmpCode, cmpDefaultPair, cmpList, cmpPickAdd, cmpRetry, tabCmp } from "./compare.js";
 import { LOAN_DEFAULT, costResult, costSection, costState, loanPrice, loanResult, loanSection, loanState, presetTerms, youthLabel, rentSection, rentYield, rvbDefaultRent, rvbResult, rvbSection, rvbState, sellResult, sellSection, sellState } from "./finance.js";
 import { OVERPASS, refreshPois, showPoi } from "./poi.js";
-import { hideSuggestions, pinAt, renderSuggestions, search, selectSuggestion, showAddress, sugState, updateActiveSug } from "./search.js";
+import { clearRecentSearches, hideSuggestions, pinAt, removeRecentSearch, renderSuggestions, search, selectSuggestion, showAddress, sugState, updateActiveSug } from "./search.js";
 import { tabValue, valState } from "./value.js";
 import { landClick, loadLand, tabLand } from "./land.js";
 import { loadShops, roadEat, roadShopsLine, shopsSection } from "./shops.js";
@@ -560,7 +560,7 @@ export function selectDistrict(name, fly = true) {
   if (isNation() && name !== L.CITY) { const c = D.tw.counties.find(x => x.short === name); if (c) enterCounty(c.code); return; }
   if (name !== L.CITY && !D.dmap[name]) return;
   if (S.tm && name !== L.CITY) { if (S.tm.timer) clearInterval(S.tm.timer); S.tm = null; refreshBars(); }   // 時光機只在縣市總覽用
-  S.current = name; S.roadFilter = null; S.addr = null; S.pin = null; S.bldg = null;
+  S.current = name; S.roadFilter = null; S.addr = null; S.pin = null; S.bldg = null; S.txLimit = 60;
   if (S.poi) { S.poi = null; refreshPois(); }
   if (S.tab === "poi") S.tab = "overview";
   if (name === L.CITY) { view.select(null); if (fly) view.flyHome(); }
@@ -575,7 +575,7 @@ export function selectDistrict(name, fly = true) {
 }
 function selectRoad(name, focus = true) {
   if (S.addr && S.addr.road !== name) { S.addr = null; S.pin = null; refreshPins(); }
-  S.roadFilter = name;
+  S.roadFilter = name; S.txLimit = 60;
   view.select("road", name);
   if (focus) {
     const it = view.roads.find(r => r.id === name);
@@ -1173,7 +1173,10 @@ function tabTx() {
   if (isNation()) return needCounty();
   if (!D.txs) return txLoading();
   const { q, ranked } = txRows();
-  S.txShown = ranked.slice(0, 300).map(r => r.x);
+  const maxLimit = 300;
+  const count = Math.min(ranked.length, Math.min(maxLimit, S.txLimit || 60));
+  const shown = ranked.slice(0, count);
+  S.txShown = shown.map(r => r.x);
   let h = "";
   if (q) {
     const st = L.addressSummary(ranked), part = (t, g) => `${t} ${g.n} 筆：中位單價 ${g.u.toFixed(1)} 萬/坪、總價 ${L.fmtNum(g.t)} 萬`;
@@ -1200,7 +1203,7 @@ function tabTx() {
     `</div><label class="chk"><input type="checkbox" data-txf-ev${f.ev ? " checked" : ""}> 只看有電梯</label></div>`;
   if (S.roadFilter && S.cat !== "presale") h += linksRow(S.current, q && q.district === S.current ? L.describe(q).replace(/ /g, "") : S.roadFilter, "找這條路正在賣的房子");
   h += `<table class="list"><thead><tr><th>日期</th><th>地址／建案</th><th class="r">總價</th><th class="r">萬/坪</th><th class="r">坪</th></tr></thead><tbody>`;
-  ranked.slice(0, 300).forEach((r, i) => {
+  shown.forEach((r, i) => {
     const x = r.x, where = x.proj ? `${x.proj}（${x.addr.slice(0, 12)}）` : x.addr;
     const age = x.built ? ` ${Math.max(0, +x.date.slice(0, 4) - x.built)}年` : "";
     const extra = [x.rm ? `${x.rm}房` : "", x.ps != null && x.cat === "apt" ? `公設${Math.round(x.ps)}%` : "", x.fl != null ? `${x.fl}樓` : "", x.ev === 1 && x.cat !== "house" ? "電梯" : ""].filter(Boolean).join(" ");
@@ -1208,6 +1211,10 @@ function tabTx() {
       `<td>${esc(where)}<div class="muted">${esc(x.btype)}${age}${extra ? "｜" + extra : ""}${S.current === L.CITY ? "｜" + esc(x.dist) : ""}</div></td>` +
       `<td class="r">${L.fmtNum(x.tw)}</td><td class="r">${x.u.toFixed(1)}</td><td class="r">${x.ping.toFixed(1)}</td></tr>`;
   });
+  if (ranked.length > count && count < maxLimit) {
+    const remaining = Math.min(maxLimit, ranked.length) - count;
+    h += `<tr id="tx-more-row"><td colspan="5" style="text-align:center;padding:12px 0;"><button type="button" class="btn small" data-act="tx-more" style="width:100%;max-width:280px;padding:8px 12px;margin:4px auto;display:block;">載入更多成交紀錄（尚有 ${remaining} 筆）</button></td></tr>`;
+  }
   return h + `</tbody></table>${ranked.length ? "" : '<p class="empty">沒有符合的成交。</p>'}`;
 }
 function stateClass(s) { return s === "完工" ? "done" : s === "施工中" ? "build" : "plan"; }
@@ -1537,6 +1544,23 @@ function bindUI() {
   });
 
   sugEl.addEventListener("click", e => {
+    const clearRecentBtn = e.target.closest("[data-act='clear-recent']");
+    if (clearRecentBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      clearRecentSearches();
+      renderSuggestions("");
+      return;
+    }
+    const delRecentBtn = e.target.closest("[data-act='del-recent']");
+    if (delRecentBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = +delRecentBtn.dataset.delIdx;
+      removeRecentSearch(idx);
+      renderSuggestions("");
+      return;
+    }
     const chip = e.target.closest(".sug-chip");
     if (chip) {
       e.preventDefault();
@@ -1666,6 +1690,11 @@ function bindUI() {
       const o = followOpen(fo.dataset.follow); if (!o) return;
       S.cat = "presale"; $("#chips").querySelectorAll("button").forEach(x => x.setAttribute("aria-checked", x.dataset.cat ? x.dataset.cat === S.cat : x.dataset.metric === S.metric));
       selectDistrict(o.dist); S.bldg = o.bldg; S.tab = "bldg"; refreshAll(); return;
+    }
+    if (t.closest("[data-act='tx-more']")) {
+      S.txLimit = (S.txLimit || 60) + 60;
+      renderPanel();
+      return;
     }
     const tr = t.closest("tr.click");
     if (tr && tr.dataset.dist) { selectDistrict(tr.dataset.dist); return; }
