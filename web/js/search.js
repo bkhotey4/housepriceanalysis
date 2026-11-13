@@ -81,16 +81,56 @@ export function clearRecentSearches() {
 // ------------------------------------------------------------------ 即時自動補全與搜尋提示（Google Maps 風格）
 export const sugState = { index: -1, list: [], timer: null };      // 目前的提示清單、鍵盤選到第幾個、輸入防抖計時器
 
-function highlightMatch(text, query) {
+export function highlightMatch(text, query) {
+  if (!text) return "";
   if (!query) return esc(text);
-  const qNorm = L.normSearchQuery(query);
-  const tNorm = L.normSearchQuery(text);
-  const idx = tNorm.indexOf(qNorm);
-  if (idx === -1) return esc(text);
-  const before = text.slice(0, idx);
-  const match = text.slice(idx, idx + query.length);
-  const after = text.slice(idx + query.length);
-  return `${esc(before)}<mark>${esc(match)}</mark>${esc(after)}`;
+  const qClean = (query || "").trim();
+  if (!qClean) return esc(text);
+  const tokens = L.normSearchQuery(qClean).split(/\s+/).filter(Boolean);
+  if (!tokens.length) return esc(text);
+
+  // 1:1 字元對齊標準化（臺/台與路段轉換），確保 mark 範圍索引與原文精確對應
+  let tNorm = (text || "").replace(/臺/g, "台").toLowerCase();
+  for (const [k, v] of Object.entries(L.SECTION_NORM || {})) {
+    tNorm = tNorm.replaceAll(k, v);
+  }
+
+  const ranges = [];
+  for (const tok of tokens) {
+    if (!tok) continue;
+    let pos = 0;
+    while (pos < tNorm.length) {
+      const idx = tNorm.indexOf(tok, pos);
+      if (idx === -1) break;
+      ranges.push([idx, idx + tok.length]);
+      pos = idx + 1;
+    }
+  }
+
+  if (!ranges.length) return esc(text);
+
+  // 排序並合併重疊或相鄰的標註區間
+  ranges.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+  const merged = [ranges[0]];
+  for (let i = 1; i < ranges.length; i++) {
+    const prev = merged[merged.length - 1];
+    const curr = ranges[i];
+    if (curr[0] <= prev[1]) {
+      prev[1] = Math.max(prev[1], curr[1]);
+    } else {
+      merged.push(curr);
+    }
+  }
+
+  let html = "";
+  let lastIdx = 0;
+  for (const [s, e] of merged) {
+    if (s > lastIdx) html += esc(text.slice(lastIdx, s));
+    html += `<mark>${esc(text.slice(s, e))}</mark>`;
+    lastIdx = e;
+  }
+  if (lastIdx < text.length) html += esc(text.slice(lastIdx));
+  return html;
 }
 
 export function updateActiveSug() {
@@ -205,7 +245,7 @@ export function renderSuggestions(query) {
       <span class="sug-icon" aria-hidden="true">${item.icon}</span>
       <div class="sug-main">
         <div class="sug-title">${highlightMatch(item.title, query)}<span class="sug-badge">${item.badge}</span></div>
-        <div class="sug-sub">${esc(item.sub)}</div>
+        <div class="sug-sub">${highlightMatch(item.sub, query)}</div>
       </div>
     </li>
   `).join("");

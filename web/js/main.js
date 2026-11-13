@@ -1427,7 +1427,7 @@ function placeAttrib() {
 }
 function bindSheetDrag() {
   const el = $("#sheet"), handle = [$("#sheet-handle"), $("#sheet-head")];
-  let y0 = null, s0 = null, moved = false;
+  let y0 = null, s0 = null, t0 = 0, moved = false;
   let cachedH = 0, cachedPeek = 168, cachedBase = 0, currentTranslate = 0;
   let rafId = null;
 
@@ -1435,6 +1435,7 @@ function bindSheetDrag() {
     h.addEventListener("pointerdown", e => {
       if (window.innerWidth >= 900 || e.target.closest("button, a, input, select")) return;
       y0 = e.clientY;
+      t0 = performance.now();
       s0 = S.sheet || "peek";
       moved = false;
       cachedH = el.clientHeight;
@@ -1462,12 +1463,25 @@ function bindSheetDrag() {
       if (y0 == null) return;
       if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
       const dy = e.clientY - y0;
+      const dt = performance.now() - t0;
+      const v = dt > 0 ? dy / dt : 0; // px/ms: 負代表往上划、正代表往下划
       y0 = null;
       el.classList.remove("dragging");
       el.style.transform = "";
       const order = ["peek", "half", "full"], i = order.indexOf(s0);
-      if (!moved) sheet(s0 === "peek" ? "half" : s0 === "half" ? "peek" : "half");
-      else sheet(order[Math.max(0, Math.min(2, i + (dy < -40 ? 1 : dy > 40 ? -1 : 0)))]);
+      let target = s0;
+      if (!moved) {
+        target = s0 === "peek" ? "half" : s0 === "half" ? "peek" : "half";
+      } else if (dy < -140 || v < -0.85) {
+        target = "full";
+      } else if (dy > 140 || v > 0.85) {
+        target = "peek";
+      } else if (dy < -35 || v < -0.25) {
+        target = order[Math.min(2, i + 1)];
+      } else if (dy > 35 || v > 0.25) {
+        target = order[Math.max(0, i - 1)];
+      }
+      sheet(target);
     };
 
     h.addEventListener("pointerup", up);
@@ -1501,9 +1515,19 @@ function bindUI() {
   const clearBtn = $("#btn-clear");
   const sugEl = $("#search-sug");
 
-  qInput.addEventListener("input", () => {
+  let isComposing = false;
+  qInput.addEventListener("compositionstart", () => { isComposing = true; });
+  qInput.addEventListener("compositionend", () => {
+    isComposing = false;
     const val = qInput.value.trim();
     clearBtn.hidden = !val;
+    renderSuggestions(val);
+  });
+
+  qInput.addEventListener("input", e => {
+    const val = qInput.value.trim();
+    clearBtn.hidden = !val;
+    if (isComposing || (e && e.isComposing)) return;
     renderSuggestions(val);
   });
 
@@ -2088,7 +2112,7 @@ export async function main() {
       document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); });
     }).catch(() => {});
   }
-  window.__app = { openTab, S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation, logError, shareUrl, renderSuggestions, selectSuggestion, hideSuggestions, minsTo };   // 測試用
+  window.__app = { openTab, S, D, view, search, selectDistrict, pick, L, enterCounty, enterNation, logError, shareUrl, renderSuggestions, selectSuggestion, hideSuggestions, minsTo, sheet };   // 測試用
 }
 main().catch(err => { const bm = document.querySelector("#boot-msg"); if (bm) { bm.textContent = "載入失敗，請重新整理再試一次。"; document.querySelector("#boot .spin")?.remove(); }
   logError("啟動", err); document.body.insertAdjacentHTML("beforeend", `<div class="note" style="position:fixed;top:60px;left:10px;right:10px;z-index:99">載入失敗：${esc(err.message)}</div>`); });

@@ -29,7 +29,7 @@
 html, body { margin: 0; height: 100%; background: var(--page); color: var(--ink);
   font-family: system-ui, -apple-system, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
   -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
-button { font: inherit; color: inherit; cursor: pointer; }
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
 input, select, textarea { font: inherit; color: inherit; }
 .muted { color: var(--muted); font-size: 0.87rem; }
 .small { font-size: 0.85rem; padding: 4px 10px; }
@@ -167,7 +167,7 @@ input, select, textarea { font: inherit; color: inherit; }
   font-size: 0.92rem; font-weight: 600; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.sug-title mark {
+.sug-title mark, .sug-sub mark {
   background: transparent; color: var(--accent); font-weight: 700;
   text-decoration: underline; text-underline-offset: 2px;
 }

@@ -1279,7 +1279,7 @@ export function duelCompare(a, b, cat = "all") {
 }
 
 // ------------------------------------------------------------------ 即時搜尋與自動補全（Google Maps 風格）
-const SECTION_NORM = { "1段": "一段", "2段": "二段", "3段": "三段", "4段": "四段", "5段": "五段", "6段": "六段", "7段": "七段", "8段": "八段", "9段": "九段" };
+export const SECTION_NORM = { "1段": "一段", "2段": "二段", "3段": "三段", "4段": "四段", "5段": "五段", "6段": "六段", "7段": "七段", "8段": "八段", "9段": "九段" };
 
 export function normSearchQuery(str) {
   let s = normTw(str || "").trim().toLowerCase();
