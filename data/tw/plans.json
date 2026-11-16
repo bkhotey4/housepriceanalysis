@@ -1,8 +1,40 @@
 {
-"through": "20261112",
+"through": "20261113",
 "missing": [],
 "pending": [],
 "items": [
+{
+"key": "3.76.49|1152H10083",
+"title": "北港1911好庫文化產業園區服務中心空間規劃設計競賽委託專業服務案",
+"unit": "雲林縣政府",
+"county": "P",
+"district": "北港鎮",
+"stage": "規劃設計",
+"works": false,
+"status": "已決標",
+"first": "20261113",
+"last": "20261113",
+"budget_wan": 857.0,
+"award_wan": 845.8,
+"winner": "鴻樣室內裝修設計有限公司",
+"url": "https://pcc-api.openfun.app/index/case/3.76.49/1152H10083/20261113/BDM-1-71330332"
+},
+{
+"key": "A.15.24|L0215P1123R",
+"title": "配合臺南鐵路地下化延伸永康地區綜合規劃階段提送管有土地開發計畫及多目標使用計畫委託技術服務案",
+"unit": "國營臺灣鐵路股份有限公司",
+"county": "A",
+"district": "",
+"stage": "可行性評估",
+"works": false,
+"status": "已決標",
+"first": "20261113",
+"last": "20261113",
+"budget_wan": 149.6,
+"award_wan": 148.6,
+"winner": "予合都市計畫技師事務所",
+"url": "https://pcc-api.openfun.app/index/case/A.15.24/L0215P1123R/20261113/BDM-1-71330508"
+},
 {
 "key": "A.1.2.3|115-C305-0110-09",
 "title": "衛生福利部朴子醫院東石院區興建工程",
