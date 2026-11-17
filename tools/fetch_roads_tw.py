@@ -21,6 +21,8 @@ from core import roads  # noqa: E402
 from core.taiwan import COUNTIES, load_towns  # noqa: E402
 
 OUT = os.path.join(ROOT, "web", "data", "tw")
+FAILS = os.path.join(ROOT, "data", "tw", "roads_fail.json")    # 各區抓不到的日子（存回專案，跨次累計）
+GIVE_UP_DAYS = 4        # 4 個不同的日子都抓不到（例如烏坵：OpenStreetMap 上幾乎沒有道路），就存成空的，一年後再試
 
 
 def out_path(code, town):
@@ -67,6 +69,40 @@ def fetch_one(county, town):
     raise RuntimeError(str(last)[:200])
 
 
+def load_fails():
+    try:
+        with open(FAILS, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_fails(fails):
+    os.makedirs(os.path.dirname(FAILS), exist_ok=True)
+    with open(FAILS, "w", encoding="utf-8") as f:
+        json.dump(fails, f, ensure_ascii=False, indent=1, sort_keys=True)
+
+
+def write_town(code, town, data):
+    os.makedirs(os.path.dirname(out_path(code, town)), exist_ok=True)
+    with open(out_path(code, town), "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+
+
+def give_up(fails, c, town, today):
+    """記一次失敗；累計到 GIVE_UP_DAYS 個不同日子就存空檔（網頁就不會每次叫瀏覽器自己去查、等一分多鐘再失敗）"""
+    key = c["short"] + town
+    days = fails.setdefault(key, [])
+    if today not in days:
+        days.append(today)
+    if len(days) < GIVE_UP_DAYS:
+        return False
+    write_town(c["code"], town, {"roads": {}, "places": {}, "fetched": today,
+                                 "empty": "OpenStreetMap 連續 %d 天都抓不到這一區的道路" % len(days)})
+    del fails[key]
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=25)
@@ -88,19 +124,24 @@ def main():
     todo += stale_towns(only, towns)
     print("待下載 %d 區" % len(todo), flush=True)
     done = fail = 0
+    fails, today = load_fails(), time.strftime("%Y-%m-%d")
     for c, town in todo:
         if time.time() > t_end:
             break
         try:
             data = to_web(fetch_one(c["name"], town))
-            os.makedirs(os.path.dirname(out_path(c["code"], town)), exist_ok=True)
-            with open(out_path(c["code"], town), "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+            write_town(c["code"], town, data)
+            fails.pop(c["short"] + town, None)
             done += 1
             print("  %s%s：%d 條路" % (c["short"], town, len(data["roads"])), flush=True)
         except Exception as e:
             fail += 1
-            print("  %s%s 失敗：%s" % (c["short"], town, e), flush=True)
+            n = len(fails.get(c["short"] + town, [])) + (today not in fails.get(c["short"] + town, []))
+            if give_up(fails, c, town, today):
+                print("  %s%s 失敗：%s（已連續 %d 天，先存成沒有道路，一年後再試）" % (c["short"], town, e, n), flush=True)
+            else:
+                print("  %s%s 失敗：%s（第 %d 天）" % (c["short"], town, e, n), flush=True)
+        save_fails(fails)
         time.sleep(4)
     print("本次完成 %d 區、失敗 %d 區、剩 %d 區" % (done, fail, len(todo) - done))
 

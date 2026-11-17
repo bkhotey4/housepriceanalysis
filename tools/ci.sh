@@ -44,6 +44,7 @@ ROAD_LEFT=$(( $(left_min) - 8 ))                      # 留 8 分鐘給後面的
 if [ "$ROAD_LEFT" -lt "$ROAD_MIN" ]; then ROAD_MIN=$ROAD_LEFT; fi
 if [ "$ROAD_MIN" -ge 2 ]; then
   step roads   "各區道路位置（逐步補抓）"    0 timeout $(( ROAD_MIN + 8 ))m python tools/fetch_roads_tw.py --minutes "$ROAD_MIN"
+  git add data/tw/roads_fail.json 2>/dev/null || true   # 各區抓不到道路的日子存回專案（跨次累計）
 else
   echo "時間不夠，這次不補抓道路位置"
 fi
